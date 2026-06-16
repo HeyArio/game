@@ -1,0 +1,7 @@
+# Supabase local secrets — never commit real keys
+supabase/.env
+supabase/.env.local
+.env
+
+# OS / editor cruft
+.DS_Store

@@ -63,10 +63,24 @@ The `generate-daily-case` Edge Function calls 5 models from build.nvidia.com:
 These IDs are baked in as defaults — you do **not** need to set model env vars.
 (Override any slot with `NVIDIA_MODEL_1`..`NVIDIA_MODEL_5` if you swap models.)
 
-**Set the API key** — Supabase dashboard → **Settings → Edge Functions → Secrets**:
-- `NVIDIA_API_KEY` — your build.nvidia.com key. One key works for all 5 models.
-  (If you have separate keys per model, set `NVIDIA_API_KEY_1`..`NVIDIA_API_KEY_5`
-  instead; per-slot keys take priority over the shared one.)
+**Set the API key.** Keep your keys in a local `.env` file and push them up —
+no dashboard clicking needed:
+
+```bash
+cp supabase/.env.example supabase/.env   # then edit supabase/.env, add your key
+supabase secrets set --env-file ./supabase/.env
+```
+
+`supabase/.env` is git-ignored, so your key never gets committed. One
+build.nvidia.com key works for all 5 models (`NVIDIA_API_KEY`); set
+`NVIDIA_API_KEY_1`..`_5` only if your models need separate keys.
+
+> ⚠️ Do **not** put these keys in `frontend/.env`. That file is compiled into
+> the browser bundle and is publicly visible — it would leak your API keys.
+> NVIDIA keys are server-side only and belong in `supabase/.env`.
+
+(You can also set them via the dashboard → **Settings → Edge Functions →
+Secrets** if you prefer — same result.)
 
 **Deploy the functions** (Supabase CLI, linked to your project):
 ```bash
