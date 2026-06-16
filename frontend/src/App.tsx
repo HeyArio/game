@@ -1,3 +1,4 @@
+import { useAuth } from "./auth/AuthProvider";
 import { ConfettiCanvas } from "./components/ConfettiCanvas";
 import { PromoOverlay } from "./components/PromoOverlay";
 import { StreakOverlay } from "./components/StreakOverlay";
@@ -6,9 +7,37 @@ import { LeaguesPage } from "./pages/LeaguesPage";
 import { PlayPage } from "./pages/PlayPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { QuestsPage } from "./pages/QuestsPage";
+import { SignInPage } from "./pages/SignInPage";
+import { Mascot } from "./components/Mascot";
 import { useGameState } from "./state/useGameState";
 
 export default function App() {
+  const { session, loading } = useAuth();
+
+  if (loading) return <SplashScreen />;
+  if (!session) return <SignInPage />;
+  return <Game />;
+}
+
+function SplashScreen() {
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "radial-gradient(140% 80% at 50% -20%, #EAF7DD 0%, #F4F8EE 48%)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <span style={{ animation: "qbob 3s ease-in-out infinite" }}>
+        <Mascot size={72} mood="neutral" />
+      </span>
+    </div>
+  );
+}
+
+function Game() {
   const { state, countdownText, setCanvas, actions } = useGameState({ streak: 14 });
 
   const screenLabel = { play: "Daily Case", leagues: "Leagues", quests: "Quests", profile: "Profile" }[state.screen];

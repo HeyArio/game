@@ -1,6 +1,7 @@
 import { Mascot } from "../components/Mascot";
 import type { GameState } from "../state/types";
 import { profileView } from "../state/viewHelpers";
+import { useAuth } from "../auth/AuthProvider";
 
 export interface ProfilePageProps {
   state: GameState;
@@ -8,6 +9,12 @@ export interface ProfilePageProps {
 
 export function ProfilePage({ state }: ProfilePageProps) {
   const profile = profileView(state);
+  const { user, signOut } = useAuth();
+
+  const meta = (user?.user_metadata ?? {}) as { full_name?: string; name?: string };
+  const displayName = meta.full_name || meta.name || user?.email?.split("@")[0] || "You";
+  const handle = user?.email ? "@" + user.email.split("@")[0] : "@you";
+  const initial = (displayName[0] || "Y").toUpperCase();
 
   return (
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "26px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -29,11 +36,11 @@ export function ProfilePage({ state }: ProfilePageProps) {
             boxShadow: "0 4px 0 #3E9000",
           }}
         >
-          Y
+          {initial}
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 26, color: "#3C3C46", lineHeight: 1.1 }}>You</div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: "#9AA08C" }}>@you · Joined March 2025</div>
+          <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 26, color: "#3C3C46", lineHeight: 1.1 }}>{displayName}</div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#9AA08C" }}>{handle} · Joined March 2025</div>
           <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 10, background: "#F6ECFF", color: "#7A3FB0", fontWeight: 800, fontSize: 12 }}>
               {profile.levelEl}Level 8
@@ -62,6 +69,27 @@ export function ProfilePage({ state }: ProfilePageProps) {
           }}
         >
           {profile.shareEl}Share
+        </button>
+        <button
+          onClick={signOut}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            border: "2px solid #E4EAD8",
+            borderBottomWidth: "4px",
+            background: "#fff",
+            color: "#8E9582",
+            padding: "11px 16px",
+            borderRadius: 14,
+            fontFamily: "'Nunito',sans-serif",
+            fontWeight: 800,
+            fontSize: 13,
+            cursor: "pointer",
+            flex: "none",
+          }}
+        >
+          Sign out
         </button>
       </div>
 
