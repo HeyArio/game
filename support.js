@@ -612,11 +612,23 @@
         return wrapper ? h("div", wrapper, ph) : ph;
       }
       const props = wrapper ? {} : { key };
+      let unresolvedHole = false;
       for (const [k, g] of propGetters) {
         if (k === "component" || k === "componentFromGlobalScope" || k === "name" || k === "from" || k === "src" || k === "import") {
           continue;
         }
-        props[k] = g(vals);
+        const v = g(vals);
+        if (v === void 0) unresolvedHole = true;
+        props[k] = v;
+      }
+      if (unresolvedHole && ctx?.__htmlStreamingNow) {
+        const ph = host.placeholder({
+          key: wrapper ? void 0 : key,
+          name,
+          hintSize,
+          error: null
+        });
+        return wrapper ? h("div", wrapper, ph) : ph;
       }
       if (kids.length) props.children = kids.map((b, j) => b(vals, ctx, j));
       return wrapper ? h("div", wrapper, h(C, props)) : h(C, props);
@@ -682,6 +694,14 @@
   }
 
   // src/component.ts
+  function shallowEqual(a, b) {
+    if (!b) return false;
+    const ak = Object.keys(a).filter((k) => k !== "children");
+    const bk = Object.keys(b).filter((k) => k !== "children");
+    if (ak.length !== bk.length) return false;
+    for (const k of ak) if (a[k] !== b[k]) return false;
+    return true;
+  }
   function Placeholder({
     name,
     hintSize,
@@ -721,11 +741,24 @@
          *  builders read it off the RenderCtx (this) to pick placeholder vs
          *  render-nothing for unresolved values. */
         __publicField(this, "__streamingNow", false);
+        __publicField(this, "__htmlStreamingNow", false);
+        /** When a construct throws, remember the (class, registry.ver, props)
+         *  triple so render-time reconcile doesn't re-attempt it on every parent
+         *  re-render. A registry bump (new class, template, external module
+         *  resolving via bumpAll) changes `ver` and breaks the memo so an
+         *  env-dependent constructor can self-heal. */
+        __publicField(this, "__failedLogic", null);
+        __publicField(this, "__failedUserProps", null);
+        __publicField(this, "__failedVer", -1);
+        /** Per-instance constructor error — kept here (not on the registry entry)
+         *  so one instance's successful construct can't hide a sibling's failure,
+         *  and a construct can never wipe an eval error `updateJs` recorded on
+         *  `r.logicError`. */
+        __publicField(this, "__ctorError", null);
         __publicField(this, "logic");
         this.__name = props.__name;
         this.state = { __v: 0, __err: null };
         this.__sub = () => {
-          this.__reconcileLogic();
           if (this.state.__err) this.setState({ __err: null });
           this.forceUpdate();
         };
@@ -751,9 +784,15 @@
         const L = Logic || StreamableLogic;
         try {
           this.logic = new L(this.__userProps());
+          this.__failedLogic = null;
+          this.__failedUserProps = null;
+          this.__ctorError = null;
         } catch (e) {
           console.error(e);
-          registry.get(this.__name).logicError = this.__name + ": " + (e instanceof Error && e.message ? e.message : String(e));
+          this.__failedLogic = Logic;
+          this.__failedUserProps = this.__userProps();
+          this.__failedVer = registry.get(this.__name).ver;
+          this.__ctorError = this.__name + ": " + (e instanceof Error && e.message ? e.message : String(e));
           this.logic = new StreamableLogic(
             this.__userProps()
           );
@@ -778,14 +817,18 @@
        *  (streaming completion, hot reload). State carries over; didMount
        *  re-fires after the swap commits so refs exist. */
       __reconcileLogic() {
-        const Next = registry.get(this.__name).Logic;
+        const r = registry.get(this.__name);
+        const Next = r.Logic;
         const Cur = this.logic.constructor;
-        if (Next === Cur || !Next && Cur === StreamableLogic)
+        if (Next === Cur || !Next && Cur === StreamableLogic || Next === this.__failedLogic && r.ver === this.__failedVer && shallowEqual(this.__userProps(), this.__failedUserProps)) {
           return;
-        try {
-          this.logic.componentWillUnmount();
-        } catch (e) {
-          console.error(e);
+        }
+        if (!this.__needsDidMount) {
+          try {
+            this.logic.componentWillUnmount();
+          } catch (e) {
+            console.error(e);
+          }
         }
         this.__makeLogic(Next, this.logic.state);
         this.__needsDidMount = true;
@@ -801,6 +844,7 @@
       componentDidUpdate(prevProps) {
         this.logic.props = this.__userProps();
         if (this.__needsDidMount) {
+          if (this.state.__err || !registry.get(this.__name).tpl) return;
           this.__needsDidMount = false;
           try {
             this.logic.componentDidMount();
@@ -817,10 +861,12 @@
       }
       componentWillUnmount() {
         registry.get(this.__name).subs.delete(this.__sub);
-        try {
-          this.logic.componentWillUnmount();
-        } catch (e) {
-          console.error(e);
+        if (!this.__needsDidMount) {
+          try {
+            this.logic.componentWillUnmount();
+          } catch (e) {
+            console.error(e);
+          }
         }
       }
       render() {
@@ -866,6 +912,7 @@
             })
           );
         }
+        this.__reconcileLogic();
         if (!r.tpl) {
           return h(
             "div",
@@ -876,7 +923,7 @@
         const userProps = this.__userProps();
         this.logic.props = userProps;
         let vals = userProps;
-        let renderErr = r.logicError;
+        let renderErr = r.logicError || this.__ctorError;
         try {
           vals = { ...userProps, ...this.logic.renderVals() || {} };
         } catch (e) {
@@ -884,6 +931,7 @@
           renderErr = this.__name + ".renderVals(): " + (e instanceof Error && e.message ? e.message : String(e));
         }
         this.__streamingNow = !!(r.htmlStreaming || r.jsStreaming);
+        this.__htmlStreamingNow = !!r.htmlStreaming;
         return h(
           "div",
           { ...hostBase, className: cls + (renderErr ? " sc-has-error" : "") },
@@ -1238,7 +1286,7 @@
       const r = registry.get(name);
       if (r.fetched) return;
       r.fetched = true;
-      const url = COMPONENT_DIR + "/" + name + ".dc.html";
+      const url = COMPONENT_DIR + "/" + encodeURIComponent(name) + ".dc.html";
       fetch(url).then((res) => {
         if (!res.ok) {
           console.error(

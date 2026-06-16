@@ -38,7 +38,7 @@
         </sc-for>
       </nav>
       <div style="display:flex;align-items:center;gap:8px">
-        <span style="display:inline-flex;align-items:center;gap:5px;padding:8px 12px;border-radius:12px;background:#FFF3E0;border:2px solid #FFE0B2;color:#FF9600;font-weight:800;font-size:15px">{{ ic.flamePill }}{{ streak }}</span>
+        <span onClick="{{ openStreak }}" title="Streak" style="display:inline-flex;align-items:center;gap:5px;padding:8px 12px;border-radius:12px;background:#FFF3E0;border:2px solid #FFE0B2;color:#FF9600;font-weight:800;font-size:15px;cursor:pointer">{{ ic.flamePill }}{{ streak }}</span>
         <span style="display:inline-flex;align-items:center;gap:5px;padding:8px 12px;border-radius:12px;background:#FFF8E1;border:2px solid #FFECB3;color:#E5A300;font-weight:800;font-size:15px">{{ ic.boltPill }}{{ totalXpLabel }}</span>
         <span style="display:inline-flex;align-items:center;gap:5px;padding:8px 12px;border-radius:12px;background:#E3F6FF;border:2px solid #BEEAFD;color:#1899D6;font-weight:800;font-size:15px">{{ ic.trophyPill }}{{ leagueName }}</span>
       </div>
@@ -50,6 +50,7 @@
 
     <!-- ===== MAIN COLUMN ===== -->
     <main>
+      <sc-if value="{{ isCaseActive }}" hint-placeholder-val="{{ true }}">
       <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:14px">
         <span style="padding:7px 13px;border-radius:11px;background:#58CC02;color:#fff;font-weight:800;font-size:12px;letter-spacing:.04em">DAILY CASE {{ caseNo }}</span>
         <span style="padding:7px 13px;border-radius:11px;background:#fff;border:2px solid #E4EAD8;color:#7C8470;font-weight:700;font-size:12px;letter-spacing:.03em">{{ category }}</span>
@@ -135,7 +136,7 @@
                   <div style="font-family:'Baloo 2',cursive;font-weight:800;font-size:24px;color:{{ resultAccent }}">{{ earnedLabel }}</div>
                   <div style="font-weight:800;font-size:10px;letter-spacing:.1em;color:#9AA08C">XP</div>
                 </div>
-                <button onClick="{{ reset }}" style="{{ continueStyle }}" style-active="{{ continueActive }}">CONTINUE</button>
+                <button onClick="{{ advance }}" style="{{ continueStyle }}" style-active="{{ continueActive }}">CONTINUE</button>
               </div>
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:9px;margin-top:14px;padding-top:14px;border-top:2px dashed rgba(0,0,0,.08)">
@@ -146,6 +147,23 @@
           </div>
         </sc-if>
       </div>
+      </sc-if>
+
+      <sc-if value="{{ isCompleted }}" hint-placeholder-val="{{ false }}">
+      <div style="position:relative;overflow:hidden;padding:32px 28px;background:#fff;border:2px solid #E4EAD8;border-bottom-width:4px;border-radius:24px;text-align:center;animation:qrise .45s ease both">
+        <div style="display:flex;justify-content:center;animation:qbob 3s ease-in-out infinite">{{ done.arbi }}</div>
+        <div style="font-family:'Baloo 2',cursive;font-weight:800;font-size:29px;color:#3C3C46;letter-spacing:-.01em;margin-top:8px">Today's case is closed</div>
+        <div style="font-weight:700;font-size:14px;color:#8E9582;margin-top:5px">The next case enters the docket in</div>
+        <div style="display:inline-flex;align-items:center;margin-top:14px;padding:11px 22px;border-radius:16px;background:#F4F8EE;border:2px solid #E4EAD8;font-family:'Baloo 2',cursive;font-weight:800;font-size:31px;color:#58A700;letter-spacing:.05em;font-variant-numeric:tabular-nums" ref="{{ setClock }}">16:42:18</div>
+        <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:9px;margin-top:20px">
+          <sc-for list="{{ done.chips }}" as="chip" hint-placeholder-count="3">
+            <span style="{{ chip.style }}">{{ chip.iconEl }}{{ chip.label }}</span>
+          </sc-for>
+        </div>
+        <div style="max-width:430px;margin:18px auto 0;padding-top:18px;border-top:2px dashed #ECEFE4;font-size:14.5px;font-weight:600;color:#5E6553;line-height:1.5">{{ done.note }}</div>
+        <div onClick="{{ done.replay }}" style="display:inline-block;margin-top:16px;font-weight:800;font-size:13px;color:#B2B7A6;cursor:pointer">Replay today's case</div>
+      </div>
+      </sc-if>
     </main>
 
     <!-- ===== GAME RAIL ===== -->
@@ -410,6 +428,69 @@
   </div>
   </sc-if>
 
+  <!-- ===== STREAK · CONTINUANCE OVERLAY ===== -->
+  <sc-if value="{{ showStreakOverlay }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ streak2.close }}" style="position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(40,44,32,.5);backdrop-filter:blur(6px);animation:qfade .2s ease both">
+    <div onClick="{{ stop }}" style="width:min(432px,100%);background:#fff;border-radius:26px;border:2px solid #EFE2CC;box-shadow:0 20px 50px rgba(60,40,0,.25);overflow:hidden;animation:qrise .4s ease both">
+      <div style="position:relative;padding:30px 26px 22px;text-align:center;background:radial-gradient(120% 100% at 50% -10%, #FFE6BE 0%, #FFF4E2 65%);border-bottom:2px solid #FBE3BE">
+        <span onClick="{{ streak2.close }}" style="position:absolute;top:14px;right:16px;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:10px;background:rgba(255,255,255,.7);color:#B79A6B;font-weight:800;font-size:15px;cursor:pointer">✕</span>
+        <div style="display:inline-flex;align-items:center;justify-content:center;width:74px;height:74px;border-radius:50%;background:#fff;box-shadow:0 4px 0 #F0C98A,inset 0 0 0 2px #FFE0B2;animation:qbob 3s ease-in-out infinite">{{ streak2.flameEl }}</div>
+        <div style="font-family:'Baloo 2',cursive;font-weight:800;font-size:25px;color:#3C3C46;margin-top:12px;line-height:1.12;text-wrap:balance">Your {{ streak }}-day streak is on the line</div>
+        <div style="font-weight:700;font-size:13.5px;color:#9A7B4C;margin-top:5px">Leave today's case unjudged and it resets to zero.</div>
+        <div style="display:inline-flex;align-items:center;gap:6px;margin-top:13px;padding:7px 14px;border-radius:999px;background:#fff;border:2px solid #FBE3BE;color:#E07F00;font-weight:800;font-size:13px;font-variant-numeric:tabular-nums" ref="{{ setResetClock }}">Resets in 16:42:18</div>
+      </div>
+      <div style="padding:20px 22px 24px">
+        <sc-if value="{{ streak2.notEquipped }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:center;gap:14px;padding:16px;border-radius:18px;background:#F4FBEC;border:2px solid #D7EEC0">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:14px;background:#fff;border:2px solid #D7EEC0;flex:none">{{ streak2.shieldEl }}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-family:'Baloo 2',cursive;font-weight:700;font-size:16px;color:#3C3C46">Continuance · {{ streak2.contLeft }} left</div>
+              <div style="font-weight:600;font-size:13px;color:#7C8470;line-height:1.4">Hold your streak through one missed day. Even judges grant a recess.</div>
+            </div>
+          </div>
+          <button onClick="{{ streak2.equip }}" style="width:100%;margin-top:14px;border:none;cursor:pointer;padding:15px;border-radius:15px;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;letter-spacing:.03em;text-transform:uppercase;color:#fff;background:#58CC02;box-shadow:0 4px 0 #46A302" style-active="transform:translateY(3px);box-shadow:0 1px 0 #46A302">Equip a Continuance</button>
+          <div onClick="{{ streak2.close }}" style="text-align:center;margin-top:12px;font-weight:800;font-size:13px;color:#B2B7A6;cursor:pointer">I'll defend it live →</div>
+        </sc-if>
+        <sc-if value="{{ streak2.equipped }}" hint-placeholder-val="{{ false }}">
+          <div style="text-align:center;padding:8px 4px;animation:qpop .4s ease both">
+            <div style="display:inline-flex;align-items:center;justify-content:center;width:58px;height:58px;border-radius:50%;background:#58CC02;box-shadow:0 4px 0 #46A302">{{ streak2.checkEl }}</div>
+            <div style="font-family:'Baloo 2',cursive;font-weight:800;font-size:20px;color:#58A700;margin-top:12px">Continuance equipped</div>
+            <div style="font-weight:600;font-size:14px;color:#7C8470;margin-top:3px;line-height:1.45">Your streak holds through one missed day. {{ streak2.contLeft }} continuance remaining.</div>
+            <button onClick="{{ streak2.close }}" style="margin-top:16px;border:none;cursor:pointer;padding:13px 26px;border-radius:14px;font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;color:#fff;background:#58CC02;box-shadow:0 4px 0 #46A302" style-active="transform:translateY(3px);box-shadow:0 1px 0 #46A302">Back to the case</button>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===== LEAGUE PROMOTION OVERLAY ===== -->
+  <sc-if value="{{ showPromoOverlay }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(120% 90% at 50% 8%, #FF7A7A 0%, #E23B3B 52%, #AE1B1B 100%);animation:qfade .25s ease both">
+    <div style="position:relative;text-align:center;color:#fff;max-width:460px;animation:qrise .5s ease both">
+      <div style="font-weight:800;font-size:13px;letter-spacing:.2em;color:#FFD9A0">LEAGUE PROMOTION</div>
+      <div style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:124px;height:124px;margin-top:16px">
+        <span style="position:absolute;inset:0;border-radius:50%;background:rgba(255,255,255,.14)"></span>
+        <span style="position:absolute;inset:15px;border-radius:50%;background:rgba(255,255,255,.12)"></span>
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:84px;height:84px;border-radius:50%;background:linear-gradient(160deg,#FFE49A,#F4B33C);box-shadow:0 6px 0 #C98A1E,0 0 38px rgba(255,210,120,.6)">{{ promo.crownEl }}</span>
+      </div>
+      <div style="font-family:'Baloo 2',cursive;font-weight:800;font-size:46px;line-height:1;margin-top:16px;text-shadow:0 3px 0 rgba(0,0,0,.18)">Ruby League</div>
+      <div style="font-family:'Baloo 2',cursive;font-weight:800;font-size:22px;margin-top:14px">You've been elevated</div>
+      <div style="font-weight:700;font-size:15px;opacity:.92;margin-top:6px;line-height:1.5;max-width:380px;margin-left:auto;margin-right:auto">Top five in Emerald — the Ruby docket is yours. Sharper cases, higher stakes, better rewards.</div>
+      <div style="display:inline-flex;align-items:center;gap:12px;margin-top:20px;padding:12px 16px 12px 12px;border-radius:18px;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.22)">
+        <span style="flex:none">{{ promo.arbi }}</span>
+        <div style="text-align:left">
+          <div style="font-weight:800;font-size:12px;color:#FFD9A0;margin-bottom:1px">Arbi</div>
+          <div style="font-weight:700;font-size:13.5px;line-height:1.4;max-width:240px">Knew you had it in you. Don't get comfortable — Ruby plays rough.</div>
+        </div>
+      </div>
+      <div>
+        <button onClick="{{ promo.dismiss }}" style="margin-top:24px;border:none;cursor:pointer;padding:16px 40px;border-radius:16px;font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;letter-spacing:.04em;text-transform:uppercase;color:#C0271F;background:#fff;box-shadow:0 5px 0 #E7B9B0" style-active="transform:translateY(3px);box-shadow:0 2px 0 #E7B9B0">Enter Ruby League</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
   <canvas ref="{{ setCanvas }}" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:60"></canvas>
 </div>
 </x-dc>
@@ -510,7 +591,7 @@ class Component extends DCLogic {
   }
   init(){
     return { streak:this.props.streak ?? 14, totalXp:2480, dailyXp:0, dailyGoal:50,
-      sharpEye:7, sharpEyeGoal:10, questMatch:1, league:this.initLeague() };
+      sharpEye:7, sharpEyeGoal:10, questMatch:1, contLeft:2, league:this.initLeague() };
   }
 
   state = {
@@ -518,11 +599,15 @@ class Component extends DCLogic {
     reveal:{ ids:false, bars:false, judge:false, verdict:false },
     displayPct:{ a:0,b:0,c:0,d:0 }, displayDaily:0,
     earned:0, win:false, promoted:false,
+    completed:false, overlay:null, contEquipped:false,
     ...this.init(),
   };
 
   judgeId = 'd';
   crowdLeader = 'b';
+  _countdown = 60138;
+  _clockEls = new Set();
+  _resetEls = new Set();
 
   baseCards(){
     return [
@@ -535,6 +620,23 @@ class Component extends DCLogic {
 
   selectCard(id){ if (this.state.phase === 'unvoted') this.setState({ selected:id }); }
   setScreen(id){ this.setState({ screen:id }); }
+
+  openStreak(){ this.setState({ overlay:'streak' }); }
+  closeOverlay(){ this.setState({ overlay:null }); }
+  equipContinuance(){
+    if (this.state.contEquipped || this.state.contLeft <= 0) return;
+    this.setState(s => ({ contEquipped:true, contLeft:s.contLeft - 1 }));
+  }
+  advance(){
+    if (this.state.promoted){ this.setState({ overlay:'promo' }); this.fireConfetti(); }
+    else this.setState({ completed:true });
+  }
+  dismissPromo(){ this.setState({ overlay:null, completed:true }); }
+  fmtClock(t){
+    const h = Math.floor(t/3600), m = Math.floor((t%3600)/60), s = t%60;
+    const p = (n) => String(n).padStart(2,'0');
+    return p(h)+':'+p(m)+':'+p(s);
+  }
 
   navView(){
     const items = [
@@ -693,10 +795,11 @@ class Component extends DCLogic {
     [this._t1,this._t2,this._t3,this._t4,this._t5].forEach(clearTimeout);
     clearInterval(this._cu); clearInterval(this._du);
     this.setState({ phase:'unvoted', selected:null, scored:false, win:false, earned:0, promoted:false,
+      completed:false, overlay:null, contEquipped:false,
       reveal:{ ids:false, bars:false, judge:false, verdict:false },
       displayPct:{ a:0,b:0,c:0,d:0 }, displayDaily:0, ...this.init() });
   }
-  setCanvas(el){ this.canvas = el; }
+  setCanvas(el){ if (el) this.canvas = el; }
   fireConfetti(){
     const c = this.canvas; if (!c) return;
     const W = c.width = c.offsetWidth, H = c.height = c.offsetHeight, ctx = c.getContext('2d');
@@ -714,9 +817,19 @@ class Component extends DCLogic {
       if (dt >= 1200){ ctx.clearRect(0,0,W,H); clearInterval(this._cf); }
     }, 16);
   }
+  setClock(el){ if (el){ this._clockEls.add(el); el.textContent = this.fmtClock(this._countdown); } }
+  setResetClock(el){ if (el){ this._resetEls.add(el); el.textContent = 'Resets in ' + this.fmtClock(this._countdown); } }
+  componentDidMount(){
+    this._ct = setInterval(() => {
+      this._countdown = Math.max(0, this._countdown - 1);
+      const txt = this.fmtClock(this._countdown);
+      this._clockEls.forEach(el => { if (el.isConnected) el.textContent = txt; else this._clockEls.delete(el); });
+      this._resetEls.forEach(el => { if (el.isConnected) el.textContent = 'Resets in ' + txt; else this._resetEls.delete(el); });
+    }, 1000);
+  }
   componentWillUnmount(){
     [this._t1,this._t2,this._t3,this._t4,this._t5].forEach(clearTimeout);
-    clearInterval(this._cu); clearInterval(this._du); clearInterval(this._cf);
+    clearInterval(this._cu); clearInterval(this._du); clearInterval(this._cf); clearInterval(this._ct);
   }
 
   cardStyle(c){
@@ -738,6 +851,38 @@ class Component extends DCLogic {
       boxShadow:`0 3px 0 ${this.shade(this.COLORS[c.letter])}` };
   }
   shade(hex){ return { '#58CC02':'#46A302','#1CB0F6':'#1899D6','#CE82FF':'#A95FE0','#FF9600':'#E07F00' }[hex] || '#999'; }
+
+  streakOverlay(){
+    const I = (n,sz,c,sw) => this.icon(n,sz,c,sw);
+    return {
+      arbi:this.mascot(54,'soft'), flameEl:I('flame',38,'#FF9600'), shieldEl:I('shield',24,'#58A700'),
+      contLeft:this.state.contLeft, notEquipped:!this.state.contEquipped, equipped:this.state.contEquipped,
+      checkEl:I('check',26,'#fff',2.8),
+      equip:() => this.equipContinuance(), close:() => this.closeOverlay(),
+    };
+  }
+  promoOverlay(){
+    const I = (n,sz,c,sw) => this.icon(n,sz,c,sw);
+    return { arbi:this.mascot(54,'happy'), crownEl:I('crown',42,'#fff'),
+      dismiss:() => this.dismissPromo() };
+  }
+  doneView(){
+    const s = this.state, I = (n,sz,c,sw) => this.icon(n,sz,c,sw);
+    const your = this.baseCards().find(c => c.id === s.selected);
+    const rc = (bg,col) => ({ display:'inline-flex',alignItems:'center',gap:'6px',padding:'8px 13px',borderRadius:'999px',background:bg,color:col,fontWeight:800,fontSize:'12.5px' });
+    const chips = [
+      { iconEl:I('bolt',16,'#E5A300'), label:'+' + s.earned + ' XP', style:rc('#FFF8E1','#E5A300') },
+      { iconEl:I('flame',16,'#FF9600'), label:'Streak ' + s.streak, style:rc('#FFF3E0','#FF9600') },
+      s.win
+        ? { iconEl:I('scale',16,'#58A700'), label:'Matched my verdict', style:rc('#E8FFD7','#58A700') }
+        : { iconEl:I('users',16,'#1899D6'), label:(your ? your.crowd : 0) + '% with you', style:rc('#E3F6FF','#1899D6') },
+    ];
+    const note = s.win
+      ? "Sharp read today. Rest the gavel — I'll have a trickier one waiting tomorrow."
+      : "Close call, and you argued it well. Sleep on it; tomorrow's docket is a fresh slate.";
+    return { arbi:this.mascot(72, s.win ? 'happy' : 'neutral'),
+      chips, note, replay:() => this.reset() };
+  }
 
   renderVals(){
     const s = this.state, win = s.selected === this.judgeId;
@@ -820,6 +965,11 @@ class Component extends DCLogic {
       },
       mascotChip:this.mascot(52,'neutral'),
       screenLabel, isPlay:s.screen === 'play', isLeagues:s.screen === 'leagues', isQuests:s.screen === 'quests', isProfile:s.screen === 'profile',
+      isCaseActive:!s.completed, isCompleted:s.completed,
+      openStreak:() => this.openStreak(), advance:() => this.advance(), stop:(e) => e.stopPropagation(),
+      setClock:(el) => this.setClock(el), setResetClock:(el) => this.setResetClock(el),
+      showStreakOverlay:s.overlay === 'streak', showPromoOverlay:s.overlay === 'promo',
+      streak2:this.streakOverlay(), promo:this.promoOverlay(), done:this.doneView(),
       navItems, leagues, quests, profile,
       streak:s.streak, totalXpLabel:s.totalXp.toLocaleString(), leagueName:'Emerald', level:8,
       caseNo:'#218', category:this.props.category || 'SPORT · FORECAST', timeLeft:'06:14',
