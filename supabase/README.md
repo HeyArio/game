@@ -48,6 +48,52 @@ policies on every table.
 That's it — the frontend's "Continue with Google" button
 (`supabase.auth.signInWithOAuth({ provider: 'google' })`) now works end to end.
 
+## 4. NVIDIA models + daily case generation
+
+The `generate-daily-case` Edge Function calls 5 models from build.nvidia.com:
+
+| Slot | Persona | Model |
+|------|---------|-------|
+| 1 | ASTRA  | `nvidia/nemotron-3-ultra-550b-a55b` |
+| 2 | BOREAS | `minimaxai/minimax-m3` |
+| 3 | CIRRUS | `mistralai/mistral-medium-3.5-128b` |
+| 4 | DELPHI | `deepseek-ai/deepseek-v4-pro` |
+| 5 | Arbi (judge) | `google/gemma-4-31b-it` |
+
+These IDs are baked in as defaults — you do **not** need to set model env vars.
+(Override any slot with `NVIDIA_MODEL_1`..`NVIDIA_MODEL_5` if you swap models.)
+
+**Set the API key** — Supabase dashboard → **Settings → Edge Functions → Secrets**:
+- `NVIDIA_API_KEY` — your build.nvidia.com key. One key works for all 5 models.
+  (If you have separate keys per model, set `NVIDIA_API_KEY_1`..`NVIDIA_API_KEY_5`
+  instead; per-slot keys take priority over the shared one.)
+
+**Deploy the functions** (Supabase CLI, linked to your project):
+```bash
+supabase functions deploy generate-daily-case
+supabase functions deploy submit-vote
+```
+
+**Generate the first case manually:**
+```bash
+supabase functions invoke generate-daily-case
+```
+
+**Schedule it daily** (Supabase SQL editor — needs pg_cron + pg_net enabled,
+both available on the free tier under Database → Extensions):
+```sql
+select cron.schedule(
+  'generate-daily-case', '5 0 * * *',
+  $$ select net.http_post(
+       url     := 'https://YOUR-PROJECT-ref.supabase.co/functions/v1/generate-daily-case',
+       headers := '{"Authorization": "Bearer YOUR-SERVICE-ROLE-KEY", "Content-Type": "application/json"}'::jsonb
+     ); $$
+);
+```
+
+To force a specific question instead of an AI-generated one, POST a body:
+`{ "question": "...", "category": "TECHNOLOGY · PREDICTION" }`.
+
 ## Notes / next steps
 
 - **Hiding the verdict before close.** `case_options.is_judge_pick` is the

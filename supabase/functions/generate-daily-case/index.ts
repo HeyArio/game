@@ -7,18 +7,20 @@
  *
  * Scheduled via Supabase cron — runs once daily at 00:05 UTC.
  *
- * Required secrets (set in Supabase dashboard → Project Settings → Edge Functions → Secrets):
- *   NVIDIA_API_KEY_1   API key for model A (ASTRA)
- *   NVIDIA_MODEL_1     e.g. meta/llama-3.3-70b-instruct
- *   NVIDIA_API_KEY_2   API key for model B (BOREAS)
- *   NVIDIA_MODEL_2     e.g. mistralai/mixtral-8x22b-instruct-v0.1
- *   NVIDIA_API_KEY_3   API key for model C (CIRRUS)
- *   NVIDIA_MODEL_3     e.g. google/gemma-3-27b-it
- *   NVIDIA_API_KEY_4   API key for model D (DELPHI)
- *   NVIDIA_MODEL_4     e.g. qwen/qwen2.5-72b-instruct
- *   NVIDIA_API_KEY_5   API key for the judge (Arbi)
- *   NVIDIA_MODEL_5     e.g. nvidia/llama-3.1-nemotron-70b-instruct
- *   SUPABASE_URL       (auto-provided by Supabase)
+ * Secrets (set in Supabase dashboard → Project Settings → Edge Functions → Secrets):
+ *
+ *   NVIDIA_API_KEY     A single build.nvidia.com key used for all 5 models.
+ *                      (Optionally override per-slot with NVIDIA_API_KEY_1..5.)
+ *
+ * The model IDs default to the assignments below; override any slot with
+ * NVIDIA_MODEL_1..5 if you want to swap a model without redeploying code:
+ *   1 ASTRA  → nvidia/nemotron-3-ultra-550b-a55b
+ *   2 BOREAS → minimaxai/minimax-m3
+ *   3 CIRRUS → mistralai/mistral-medium-3.5-128b
+ *   4 DELPHI → deepseek-ai/deepseek-v4-pro
+ *   5 Arbi   → google/gemma-4-31b-it   (the judge)
+ *
+ *   SUPABASE_URL               (auto-provided by Supabase)
  *   SUPABASE_SERVICE_ROLE_KEY  (auto-provided by Supabase)
  */
 
@@ -27,6 +29,23 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const NVIDIA_BASE = "https://integrate.api.nvidia.com/v1";
 const PERSONA_NAMES = ["ASTRA", "BOREAS", "CIRRUS", "DELPHI"];
 const LETTERS = ["A", "B", "C", "D"];
+
+// Default model assignment (override per-slot via NVIDIA_MODEL_1..5).
+const DEFAULT_MODELS: Record<number, string> = {
+  1: "nvidia/nemotron-3-ultra-550b-a55b",   // ASTRA
+  2: "minimaxai/minimax-m3",                 // BOREAS
+  3: "mistralai/mistral-medium-3.5-128b",    // CIRRUS
+  4: "deepseek-ai/deepseek-v4-pro",          // DELPHI
+  5: "google/gemma-4-31b-it",                // Arbi (judge)
+};
+
+// Resolve a model's API key: per-slot key if set, else the shared NVIDIA_API_KEY.
+function keyFor(slot: number): string {
+  return Deno.env.get(`NVIDIA_API_KEY_${slot}`) ?? Deno.env.get("NVIDIA_API_KEY") ?? "";
+}
+function modelFor(slot: number): string {
+  return Deno.env.get(`NVIDIA_MODEL_${slot}`) ?? DEFAULT_MODELS[slot];
+}
 
 interface NvidiaMessage { role: "system" | "user" | "assistant"; content: string; }
 
@@ -141,12 +160,12 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  const judgeKey   = Deno.env.get("NVIDIA_API_KEY_5")!;
-  const judgeModel = Deno.env.get("NVIDIA_MODEL_5")!;
+  const judgeKey   = keyFor(5);
+  const judgeModel = modelFor(5);
 
   const models = [1, 2, 3, 4].map(i => ({
-    apiKey: Deno.env.get(`NVIDIA_API_KEY_${i}`)!,
-    model:  Deno.env.get(`NVIDIA_MODEL_${i}`)!,
+    apiKey:  keyFor(i),
+    model:   modelFor(i),
     persona: PERSONA_NAMES[i - 1],
     letter:  LETTERS[i - 1],
   }));
