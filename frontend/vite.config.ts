@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     // allowedHosts goes here, directly under server:
-    allowedHosts: ['185.221.237.90.nip.io'],
+    allowedHosts:true,
     
     proxy: {
       // TESTING ONLY: proxies browser calls to NVIDIA so client-side case
