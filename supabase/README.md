@@ -54,11 +54,15 @@ The `generate-daily-case` Edge Function calls 5 models from build.nvidia.com:
 
 | Slot | Persona | Model |
 |------|---------|-------|
-| 1 | ASTRA  | `nvidia/nemotron-3-ultra-550b-a55b` |
-| 2 | BOREAS | `minimaxai/minimax-m3` |
-| 3 | CIRRUS | `mistralai/mistral-medium-3.5-128b` |
-| 4 | DELPHI | `deepseek-ai/deepseek-v4-pro` |
-| 5 | Arbi (judge) | `google/gemma-4-31b-it` |
+| 1 | ASTRA  | `minimaxai/minimax-m3` |
+| 2 | BOREAS | `mistralai/mistral-medium-3.5-128b` |
+| 3 | CIRRUS | `deepseek-ai/deepseek-v4-pro` |
+| 4 | DELPHI | `google/gemma-4-31b-it` |
+| 5 | Arbi (judge) | `nvidia/nemotron-3-ultra-550b-a55b` |
+
+Nemotron is the judge: it's the most capable model and NVIDIA's Nemotron line
+is tuned for instruction-following / evaluation, so it gives the most reliable
+verdicts and cleanest JSON output. The smaller models are the contestants.
 
 These IDs are baked in as defaults — you do **not** need to set model env vars.
 (Override any slot with `NVIDIA_MODEL_1`..`NVIDIA_MODEL_5` if you swap models.)

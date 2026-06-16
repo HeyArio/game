@@ -389,7 +389,7 @@ export function useGameState(props: InitProps = {}) {
   }, []);
 
   /** Load real case data from DB into game state */
-  const initCase = useCallback((data: CaseData) => {
+  const initCase = useCallback((data: CaseData & { judgeCardId?: CardId | null }) => {
     const secondsLeft = Math.max(0, Math.floor((new Date(data.closesAt).getTime() - Date.now()) / 1000));
     countdownRef.current = secondsLeft;
     setCountdownText(fmtClock(secondsLeft));
@@ -400,8 +400,10 @@ export function useGameState(props: InitProps = {}) {
       category: data.category,
       caseNo: data.caseNo,
       cards: data.cards,
-      // judgeCardId stays null until vote is submitted (server reveals it)
-      judgeCardId: null,
+      // Production: judgeCardId stays null until the server reveals it on vote.
+      // Testing (client-side NVIDIA): the generator passes judgeCardId so the
+      // local scoring fallback can decide correctness without the edge function.
+      judgeCardId: data.judgeCardId ?? null,
       judgeOptionId: null,
     }));
   }, []);

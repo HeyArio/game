@@ -14,11 +14,11 @@
  *
  * The model IDs default to the assignments below; override any slot with
  * NVIDIA_MODEL_1..5 if you want to swap a model without redeploying code:
- *   1 ASTRA  → nvidia/nemotron-3-ultra-550b-a55b
- *   2 BOREAS → minimaxai/minimax-m3
- *   3 CIRRUS → mistralai/mistral-medium-3.5-128b
- *   4 DELPHI → deepseek-ai/deepseek-v4-pro
- *   5 Arbi   → google/gemma-4-31b-it   (the judge)
+ *   1 ASTRA  → minimaxai/minimax-m3
+ *   2 BOREAS → mistralai/mistral-medium-3.5-128b
+ *   3 CIRRUS → deepseek-ai/deepseek-v4-pro
+ *   4 DELPHI → google/gemma-4-31b-it
+ *   5 Arbi   → nvidia/nemotron-3-ultra-550b-a55b   (the judge — most capable model)
  *
  *   SUPABASE_URL               (auto-provided by Supabase)
  *   SUPABASE_SERVICE_ROLE_KEY  (auto-provided by Supabase)
@@ -32,11 +32,11 @@ const LETTERS = ["A", "B", "C", "D"];
 
 // Default model assignment (override per-slot via NVIDIA_MODEL_1..5).
 const DEFAULT_MODELS: Record<number, string> = {
-  1: "nvidia/nemotron-3-ultra-550b-a55b",   // ASTRA
-  2: "minimaxai/minimax-m3",                 // BOREAS
-  3: "mistralai/mistral-medium-3.5-128b",    // CIRRUS
-  4: "deepseek-ai/deepseek-v4-pro",          // DELPHI
-  5: "google/gemma-4-31b-it",                // Arbi (judge)
+  1: "minimaxai/minimax-m3",                 // ASTRA
+  2: "mistralai/mistral-medium-3.5-128b",    // BOREAS
+  3: "deepseek-ai/deepseek-v4-pro",          // CIRRUS
+  4: "google/gemma-4-31b-it",                // DELPHI
+  5: "nvidia/nemotron-3-ultra-550b-a55b",    // Arbi (judge — most capable model)
 };
 
 // Resolve a model's API key: per-slot key if set, else the shared NVIDIA_API_KEY.
