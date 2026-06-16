@@ -1,7 +1,10 @@
 import type { CSSProperties } from "react";
 import { Icon, icon } from "../icons/Icon";
 import type { BaseCard, CardId, GameState, LeaguePlayer } from "./types";
-import { CROWD_LEADER, JUDGE_ID, baseCards } from "./useGameState";
+import { CROWD_LEADER, JUDGE_ID, baseCards as _baseCards } from "./useGameState";
+
+function baseCards(s?: GameState) { return s?.cards?.length ? s.cards : _baseCards(); }
+function judgeId(s?: GameState): string { return s?.judgeCardId ?? JUDGE_ID; }
 
 export const COLORS: Record<string, string> = { A: "#58CC02", B: "#1CB0F6", C: "#CE82FF", D: "#FF9600" };
 
@@ -168,8 +171,9 @@ export interface ViewCard extends BaseCard {
 }
 
 export function viewCards(s: GameState): ViewCard[] {
-  return baseCards().map((c) => {
-    const isJ = c.id === JUDGE_ID;
+  const jId = judgeId(s);
+  return baseCards(s).map((c) => {
+    const isJ = c.id === jId;
     const sel = s.selected === c.id;
     const barColor =
       s.reveal.judge && isJ ? "#58CC02" : s.reveal.judge && sel ? "#F57C00" : c.id === CROWD_LEADER ? "#1CB0F6" : "#BFC5B2";
@@ -180,9 +184,9 @@ export function viewCards(s: GameState): ViewCard[] {
       badgeStyle: badgeStyle(c),
       showId: s.reveal.ids,
       idColor: s.reveal.judge && isJ ? "#58A700" : "#74796B",
-      showArbiter: s.reveal.judge && isJ,
+      showArbiter: !!(s.reveal.judge && isJ),
       arbiterTag: s.reveal.judge && isJ && sel ? "MY PICK · SNAP!" : "MY PICK",
-      showWrong: s.reveal.judge && sel && !isJ,
+      showWrong: !!(s.reveal.judge && sel && !isJ),
       showBars: s.reveal.bars,
       barColor,
       crowdTag: c.id === CROWD_LEADER ? " · TOP" : "",
@@ -313,7 +317,7 @@ export interface RewardChip {
 }
 
 export function rewardChipsView(s: GameState): RewardChip[] {
-  const your = baseCards().find((c) => c.id === s.selected);
+  const your = baseCards(s).find((c) => c.id === s.selected);
   const chips: RewardChip[] = [];
   if (s.win) {
     chips.push({ iconEl: icon("flame", 16, "#FF9600"), label: "Streak → " + s.streak, style: rc("#FFF3E0", "#FF9600") });
@@ -339,7 +343,7 @@ export interface DoneView {
 }
 
 export function doneView(s: GameState): DoneView {
-  const your = baseCards().find((c) => c.id === s.selected);
+  const your = baseCards(s).find((c) => c.id === s.selected);
   const chips: DoneChip[] = [
     { iconEl: icon("bolt", 16, "#E5A300"), label: "+" + s.earned + " XP", style: rc("#FFF8E1", "#E5A300") },
     { iconEl: icon("flame", 16, "#FF9600"), label: "Streak " + s.streak, style: rc("#FFF3E0", "#FF9600") },
@@ -555,14 +559,16 @@ export function profileView(s: GameState): ProfileView {
   };
 }
 
-export function jName(): string {
-  return baseCards().find((c) => c.id === JUDGE_ID)!.name;
+export function jName(s?: GameState): string {
+  const jid = judgeId(s);
+  return baseCards(s).find((c) => c.id === jid)?.name ?? "DELPHI";
 }
-export function jPick(): string {
-  return baseCards().find((c) => c.id === JUDGE_ID)!.pick;
+export function jPick(s?: GameState): string {
+  const jid = judgeId(s);
+  return baseCards(s).find((c) => c.id === jid)?.pick ?? "";
 }
 export function yourCard(s: GameState): BaseCard | undefined {
-  return baseCards().find((c) => c.id === s.selected);
+  return baseCards(s).find((c) => c.id === s.selected);
 }
 
 export { Icon };

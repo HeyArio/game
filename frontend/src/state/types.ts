@@ -58,4 +58,14 @@ export interface GameState {
   questMatch: number;
   contLeft: number;
   league: LeaguePlayer[];
+
+  // Dynamic case data (replaces hardcoded baseCards / JUDGE_ID)
+  cards: BaseCard[];
+  judgeOptionId: string | null;   // the option.id the judge picked (from DB)
+  judgeCardId: CardId | null;     // the a/b/c/d letter of the judge pick
+  caseId: string | null;
+  question: string;
+  category: string;
+  caseNo: number;
+  timeLeft: string;
 }

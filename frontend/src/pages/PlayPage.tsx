@@ -22,13 +22,15 @@ import {
 export interface PlayPageProps {
   state: GameState;
   countdownText: string;
+  caseLoading?: boolean;
+  noCase?: boolean;
   onSelectCard: (id: CardId) => void;
   onLockIn: () => void;
   onAdvance: () => void;
   onReplay: () => void;
 }
 
-export function PlayPage({ state, countdownText, onSelectCard, onLockIn, onAdvance, onReplay }: PlayPageProps) {
+export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCard, onLockIn, onAdvance, onReplay }: PlayPageProps) {
   const cards = viewCards(state);
   const win = state.selected === "d";
   const your = yourCard(state);
@@ -55,6 +57,26 @@ export function PlayPage({ state, countdownText, onSelectCard, onLockIn, onAdvan
       opacity: (i + 1) / 24,
     },
   }));
+
+  // Loading skeleton
+  if (caseLoading) {
+    return (
+      <div style={{ maxWidth: 1160, margin: "0 auto", padding: "60px 24px", display: "flex", justifyContent: "center" }}>
+        <span style={{ animation: "qbob 3s ease-in-out infinite" }}><Mascot size={64} mood="neutral" /></span>
+      </div>
+    );
+  }
+
+  // No case today
+  if (noCase) {
+    return (
+      <div style={{ maxWidth: 700, margin: "40px auto", padding: "32px 28px", background: "#fff", border: "2px solid #E4EAD8", borderRadius: 24, textAlign: "center" }}>
+        <div style={{ display: "flex", justifyContent: "center", animation: "qbob 3s ease-in-out infinite" }}><Mascot size={72} mood="soft" /></div>
+        <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 24, color: "#3C3C46", marginTop: 12 }}>No case today — yet</div>
+        <div style={{ fontWeight: 600, fontSize: 14, color: "#8E9582", marginTop: 6 }}>The docket is empty. Check back soon.</div>
+      </div>
+    );
+  }
 
   if (state.completed) {
     return (
@@ -135,19 +157,19 @@ export function PlayPage({ state, countdownText, onSelectCard, onLockIn, onAdvan
       <main>
         <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap", marginBottom: 14 }}>
           <span style={{ padding: "7px 13px", borderRadius: 11, background: "#58CC02", color: "#fff", fontWeight: 800, fontSize: 12, letterSpacing: ".04em" }}>
-            DAILY CASE #218
+            DAILY CASE {state.caseNo ? `#${state.caseNo}` : ""}
           </span>
           <span style={{ padding: "7px 13px", borderRadius: 11, background: "#fff", border: "2px solid #E4EAD8", color: "#7C8470", fontWeight: 700, fontSize: 12, letterSpacing: ".03em" }}>
-            SPORT · FORECAST
+            {state.category}
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 13px", borderRadius: 11, background: "#fff", border: "2px solid #E4EAD8", color: "#7C8470", fontWeight: 700, fontSize: 12 }}>
             {icon("clock", 16, "#7C8470")}
-            06:14
+            {countdownText}
           </span>
         </div>
 
         <h1 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: "clamp(28px,3.6vw,42px)", lineHeight: 1.12, color: "#3C3C46", letterSpacing: "-.01em" }}>
-          Who will win the 2026 World Cup?
+          {state.question}
         </h1>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16, padding: "13px 16px", background: "#fff", border: "2px solid #E4EAD8", borderRadius: 16 }}>
@@ -205,11 +227,11 @@ export function PlayPage({ state, countdownText, onSelectCard, onLockIn, onAdvan
                   </div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "#5E6553" }}>
                     {state.win
-                      ? "Great read — I went with " + jName() + " (" + jPick() + ") too. That is exactly how I saw it."
+                      ? "Great read — I went with " + jName(state) + " (" + jPick(state) + ") too. That is exactly how I saw it."
                       : "I went with " +
-                        jName() +
+                        jName(state) +
                         " (" +
-                        jPick() +
+                        jPick(state) +
                         ") on this one." +
                         (your ? " You backed " + your.name + " — I get the logic, it just didn't win me over." : "")}
                   </div>

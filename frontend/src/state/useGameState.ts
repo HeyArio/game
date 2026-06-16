@@ -36,8 +36,33 @@ export function fmtClock(t: number): string {
   return `${p(h)}:${p(m)}:${p(s)}`;
 }
 
+export interface VoteResult {
+  wasCorrect: boolean;
+  xpEarned: number;
+  votedOptionId: string;
+  judgeOptionId: string;
+  judgeOptionLetter: string;
+  alreadyVoted: boolean;
+  options: { id: string; letter: string; is_judge_pick: boolean; live_pct: number }[];
+}
+
+export interface CaseData {
+  caseId: string;
+  question: string;
+  category: string;
+  caseNo: number;
+  cards: BaseCard[];
+  closesAt: string;
+}
+
 interface InitProps {
   streak?: number;
+  totalXp?: number;
+  dailyXp?: number;
+  contLeft?: number;
+  sharpEye?: number;
+  /** Called when the user locks in. Returns server verdict. */
+  onSubmitVote?: (caseId: string, optionId: string) => Promise<VoteResult | null>;
 }
 
 function makeInitState(props: InitProps): GameState {
@@ -56,14 +81,23 @@ function makeInitState(props: InitProps): GameState {
     overlay: null,
     contEquipped: false,
     streak: props.streak ?? 14,
-    totalXp: 2480,
-    dailyXp: 0,
+    totalXp: props.totalXp ?? 2480,
+    dailyXp: props.dailyXp ?? 0,
     dailyGoal: 50,
-    sharpEye: 7,
+    sharpEye: props.sharpEye ?? 7,
     sharpEyeGoal: 10,
     questMatch: 1,
-    contLeft: 2,
+    contLeft: props.contLeft ?? 2,
     league: initLeague(),
+    // case data — overwritten via initCase() when DB data loads
+    cards: baseCards(),
+    judgeOptionId: null,
+    judgeCardId: JUDGE_ID,
+    caseId: null,
+    question: "Loading today's case…",
+    category: "",
+    caseNo: 0,
+    timeLeft: "—",
   };
 }
 
@@ -75,6 +109,7 @@ function makeInitState(props: InitProps): GameState {
  */
 export function useGameState(props: InitProps = {}) {
   const [state, setState] = useState<GameState>(() => makeInitState(props));
+  const onSubmitVoteRef = useRef(props.onSubmitVote);
 
   // Mutable refs mirroring the original instance fields (timers, countdown, DOM-bound clocks).
   const t1 = useRef<number | null>(null);
@@ -100,9 +135,9 @@ export function useGameState(props: InitProps = {}) {
     if (dailyInterval.current != null) clearInterval(dailyInterval.current);
   }, []);
 
-  const countPct = useCallback(() => {
+  const countPct = useCallback((cards?: BaseCard[]) => {
     const targets: Record<CardId, number> = {} as any;
-    baseCards().forEach((c) => (targets[c.id] = c.crowd));
+    (cards ?? baseCards()).forEach((c) => (targets[c.id] = c.crowd));
     const dur = 650;
     const t0 = Date.now();
     if (pctInterval.current != null) clearInterval(pctInterval.current);
@@ -185,17 +220,29 @@ export function useGameState(props: InitProps = {}) {
     }, 16);
   }, []);
 
-  const score = useCallback(() => {
+  // Apply server vote result into game state (used by both live voting and alreadyVoted replay)
+  const applyVoteResult = useCallback((result: VoteResult) => {
     setState((s) => {
-      if (s.scored) return s;
-      const win = s.selected === JUDGE_ID;
-      const earned = win ? 50 : 10;
+      const win = result.wasCorrect;
+      const earned = result.xpEarned;
+      // Map live_pct from server result onto displayPct keyed by card letter
+      const dp: any = { a: 0, b: 0, c: 0, d: 0 };
+      result.options.forEach((o) => { dp[o.letter.toLowerCase()] = o.live_pct; });
+      const judgeCardId = (result.judgeOptionLetter?.toLowerCase() ?? "d") as CardId;
       const league = s.league
         .map((p) => (p.isYou ? { ...p, xp: p.xp + earned } : p))
         .sort((a, b) => b.xp - a.xp);
       const youRank = league.findIndex((p) => p.isYou) + 1;
-      const next: GameState = {
+      // Update crowd values in cards
+      const cards = s.cards.map((c) => {
+        const opt = result.options.find((o) => o.letter.toLowerCase() === c.id);
+        return opt ? { ...c, crowd: opt.live_pct } : c;
+      });
+      return {
         ...s,
+        cards,
+        judgeCardId,
+        judgeOptionId: result.judgeOptionId,
         reveal: { ...s.reveal, verdict: true },
         scored: true,
         win,
@@ -205,17 +252,58 @@ export function useGameState(props: InitProps = {}) {
         dailyXp: Math.min(s.dailyGoal, s.dailyXp + earned),
         sharpEye: win ? Math.min(s.sharpEyeGoal, s.sharpEye + 1) : s.sharpEye,
         questMatch: win ? Math.min(2, s.questMatch + 1) : s.questMatch,
+        displayPct: dp,
         league,
         promoted: win && youRank <= 5,
       };
-      // Side effects fired from the original score(): countDaily + confetti.
-      queueMicrotask(() => {
-        countDaily(earned);
-        if (win) fireConfetti();
-      });
-      return next;
     });
+    if (result.wasCorrect) queueMicrotask(() => fireConfetti());
+    queueMicrotask(() => countDaily(result.xpEarned));
   }, [countDaily, fireConfetti]);
+
+  const score = useCallback(async () => {
+    let currentState: GameState | null = null;
+    setState((s) => { currentState = s; return s; });
+    await new Promise<void>(r => setTimeout(r, 0)); // flush
+    setState((s) => {
+      if (s.scored) return s;
+      currentState = s;
+      return s;
+    });
+    if (!currentState) return;
+    const s = currentState as GameState;
+    if (s.scored) return;
+
+    const onVote = onSubmitVoteRef.current;
+    if (onVote && s.caseId && s.selected) {
+      // Find the option ID that matches the selected card letter
+      // The option id is stored on the card when we call initCase
+      const selectedCard = s.cards.find(c => c.id === s.selected);
+      const optionId = (selectedCard as any)?._optionId as string | undefined;
+      if (optionId) {
+        const result = await onVote(s.caseId, optionId);
+        if (result) { applyVoteResult(result); return; }
+      }
+    }
+
+    // Fallback: local scoring (dev mode / no backend)
+    setState((s2) => {
+      if (s2.scored) return s2;
+      const win = s2.selected === (s2.judgeCardId ?? JUDGE_ID);
+      const earned = win ? 50 : 10;
+      const league = s2.league
+        .map((p) => (p.isYou ? { ...p, xp: p.xp + earned } : p))
+        .sort((a, b) => b.xp - a.xp);
+      const youRank = league.findIndex((p) => p.isYou) + 1;
+      queueMicrotask(() => { countDaily(earned); if (win) fireConfetti(); });
+      return { ...s2, reveal: { ...s2.reveal, verdict: true }, scored: true, win, earned,
+        totalXp: s2.totalXp + earned, streak: s2.streak + 1,
+        dailyXp: Math.min(s2.dailyGoal, s2.dailyXp + earned),
+        sharpEye: win ? Math.min(s2.sharpEyeGoal, s2.sharpEye + 1) : s2.sharpEye,
+        questMatch: win ? Math.min(2, s2.questMatch + 1) : s2.questMatch,
+        league, promoted: win && youRank <= 5 };
+    });
+  }, [countDaily, fireConfetti, applyVoteResult]);
 
   const startReveal = useCallback(() => {
     setState((s) => ({ ...s, phase: "revealed" }));
@@ -300,6 +388,36 @@ export function useGameState(props: InitProps = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** Load real case data from DB into game state */
+  const initCase = useCallback((data: CaseData) => {
+    const secondsLeft = Math.max(0, Math.floor((new Date(data.closesAt).getTime() - Date.now()) / 1000));
+    countdownRef.current = secondsLeft;
+    setCountdownText(fmtClock(secondsLeft));
+    setState((s) => ({
+      ...s,
+      caseId: data.caseId,
+      question: data.question,
+      category: data.category,
+      caseNo: data.caseNo,
+      cards: data.cards,
+      // judgeCardId stays null until vote is submitted (server reveals it)
+      judgeCardId: null,
+      judgeOptionId: null,
+    }));
+  }, []);
+
+  /** Load user progress from DB into game state */
+  const initProgress = useCallback((p: { streak: number; totalXp: number; dailyXp: number; contLeft: number; sharpEye: number }) => {
+    setState((s) => ({
+      ...s,
+      streak: p.streak,
+      totalXp: p.totalXp,
+      dailyXp: p.dailyXp,
+      contLeft: p.contLeft,
+      sharpEye: p.sharpEye,
+    }));
+  }, []);
+
   return {
     state,
     countdownText,
@@ -316,6 +434,10 @@ export function useGameState(props: InitProps = {}) {
       openStreak,
       closeOverlay,
       fireConfetti,
+      initCase,
+      initProgress,
+      applyVoteResult,
     },
   };
 }
+
