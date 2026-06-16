@@ -1,0 +1,119 @@
+import { Mascot } from "../components/Mascot";
+import type { GameState } from "../state/types";
+import { profileView } from "../state/viewHelpers";
+
+export interface ProfilePageProps {
+  state: GameState;
+}
+
+export function ProfilePage({ state }: ProfilePageProps) {
+  const profile = profileView(state);
+
+  return (
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: "26px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 18, padding: 22, background: "#fff", border: "2px solid #E4EAD8", borderRadius: 22 }}>
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 84,
+            height: 84,
+            borderRadius: 26,
+            background: "linear-gradient(135deg,#58CC02,#46A302)",
+            color: "#fff",
+            fontFamily: "'Baloo 2',cursive",
+            fontWeight: 800,
+            fontSize: 38,
+            flex: "none",
+            boxShadow: "0 4px 0 #3E9000",
+          }}
+        >
+          Y
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 26, color: "#3C3C46", lineHeight: 1.1 }}>You</div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#9AA08C" }}>@you · Joined March 2025</div>
+          <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 10, background: "#F6ECFF", color: "#7A3FB0", fontWeight: 800, fontSize: 12 }}>
+              {profile.levelEl}Level 8
+            </span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 10, background: "#E3F6FF", color: "#1899D6", fontWeight: 800, fontSize: 12 }}>
+              {profile.leagueEl}Emerald
+            </span>
+          </div>
+        </div>
+        <button
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            border: "2px solid #BEEAFD",
+            borderBottomWidth: "4px",
+            background: "#E3F6FF",
+            color: "#1899D6",
+            padding: "11px 16px",
+            borderRadius: 14,
+            fontFamily: "'Nunito',sans-serif",
+            fontWeight: 800,
+            fontSize: 13,
+            cursor: "pointer",
+            flex: "none",
+          }}
+        >
+          {profile.shareEl}Share
+        </button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+        {profile.stats.map((st, i) => (
+          <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, padding: "16px 8px", background: "#fff", border: "2px solid #E4EAD8", borderRadius: 18, textAlign: "center" }}>
+            <span style={st.iconWrap}>{st.iconEl}</span>
+            <span style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 21, color: "#3C3C46", lineHeight: 1 }}>{st.value}</span>
+            <span style={{ fontWeight: 700, fontSize: 11.5, color: "#9AA08C" }}>{st.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", gap: 14, padding: 18, background: "#F6ECFF", border: "2px solid #E6D2FF", borderRadius: 20 }}>
+        <span style={{ flex: "none", animation: "qbob 3s ease-in-out infinite" }}>
+          <Mascot size={48} mood="happy" />
+        </span>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 13, color: "#7A3FB0", marginBottom: 3 }}>A note from Arbi</div>
+          <div style={{ fontSize: 14.5, fontWeight: 600, color: "#5E4576", lineHeight: 1.5 }}>{profile.note}</div>
+        </div>
+      </div>
+
+      <div style={{ background: "#fff", border: "2px solid #E4EAD8", borderRadius: 20, padding: 20 }}>
+        <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 18, color: "#3C3C46", marginBottom: 16 }}>Achievements</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
+          {profile.achievements.map((a, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 13, padding: 14, borderRadius: 16, background: a.bg, border: "2px solid " + a.border }}>
+              <span style={a.iconWrap}>{a.iconEl}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: 14, color: a.titleColor }}>{a.title}</div>
+                <div style={{ fontWeight: 600, fontSize: 12, color: "#9AA08C", margin: "1px 0 7px" }}>{a.desc}</div>
+                <div style={{ height: 8, borderRadius: 999, background: "#EEF1E6", overflow: "hidden" }}>
+                  <div style={{ height: "100%", borderRadius: 999, width: a.barWidth, background: a.barColor }} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12 }}>
+        {profile.figures.map((f, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 13, padding: 16, background: "#fff", border: "2px solid #E4EAD8", borderRadius: 18 }}>
+            <span style={f.iconWrap}>{f.iconEl}</span>
+            <div>
+              <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 20, color: "#3C3C46", lineHeight: 1 }}>{f.value}</div>
+              <div style={{ fontWeight: 700, fontSize: 12, color: "#9AA08C" }}>{f.label}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

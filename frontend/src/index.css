@@ -1,0 +1,9 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { background: #F4F8EE; font-family: 'Nunito', system-ui, sans-serif; }
+
+@keyframes qspin { to { transform: rotate(360deg); } }
+@keyframes qfade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes qpop { 0% { transform: scale(.5); opacity: 0; } 65% { transform: scale(1.18); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes qrise { from { opacity: 0; transform: translateY(24px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes qbob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
