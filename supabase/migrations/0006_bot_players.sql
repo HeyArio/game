@@ -24,10 +24,14 @@ create table if not exists public.bot_players (
 );
 
 alter table public.bot_players enable row level security;
+drop policy if exists "bots readable" on public.bot_players;
 create policy "bots readable" on public.bot_players
   for select to authenticated using (true);
 
 -- ---------- leaderboard now unions real users + bots ------------------------
+-- Drop first: the 0004 view exists with a different column list, and
+-- CREATE OR REPLACE VIEW can't insert a new column (is_bot) mid-list.
+drop view if exists public.global_leaderboard;
 create or replace view public.global_leaderboard as
   with all_players as (
     select
