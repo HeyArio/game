@@ -35,7 +35,11 @@ export function TopBar({ state, onSelectScreen, onOpenStreak }: TopBarProps) {
           padding: isMobile ? "10px 14px" : "13px 22px",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div
+          onClick={() => onSelectScreen("play")}
+          title="Home"
+          style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
+        >
           <span
             style={{
               display: "inline-flex",
