@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { Icon, icon } from "../icons/Icon";
-import type { BaseCard, CardId, GameState, LeaguePlayer } from "./types";
+import type { BaseCard, CardId, GameState, LeaguePlayer, PlayerStats } from "./types";
 import { CROWD_LEADER, JUDGE_ID, baseCards as _baseCards } from "./useGameState";
 
 function baseCards(s?: GameState) { return s?.cards?.length ? s.cards : _baseCards(); }
@@ -206,7 +206,7 @@ export interface WeekDayView {
 }
 
 export function weekDaysView(s: GameState): WeekDayView[] {
-  const todayIdx = 2;
+  const todayIdx = new Date().getDay(); // 0=Sun … 6=Sat
   return ["S", "M", "T", "W", "T", "F", "S"].map((letter, i) => {
     const st = i < todayIdx ? "done" : i === todayIdx ? (s.scored ? "done" : "today") : "future";
     const base: CSSProperties = {
@@ -231,6 +231,7 @@ export interface LeagueRowView {
   color: string;
   xp: string;
   isYou?: boolean;
+  isBot?: boolean;
   promoLineBefore: boolean;
   rankColor: string;
   style: CSSProperties;
@@ -245,6 +246,7 @@ export function leagueRowsView(s: GameState): LeagueRowView[] {
     color: p.color,
     xp: p.xp.toLocaleString(),
     isYou: p.isYou,
+    isBot: p.isBot,
     promoLineBefore: p.rank === 6,
     rankColor: p.rank <= 5 ? "#58A700" : "#B2B7A6",
     style: {
@@ -369,6 +371,7 @@ export interface LeaguesView {
     color: string;
     xp: string;
     isYou?: boolean;
+    isBot?: boolean;
     rankColor: string;
     promoLineBefore: boolean;
     demoLineBefore: boolean;
@@ -415,6 +418,7 @@ export function leaguesView(s: GameState): LeaguesView {
     color: p.color,
     xp: p.xp.toLocaleString() + " XP",
     isYou: p.isYou,
+    isBot: p.isBot,
     rankColor: p.rank <= 5 ? "#58A700" : p.rank >= 7 ? "#FF4B4B" : "#B2B7A6",
     promoLineBefore: p.rank === 6,
     demoLineBefore: p.rank === 7,
@@ -456,7 +460,7 @@ export interface QuestsView {
   weekly: { chestEl: JSX.Element | null; label: string; sub: string; count: string; goalLabel: string; barWidth: string };
 }
 
-export function questsView(s: GameState): QuestsView {
+export function questsView(s: GameState, votesThisWeek = 0): QuestsView {
   const wrap = (bg: string): CSSProperties => ({ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "48px", height: "48px", borderRadius: "15px", flex: "none", background: bg });
   const reward = (bg: string, col: string): CSSProperties => ({ display: "inline-flex", alignItems: "center", gap: "5px", padding: "9px 13px", borderRadius: "12px", flex: "none", background: bg, color: col, fontWeight: 800, fontSize: "12.5px" });
   const mk = (
@@ -492,7 +496,9 @@ export function questsView(s: GameState): QuestsView {
     mk("scale", "#58A700", "#E8FFD7", "Match my verdict twice", s.questMatch, 2, "#58CC02", icon("chest", 16, "#E07F00"), "Chest", "#FFF3E0", "#FF9600"),
     mk("flame", "#FF9600", "#FFF3E0", "Keep your streak alive", s.scored ? 1 : 0, 1, "#FF9600", icon("bolt", 16, "#E5A300"), "+10", "#FFF8E1", "#E5A300"),
   ];
-  const weekly = { chestEl: icon("chest", 34, "#fff"), label: "Win 25 cases this week", sub: "Side with me 25 times before Sunday", count: "18", goalLabel: "/ 25", barWidth: (18 / 25) * 100 + "%" };
+  const weeklyGoal = 25;
+  const weeklyDone = Math.min(votesThisWeek, weeklyGoal);
+  const weekly = { chestEl: icon("chest", 34, "#fff"), label: "Judge 25 cases this week", sub: "Weigh in on 25 cases before the week resets", count: String(votesThisWeek), goalLabel: "/ " + weeklyGoal, barWidth: (weeklyDone / weeklyGoal) * 100 + "%" };
   return { clockEl: icon("clock", 15, "#FF9600"), refresh: "18h left", daily, weekly };
 }
 
@@ -506,13 +512,13 @@ export interface ProfileView {
   shareEl: JSX.Element | null;
 }
 
-export function profileView(s: GameState): ProfileView {
+export function profileView(s: GameState, st: PlayerStats): ProfileView {
   const wrap = (bg: string): CSSProperties => ({ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "44px", height: "44px", borderRadius: "14px", flex: "none", background: bg });
   const stats = [
     { iconEl: icon("flame", 22, "#FF9600"), iconWrap: wrap("#FFF3E0"), value: String(s.streak), label: "Day streak" },
     { iconEl: icon("bolt", 22, "#E5A300"), iconWrap: wrap("#FFF8E1"), value: s.totalXp.toLocaleString(), label: "Total XP" },
-    { iconEl: icon("trophy", 22, "#1CB0F6"), iconWrap: wrap("#E3F6FF"), value: "Emerald", label: "League" },
-    { iconEl: icon("medal", 22, "#CE82FF"), iconWrap: wrap("#F6ECFF"), value: "4", label: "Top 3 finishes" },
+    { iconEl: icon("calendar", 22, "#1CB0F6"), iconWrap: wrap("#E3F6FF"), value: String(st.casesJudged), label: "Cases judged" },
+    { iconEl: icon("scale", 22, "#58A700"), iconWrap: wrap("#E8FFD7"), value: st.agreementPct + "%", label: "Agreement" },
   ];
   const ach = (
     iconName: string,
@@ -524,33 +530,37 @@ export function profileView(s: GameState): ProfileView {
     desc: string,
     cur: number,
     goal: number,
-    barColor: string,
-    done: boolean
-  ) => ({
-    iconEl: icon(iconName, 24, done ? ic : "#C2C7B6"),
-    iconWrap: wrap(done ? bg2 : "#F0F2EA"),
-    bg: done ? bg : "#fff",
-    border: done ? border : "#E4EAD8",
-    titleColor: done ? "#3C3C46" : "#7C8470",
-    title,
-    desc,
-    barWidth: Math.min(100, (cur / goal) * 100) + "%",
-    barColor,
-  });
+    barColor: string
+  ) => {
+    const done = cur >= goal;
+    return {
+      iconEl: icon(iconName, 24, done ? ic : "#C2C7B6"),
+      iconWrap: wrap(done ? bg2 : "#F0F2EA"),
+      bg: done ? bg : "#fff",
+      border: done ? border : "#E4EAD8",
+      titleColor: done ? "#3C3C46" : "#7C8470",
+      title,
+      desc,
+      barWidth: Math.min(100, (cur / goal) * 100) + "%",
+      barColor,
+    };
+  };
+  // All thresholds measured against the player's real vote history.
   const achievements = [
-    ach("cap", "#58CC02", "#E8FFD7", "#F4FFEA", "#BFE89A", "Scholar", "Judged 200 cases", 218, 200, "#58CC02", true),
-    ach("flame", "#FF9600", "#FFF3E0", "#FFF9F0", "#FFD9A6", "On Fire", "14-day streak", s.streak, 14, "#FF9600", true),
-    ach("eye", "#CE82FF", "#F6ECFF", "#FBF6FF", "#E6D2FF", "Sharp Eye", "Match me 10 times", s.sharpEye, s.sharpEyeGoal, "#CE82FF", false),
-    ach("users", "#1CB0F6", "#E3F6FF", "#F2FBFF", "#BEEAFD", "Crowd Reader", "Beat the crowd 25 times", 19, 25, "#1CB0F6", false),
+    ach("cap", "#58CC02", "#E8FFD7", "#F4FFEA", "#BFE89A", "Scholar", "Judge 50 cases", st.casesJudged, 50, "#58CC02"),
+    ach("flame", "#FF9600", "#FFF3E0", "#FFF9F0", "#FFD9A6", "On Fire", "Reach a 14-day streak", s.streak, 14, "#FF9600"),
+    ach("eye", "#CE82FF", "#F6ECFF", "#FBF6FF", "#E6D2FF", "Sharp Eye", "Match my verdict 10 times", st.correctCount, 10, "#CE82FF"),
+    ach("scale", "#1CB0F6", "#E3F6FF", "#F2FBFF", "#BEEAFD", "Sage", "Match my verdict 50 times", st.correctCount, 50, "#1CB0F6"),
   ];
   const figures = [
-    { iconEl: icon("scale", 20, "#58A700"), iconWrap: wrap("#E8FFD7"), value: "72%", label: "Agreement with me" },
-    { iconEl: icon("calendar", 20, "#1899D6"), iconWrap: wrap("#E3F6FF"), value: "218", label: "Cases judged" },
+    { iconEl: icon("scale", 20, "#58A700"), iconWrap: wrap("#E8FFD7"), value: st.agreementPct + "%", label: "Agreement with me" },
+    { iconEl: icon("check", 20, "#1899D6"), iconWrap: wrap("#E3F6FF"), value: String(st.correctCount), label: "Verdicts matched" },
     { iconEl: icon("flame", 20, "#FF9600"), iconWrap: wrap("#FFF3E0"), value: String(s.bestStreak), label: "Best streak" },
-    { iconEl: icon("gem", 20, "#7A3FB0"), iconWrap: wrap("#F6ECFF"), value: "340", label: "Gems" },
+    { iconEl: icon("star", 20, "#7A3FB0"), iconWrap: wrap("#F6ECFF"), value: String(s.level), label: "Level" },
   ];
-  const note =
-    "You agree with me about seven times in ten — and you're sharpest on sport and forecasting. Trust your gut on the close calls; that's where you keep beating the crowd.";
+  const note = st.casesJudged === 0
+    ? "We haven't judged a case together yet. Make your first call and I'll start tracking how often we land in the same place."
+    : `You've judged ${st.casesJudged} case${st.casesJudged === 1 ? "" : "s"} with me and we agree about ${st.agreementPct}% of the time. Trust your gut on the close calls — that's where the sharpest players pull ahead.`;
   return {
     stats,
     achievements,

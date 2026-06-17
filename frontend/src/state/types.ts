@@ -18,6 +18,15 @@ export interface LeaguePlayer {
   color: string;
   xp: number;
   isYou?: boolean;
+  isBot?: boolean;
+}
+
+/** Real lifetime figures for the player, from get_player_stats(). */
+export interface PlayerStats {
+  casesJudged: number;
+  correctCount: number;
+  agreementPct: number;
+  votesThisWeek: number;
 }
 
 export interface RevealFlags {
@@ -60,6 +69,7 @@ export interface GameState {
   questMatch: number;
   contLeft: number;
   league: LeaguePlayer[];
+  stats: PlayerStats;
 
   // Dynamic case data (replaces hardcoded baseCards / JUDGE_ID)
   cards: BaseCard[];

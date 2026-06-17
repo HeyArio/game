@@ -65,10 +65,11 @@ function Game() {
         contLeft: data.continuance_count ?? 2, bestStreak: (data as any).best_streak ?? 0,
       });
 
-      // Real leaderboard — top players by total XP, with the current user flagged.
+      // Real leaderboard — top players by total XP (real users + labeled AI
+      // opponents), with the current user flagged.
       const { data: board } = await supabase
         .from("global_leaderboard")
-        .select("user_id, display_name, avatar_color, total_xp, rank")
+        .select("user_id, display_name, avatar_color, total_xp, is_bot, rank")
         .order("rank", { ascending: true })
         .limit(20);
       if (board?.length) {
@@ -79,9 +80,19 @@ function Game() {
             color: r.avatar_color ?? "#58CC02",
             xp: r.total_xp ?? 0,
             isYou: r.user_id === user.id,
+            isBot: !!r.is_bot,
           }))
         );
       }
+
+      // Real lifetime stats for the Profile + Quests screens.
+      const { data: stats } = await supabase.rpc("get_player_stats").single();
+      if (stats) game.actions.initStats({
+        casesJudged: (stats as any).cases_judged ?? 0,
+        correctCount: (stats as any).correct_count ?? 0,
+        agreementPct: (stats as any).agreement_pct ?? 0,
+        votesThisWeek: (stats as any).votes_this_week ?? 0,
+      });
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

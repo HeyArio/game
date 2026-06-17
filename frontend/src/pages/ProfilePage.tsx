@@ -10,7 +10,7 @@ export interface ProfilePageProps {
 
 export function ProfilePage({ state }: ProfilePageProps) {
   const isMobile = useIsMobile();
-  const profile = profileView(state);
+  const profile = profileView(state, state.stats);
   const { user, signOut } = useAuth();
 
   const meta = (user?.user_metadata ?? {}) as { full_name?: string; name?: string };

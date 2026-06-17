@@ -7,7 +7,7 @@ export interface QuestsPageProps {
 }
 
 export function QuestsPage({ state }: QuestsPageProps) {
-  const quests = questsView(state);
+  const quests = questsView(state, state.stats.votesThisWeek);
 
   return (
     <div style={{ maxWidth: 680, margin: "0 auto", padding: "26px 24px", display: "flex", flexDirection: "column", gap: 16 }}>

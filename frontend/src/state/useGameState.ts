@@ -1,21 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { BaseCard, CardId, GameState, LeaguePlayer, OverlayKind, Screen } from "./types";
+import type { BaseCard, CardId, GameState, LeaguePlayer, OverlayKind, PlayerStats, Screen } from "./types";
 
 export const JUDGE_ID: CardId = "d";
 export const CROWD_LEADER: CardId = "b";
 
 const STARTING_COUNTDOWN = 60138; // seconds, ported from `_countdown = 60138`
 
+// Placeholder leaderboard shown only until the real global_leaderboard loads
+// (and in offline dev mode). Opponents are labeled AI bots, never fake humans.
 function defaultLeague(): LeaguePlayer[] {
   return [
-    { name: "Mara K.", initial: "M", color: "#FF9600", xp: 3120 },
-    { name: "Devin R.", initial: "D", color: "#1CB0F6", xp: 2980 },
-    { name: "Priya S.", initial: "P", color: "#CE82FF", xp: 2870 },
-    { name: "Tomás L.", initial: "T", color: "#58CC02", xp: 2680 },
-    { name: "Yuki N.", initial: "Y", color: "#FF4B4B", xp: 2510 },
+    { name: "Opus-Bot", initial: "O", color: "#FF9600", xp: 3120, isBot: true },
+    { name: "Sonnet-Bot", initial: "S", color: "#1CB0F6", xp: 2980, isBot: true },
+    { name: "Gemini-Bot", initial: "G", color: "#CE82FF", xp: 2870, isBot: true },
+    { name: "Llama-Bot", initial: "L", color: "#58CC02", xp: 2680, isBot: true },
+    { name: "Mistral-Bot", initial: "M", color: "#FF4B4B", xp: 2510, isBot: true },
     { name: "You", initial: "Y", color: "#58CC02", xp: 2480, isYou: true },
-    { name: "Aria B.", initial: "A", color: "#1CB0F6", xp: 2360 },
-    { name: "Sven O.", initial: "S", color: "#CE82FF", xp: 2240 },
+    { name: "Grok-Bot", initial: "G", color: "#1CB0F6", xp: 2360, isBot: true },
+    { name: "Qwen-Bot", initial: "Q", color: "#CE82FF", xp: 2240, isBot: true },
   ];
 }
 
@@ -96,6 +98,7 @@ function makeInitState(props: InitProps): GameState {
     questMatch: 1,
     contLeft: props.contLeft ?? 2,
     league: defaultLeague(),
+    stats: { casesJudged: 0, correctCount: 0, agreementPct: 0, votesThisWeek: 0 },
     // case data — overwritten via initCase() when DB data loads
     cards: baseCards(),
     judgeOptionId: null,
@@ -437,6 +440,11 @@ export function useGameState(props: InitProps = {}) {
     setState((s) => ({ ...s, league: [...players].sort((a, b) => b.xp - a.xp) }));
   }, []);
 
+  /** Load real lifetime stats (cases judged, agreement %, …) into game state */
+  const initStats = useCallback((stats: PlayerStats) => {
+    setState((s) => ({ ...s, stats }));
+  }, []);
+
   return {
     state,
     countdownText,
@@ -456,6 +464,7 @@ export function useGameState(props: InitProps = {}) {
       initCase,
       initProgress,
       initLeague,
+      initStats,
       applyVoteResult,
     },
   };

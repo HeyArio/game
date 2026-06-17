@@ -73,7 +73,10 @@ export function LeaguesPage({ state }: LeaguesPageProps) {
               <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, borderRadius: "50%", background: row.color, color: "#fff", fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16, flex: "none" }}>
                 {row.initial}
               </span>
-              <span style={{ flex: 1, minWidth: 0, fontWeight: 800, fontSize: 15, color: "#3C3C46", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name}</span>
+              <span style={{ flex: 1, minWidth: 0, fontWeight: 800, fontSize: 15, color: "#3C3C46", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {row.name}
+                {row.isBot && <span title="AI opponent" style={{ marginLeft: 5 }}>🤖</span>}
+              </span>
               <span style={{ fontWeight: 800, fontSize: 14, color: "#8E9582", flex: "none" }}>{row.xp}</span>
             </div>
           </div>
