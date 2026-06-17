@@ -50,21 +50,21 @@ That's it — the frontend's "Continue with Google" button
 
 ## 4. LLM providers + daily case generation
 
-The `generate-daily-case` Edge Function calls 5 different LLM providers, one
-per persona slot:
+The `generate-daily-case` Edge Function calls four LLM providers across the
+five persona slots (Gemini doubles as a contestant and the judge):
 
 | Slot | Persona | Provider | Default model |
 |------|---------|----------|---------------|
 | 1 | ASTRA  | OpenRouter | `openrouter/free` |
 | 2 | BOREAS | Groq | `llama-3.3-70b-versatile` |
 | 3 | CIRRUS | Mistral | `mistral-small-latest` |
-| 4 | DELPHI | Z.ai | `glm-4.7` |
+| 4 | DELPHI | Gemini | `gemini-3.1-flash-lite-preview` |
 | 5 | Arbi (judge) | Gemini | `gemini-3.1-flash-lite-preview` |
 
 Gemini is the judge: it evaluates the four contestant answers and picks the
 sharpest, emitting clean JSON verdicts. The function speaks each provider's
 native wire format — OpenAI-style chat completions (OpenRouter / Groq /
-Mistral), Anthropic-style messages (Z.ai), and Gemini's `generateContent`.
+Mistral) and Gemini's `generateContent`.
 
 These provider/model pairs are baked in as defaults — you do **not** need to
 set them. Override any slot with `LLM_PROVIDER_1`..`5` and `LLM_MODEL_1`..`5`
@@ -80,7 +80,7 @@ supabase secrets set --env-file ./supabase/.env
 
 `supabase/.env` is git-ignored, so your keys never get committed. Each provider
 has its own key: `OPENROUTER_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`,
-`GEMINI_API_KEY`, `ZAI_API_KEY`.
+`GEMINI_API_KEY`.
 
 > ⚠️ Do **not** put these keys in `frontend/.env`. That file is compiled into
 > the browser bundle and is publicly visible — it would leak your API keys.

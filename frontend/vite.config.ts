@@ -29,12 +29,6 @@ export default defineConfig({
         secure: true,
         rewrite: (path) => path.replace(/^\/mistral-api/, ""),
       },
-      "/zai-api": {
-        target: "https://api.z.ai/api/anthropic",
-        changeOrigin: true,
-        secure: true,
-        rewrite: (path) => path.replace(/^\/zai-api/, ""),
-      },
       "/gemini-api": {
         target: "https://generativelanguage.googleapis.com",
         changeOrigin: true,

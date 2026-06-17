@@ -2,15 +2,15 @@
  * providers.ts — TESTING-ONLY client-side case generation.
  *
  * When VITE_LLM_ENABLED (or any provider API key) is set, the app generates the
- * daily case directly in the browser by calling 5 different LLM providers,
+ * daily case directly in the browser by calling 4 different LLM providers,
  * instead of reading a case from the database. This lets you test the full game
  * loop locally without deploying the `generate-daily-case` edge function.
  *
- * Each persona slot is backed by a different provider:
+ * Each persona slot is backed by a provider:
  *   1 ASTRA  → OpenRouter  (openrouter/free)
  *   2 BOREAS → Groq        (llama-3.3-70b-versatile)
  *   3 CIRRUS → Mistral     (mistral-small-latest)
- *   4 DELPHI → Z.ai        (glm-4.7)
+ *   4 DELPHI → Gemini      (gemini-3.1-flash-lite-preview)
  *   5 Arbi   → Gemini      (gemini-3.1-flash-lite-preview)   ← the judge
  *
  * ⚠️  This exposes your API keys in the browser and only works under `npm run dev`
@@ -23,7 +23,7 @@ import type { BaseCard, CardId } from "../state/types";
 const PERSONA_NAMES = ["ASTRA", "BOREAS", "CIRRUS", "DELPHI"];
 const LETTERS = ["A", "B", "C", "D"] as const;
 
-type ProviderId = "openrouter" | "groq" | "mistral" | "zai" | "gemini";
+type ProviderId = "openrouter" | "groq" | "mistral" | "gemini";
 
 interface ProviderDef {
   /** Vite dev-proxy prefix (see vite.config.ts) used in the browser. */
@@ -31,7 +31,7 @@ interface ProviderDef {
   /** Name of the VITE_ env var holding this provider's API key. */
   keyEnv: string;
   /** Wire format of the provider's API. */
-  shape: "openai" | "anthropic" | "gemini";
+  shape: "openai" | "gemini";
   /** Extra headers (e.g. OpenRouter's ranking headers). */
   headers?: Record<string, string>;
 }
@@ -48,8 +48,6 @@ const PROVIDERS: Record<ProviderId, ProviderDef> = {
   groq: { proxy: "/groq-api", keyEnv: "VITE_GROQ_API_KEY", shape: "openai" },
   // https://api.mistral.ai → /mistral-api
   mistral: { proxy: "/mistral-api", keyEnv: "VITE_MISTRAL_API_KEY", shape: "openai" },
-  // https://api.z.ai/api/anthropic → /zai-api
-  zai: { proxy: "/zai-api", keyEnv: "VITE_ZAI_API_KEY", shape: "anthropic" },
   // https://generativelanguage.googleapis.com → /gemini-api
   gemini: { proxy: "/gemini-api", keyEnv: "VITE_GEMINI_API_KEY", shape: "gemini" },
 };
@@ -62,7 +60,7 @@ const DEFAULT_SLOTS: Record<number, SlotConfig> = {
   1: { provider: "openrouter", model: "openrouter/free" },              // ASTRA
   2: { provider: "groq", model: "llama-3.3-70b-versatile" },            // BOREAS
   3: { provider: "mistral", model: "mistral-small-latest" },            // CIRRUS
-  4: { provider: "zai", model: "glm-4.7" },                             // DELPHI
+  4: { provider: "gemini", model: "gemini-3.1-flash-lite-preview" },    // DELPHI
   5: { provider: "gemini", model: "gemini-3.1-flash-lite-preview" },    // Arbi (judge)
 };
 
@@ -87,7 +85,6 @@ async function callModel(slot: number, messages: Msg[], maxTokens = 256): Promis
   const apiKey = env[def.keyEnv] ?? "";
 
   if (def.shape === "openai") return callOpenAI(def, apiKey, model, messages, maxTokens);
-  if (def.shape === "anthropic") return callAnthropic(def, apiKey, model, messages, maxTokens);
   return callGemini(def, apiKey, model, messages, maxTokens);
 }
 
@@ -100,19 +97,6 @@ async function callOpenAI(def: ProviderDef, apiKey: string, model: string, messa
   if (!res.ok) throw new Error(`${model}: ${res.status} ${await res.text()}`);
   const data = await res.json();
   return data.choices?.[0]?.message?.content?.trim() ?? "";
-}
-
-async function callAnthropic(def: ProviderDef, apiKey: string, model: string, messages: Msg[], maxTokens: number): Promise<string> {
-  const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n");
-  const rest = messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: m.content }));
-  const res = await fetch(`${def.proxy}/v1/messages`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", ...def.headers },
-    body: JSON.stringify({ model, max_tokens: maxTokens, ...(system ? { system } : {}), messages: rest }),
-  });
-  if (!res.ok) throw new Error(`${model}: ${res.status} ${await res.text()}`);
-  const data = await res.json();
-  return (data.content?.map((c: { text?: string }) => c.text ?? "").join("") ?? "").trim();
 }
 
 async function callGemini(def: ProviderDef, apiKey: string, model: string, messages: Msg[], maxTokens: number): Promise<string> {
