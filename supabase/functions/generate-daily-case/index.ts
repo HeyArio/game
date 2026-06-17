@@ -329,7 +329,7 @@ Deno.serve(async (req) => {
     }
 
     // Judge picks the winner (judgeAnswers never throws; it falls back internally).
-    const { winnerLetter } = await judgeAnswers(question, realAnswers);
+    const { winnerLetter, reasoning: judgeReasoning } = await judgeAnswers(question, realAnswers);
 
     // Plausible crowd distribution (judge answer gets slightly lower share — makes game interesting)
     const shuffled = [...answers].sort(() => Math.random() - 0.5);
@@ -351,7 +351,7 @@ Deno.serve(async (req) => {
     // Insert case
     const { data: caseRow, error: caseErr } = await supabase
       .from("daily_cases")
-      .insert({ case_no: nextCaseNo, question, category, opens_at: opens.toISOString(), closes_at: closes.toISOString() })
+      .insert({ case_no: nextCaseNo, question, category, judge_reasoning: clean(judgeReasoning), opens_at: opens.toISOString(), closes_at: closes.toISOString() })
       .select("id")
       .single();
     if (caseErr) throw caseErr;

@@ -39,7 +39,10 @@ function SplashScreen() {
 function Game() {
   const { submitVote } = useVote();
   const { status: caseStatus, dailyCase, error: caseError } = useDailyCase();
-  const game = useGameState({ onSubmitVote: async (caseId, optionId) => submitVote(caseId, optionId) });
+  const game = useGameState({
+    onSubmitVote: async (caseId, optionId, confidence, crowdGuessOptionId) =>
+      submitVote(caseId, optionId, confidence, crowdGuessOptionId),
+  });
 
   useEffect(() => {
     if (caseStatus !== "active" || !dailyCase) return;
@@ -134,7 +137,8 @@ function GameShell({ game, caseLoading, noCase, error }: {
 
       {state.screen === "play" && (
         <PlayPage state={state} countdownText={countdownText} caseLoading={caseLoading} noCase={noCase}
-          onSelectCard={actions.selectCard} onLockIn={actions.lockIn} onAdvance={actions.advance} onReplay={actions.reset} />
+          onSelectCard={actions.selectCard} onSetConfidence={actions.setConfidence} onSetCrowdGuess={actions.setCrowdGuess}
+          onLockIn={actions.lockIn} onAdvance={actions.advance} onReplay={actions.reset} />
       )}
       {state.screen === "leagues" && <LeaguesPage state={state} />}
       {state.screen === "quests"  && <QuestsPage  state={state} />}

@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { BaseCard, CardId, GameState, LeaguePlayer, OverlayKind, PlayerStats, Screen } from "./types";
+import type { BaseCard, CardId, Confidence, GameState, LeaguePlayer, OverlayKind, PlayerStats, Screen } from "./types";
+
+// XP wager table (mirrors the submit-vote edge function for the dev/local path).
+const XP_TABLE: Record<Confidence, { correct: number; wrong: number }> = {
+  low:  { correct: 30,  wrong: 10 },
+  med:  { correct: 50,  wrong: 5  },
+  high: { correct: 100, wrong: 0  },
+};
+const CROWD_BONUS = 15;
 
 export const JUDGE_ID: CardId = "d";
 export const CROWD_LEADER: CardId = "b";
@@ -49,6 +57,10 @@ export interface VoteResult {
   votedOptionId: string;
   judgeOptionId: string;
   judgeOptionLetter: string;
+  judgeReasoning: string | null;
+  crowdLeaderLetter: string | null;
+  crowdCorrect: boolean;
+  crowdBonus: number;
   alreadyVoted: boolean;
   options: { id: string; letter: string; is_judge_pick: boolean; live_pct: number }[];
 }
@@ -69,7 +81,12 @@ interface InitProps {
   contLeft?: number;
   sharpEye?: number;
   /** Called when the user locks in. Returns server verdict. */
-  onSubmitVote?: (caseId: string, optionId: string) => Promise<VoteResult | null>;
+  onSubmitVote?: (
+    caseId: string,
+    optionId: string,
+    confidence: Confidence,
+    crowdGuessOptionId: string | null,
+  ) => Promise<VoteResult | null>;
 }
 
 function makeInitState(props: InitProps): GameState {
@@ -99,6 +116,12 @@ function makeInitState(props: InitProps): GameState {
     contLeft: props.contLeft ?? 2,
     league: defaultLeague(),
     stats: { casesJudged: 0, correctCount: 0, agreementPct: 0, votesThisWeek: 0 },
+    confidence: "med",
+    crowdGuess: null,
+    judgeReasoning: null,
+    crowdLeaderId: null,
+    crowdCorrect: false,
+    crowdBonus: 0,
     // case data — overwritten via initCase() when DB data loads
     cards: baseCards(),
     judgeOptionId: null,
@@ -248,11 +271,16 @@ export function useGameState(props: InitProps = {}) {
         const opt = result.options.find((o) => o.letter.toLowerCase() === c.id);
         return opt ? { ...c, crowd: opt.live_pct } : c;
       });
+      const crowdLeaderId = (result.crowdLeaderLetter?.toLowerCase() ?? null) as CardId | null;
       return {
         ...s,
         cards,
         judgeCardId,
         judgeOptionId: result.judgeOptionId,
+        judgeReasoning: result.judgeReasoning ?? null,
+        crowdLeaderId,
+        crowdCorrect: result.crowdCorrect,
+        crowdBonus: result.crowdBonus,
         reveal: { ...s.reveal, verdict: true },
         scored: true,
         win,
@@ -292,23 +320,31 @@ export function useGameState(props: InitProps = {}) {
       // The option id is stored on the card when we call initCase
       const selectedCard = s.cards.find(c => c.id === s.selected);
       const optionId = (selectedCard as any)?._optionId as string | undefined;
+      const crowdCard = s.crowdGuess ? s.cards.find(c => c.id === s.crowdGuess) : undefined;
+      const crowdOptionId = (crowdCard as any)?._optionId as string | undefined;
       if (optionId) {
-        const result = await onVote(s.caseId, optionId);
+        const result = await onVote(s.caseId, optionId, s.confidence, crowdOptionId ?? null);
         if (result) { applyVoteResult(result); return; }
       }
     }
 
-    // Fallback: local scoring (dev mode / no backend)
+    // Fallback: local scoring (dev mode / no backend), mirroring the server math.
     setState((s2) => {
       if (s2.scored) return s2;
       const win = s2.selected === (s2.judgeCardId ?? JUDGE_ID);
-      const earned = win ? 50 : 10;
+      // Crowd leader by seeded crowd %.
+      const crowdLeaderId = [...s2.cards].sort((a, b) => b.crowd - a.crowd)[0]?.id ?? null;
+      const crowdCorrect = !!s2.crowdGuess && s2.crowdGuess === crowdLeaderId;
+      const crowdBonus = crowdCorrect ? CROWD_BONUS : 0;
+      const tier = XP_TABLE[s2.confidence] ?? XP_TABLE.med;
+      const earned = (win ? tier.correct : tier.wrong) + crowdBonus;
       const league = s2.league
         .map((p) => (p.isYou ? { ...p, xp: p.xp + earned } : p))
         .sort((a, b) => b.xp - a.xp);
       const youRank = league.findIndex((p) => p.isYou) + 1;
       queueMicrotask(() => { countDaily(earned); if (win) fireConfetti(); });
       return { ...s2, reveal: { ...s2.reveal, verdict: true }, scored: true, win, earned,
+        judgeReasoning: s2.judgeReasoning, crowdLeaderId, crowdCorrect, crowdBonus,
         totalXp: s2.totalXp + earned, level: levelFromXp(s2.totalXp + earned),
         streak: s2.streak + 1, bestStreak: Math.max(s2.bestStreak, s2.streak + 1),
         dailyXp: Math.min(s2.dailyGoal, s2.dailyXp + earned),
@@ -345,6 +381,15 @@ export function useGameState(props: InitProps = {}) {
 
   const selectCard = useCallback((id: CardId) => {
     setState((s) => (s.phase === "unvoted" ? { ...s, selected: id } : s));
+  }, []);
+
+  const setConfidence = useCallback((c: Confidence) => {
+    setState((s) => (s.phase === "unvoted" ? { ...s, confidence: c } : s));
+  }, []);
+
+  // Tap the same option again to clear the crowd guess.
+  const setCrowdGuess = useCallback((id: CardId) => {
+    setState((s) => (s.phase === "unvoted" ? { ...s, crowdGuess: s.crowdGuess === id ? null : id } : s));
   }, []);
 
   const setScreen = useCallback((id: Screen) => {
@@ -451,6 +496,8 @@ export function useGameState(props: InitProps = {}) {
     setCanvas,
     actions: {
       selectCard,
+      setConfidence,
+      setCrowdGuess,
       lockIn,
       score,
       equipContinuance,

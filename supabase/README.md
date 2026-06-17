@@ -16,7 +16,7 @@ the VPS. Nothing here runs on the VPS.
 ## 2. Apply the schema
 
 Open **SQL Editor** in the Supabase dashboard and run each migration in
-`migrations/` in order (`0001` → `0004`). (Or, with the Supabase CLI linked to
+`migrations/` in order (`0001` → `0009`). (Or, with the Supabase CLI linked to
 the project: `supabase db push`.)
 
 This creates: `profiles`, `user_progress`, `daily_cases`, `case_options`,
@@ -146,6 +146,11 @@ select cron.schedule('tick-bot-xp', '10 0 * * *', $$ select public.tick_bot_xp()
   Function with the service-role key.
 - **Daily rotation & bot drift** are handled by scheduled jobs (the
   `generate-daily-case` cron in §4 and the `tick-bot-xp` cron above).
+- **Engagement (0009).** The judge's reasoning is stored on `daily_cases`
+  (revealed only via `submit-vote` after a vote), and `submit-vote` scores a
+  **confidence wager** (low/med/high) plus a **beat-the-crowd** bonus, recorded
+  on the `votes` row. Redeploy `generate-daily-case` + `submit-vote` after
+  applying `0009`.
 - **Still to wire (optional, currently presentational):** quest reward
   claiming, and tiered **weekly league** assignment + reset (the all-time
   `global_leaderboard` stands in for now). These need their own scheduled jobs.

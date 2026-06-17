@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
+import type { Confidence } from "../state/types";
 
 export interface VoteResult {
   wasCorrect: boolean;
@@ -7,6 +8,11 @@ export interface VoteResult {
   votedOptionId: string;
   judgeOptionId: string;
   judgeOptionLetter: string;
+  judgeReasoning: string | null;
+  crowdLeaderLetter: string | null;
+  crowdCorrect: boolean;
+  crowdBonus: number;
+  confidence: Confidence;
   alreadyVoted: boolean;
   options: {
     id: string;
@@ -23,7 +29,12 @@ export interface UseVoteResult {
   submitting: boolean;
   voteResult: VoteResult | null;
   error: string | null;
-  submitVote: (caseId: string, optionId: string) => Promise<VoteResult | null>;
+  submitVote: (
+    caseId: string,
+    optionId: string,
+    confidence?: Confidence,
+    crowdGuessOptionId?: string | null,
+  ) => Promise<VoteResult | null>;
   clearResult: () => void;
 }
 
@@ -32,7 +43,12 @@ export function useVote(): UseVoteResult {
   const [voteResult, setVoteResult]   = useState<VoteResult | null>(null);
   const [error, setError]             = useState<string | null>(null);
 
-  async function submitVote(caseId: string, optionId: string): Promise<VoteResult | null> {
+  async function submitVote(
+    caseId: string,
+    optionId: string,
+    confidence: Confidence = "med",
+    crowdGuessOptionId: string | null = null,
+  ): Promise<VoteResult | null> {
     setSubmitting(true);
     setError(null);
     try {
@@ -40,7 +56,7 @@ export function useVote(): UseVoteResult {
       if (!session) throw new Error("Not signed in");
 
       const res = await supabase.functions.invoke("submit-vote", {
-        body: { case_id: caseId, option_id: optionId },
+        body: { case_id: caseId, option_id: optionId, confidence, crowd_guess_option_id: crowdGuessOptionId },
       });
 
       if (res.error) throw res.error;

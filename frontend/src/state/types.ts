@@ -2,6 +2,7 @@ export type CardId = "a" | "b" | "c" | "d";
 export type Phase = "unvoted" | "voting" | "revealed";
 export type Screen = "play" | "leagues" | "quests" | "profile";
 export type OverlayKind = "streak" | "promo" | null;
+export type Confidence = "low" | "med" | "high";
 
 export interface BaseCard {
   id: CardId;
@@ -70,6 +71,14 @@ export interface GameState {
   contLeft: number;
   league: LeaguePlayer[];
   stats: PlayerStats;
+
+  // Engagement: confidence wager + beat-the-crowd side-bet + judge reasoning
+  confidence: Confidence;       // chosen before lock-in (default "med")
+  crowdGuess: CardId | null;    // which option the player thinks the crowd backs
+  judgeReasoning: string | null;// Arbi's "why", revealed after the verdict
+  crowdLeaderId: CardId | null; // the actual crowd leader (revealed)
+  crowdCorrect: boolean;        // did the crowd guess hit?
+  crowdBonus: number;           // bonus XP from the crowd bet
 
   // Dynamic case data (replaces hardcoded baseCards / JUDGE_ID)
   cards: BaseCard[];

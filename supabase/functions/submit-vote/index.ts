@@ -4,19 +4,34 @@
  * Server-side vote handler. Hides the judge verdict until called, then:
  *   1. Validates the vote (case open, not already voted, valid option)
  *   2. Reveals whether the chosen option is the judge's pick
- *   3. Awards XP (50 if correct, 10 if not)
+ *   3. Awards XP based on the player's confidence wager:
+ *        low  → correct 30 / wrong 10
+ *        med  → correct 50 / wrong  5
+ *        high → correct 100 / wrong 0
+ *      plus a +15 "beat the crowd" bonus if their crowd guess matches the
+ *      current crowd leader.
  *   4. Updates user_progress (total_xp, daily_xp, streak, best_streak)
- *   5. Inserts the vote row
- *   6. Returns the full result including which option the judge picked
- *      and live crowd percentages
+ *   5. Inserts the vote row (with confidence + crowd guess)
+ *   6. Returns the full result: judge pick + reasoning, crowd leader, live
+ *      crowd percentages, and the XP breakdown.
  *
  * Called from the frontend with the user's Supabase JWT in Authorization header.
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const XP_CORRECT = 50;
-const XP_WRONG   = 10;
+const CROWD_BONUS = 15;
+
+type Confidence = "low" | "med" | "high";
+const XP_TABLE: Record<Confidence, { correct: number; wrong: number }> = {
+  low:  { correct: 30,  wrong: 10 },
+  med:  { correct: 50,  wrong: 5  },
+  high: { correct: 100, wrong: 0  },
+};
+function baseXp(correct: boolean, confidence: Confidence): number {
+  const c = XP_TABLE[confidence] ?? XP_TABLE.med;
+  return correct ? c.correct : c.wrong;
+}
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -36,17 +51,19 @@ Deno.serve(async (req) => {
     { global: { headers: { Authorization: authHeader } } }
   );
 
-  // Service-role client for privileged writes (XP updates, vote insert bypassing per-user checks)
+  // Service-role client for privileged writes
   const adminClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  let caseId: string, optionId: string;
+  let caseId: string, optionId: string, confidence: Confidence, crowdGuessOptionId: string | null;
   try {
     const body = await req.json();
     caseId   = body.case_id;
     optionId = body.option_id;
+    confidence = (["low", "med", "high"].includes(body.confidence) ? body.confidence : "med") as Confidence;
+    crowdGuessOptionId = body.crowd_guess_option_id ?? null;
     if (!caseId || !optionId) throw new Error("Missing case_id or option_id");
   } catch (e) {
     return json({ error: String(e) }, 400);
@@ -66,18 +83,28 @@ Deno.serve(async (req) => {
     .single();
   if (caseErr || !caseRow) return json({ error: "Case not found or not open" }, 404);
 
-  // --- Check not already voted ---
+  const ctx = await getCaseContext(adminClient, caseId);
+
+  // --- Already voted? Return the stored result so the reveal can be rebuilt ---
   const { data: existingVote } = await adminClient
     .from("votes")
-    .select("id, option_id, was_correct, xp_earned")
+    .select("option_id, was_correct, xp_earned, confidence, crowd_guess_option_id, crowd_correct")
     .eq("user_id", user.id)
     .eq("case_id", caseId)
     .maybeSingle();
 
   if (existingVote) {
-    // Return the previous result so the frontend can reconstruct the reveal state
-    const result = await buildResult(adminClient, caseId, existingVote.option_id, existingVote.was_correct!, existingVote.xp_earned!);
-    return json({ ...result, alreadyVoted: true });
+    return json({
+      ...buildPayload(ctx, {
+        votedOptionId:      existingVote.option_id,
+        wasCorrect:         existingVote.was_correct ?? false,
+        xpEarned:           existingVote.xp_earned ?? 0,
+        confidence:         (existingVote.confidence as Confidence) ?? "med",
+        crowdGuessOptionId: existingVote.crowd_guess_option_id ?? null,
+        crowdCorrect:       existingVote.crowd_correct ?? false,
+      }),
+      alreadyVoted: true,
+    });
   }
 
   // --- Validate option belongs to this case ---
@@ -90,69 +117,113 @@ Deno.serve(async (req) => {
   if (optErr || !option) return json({ error: "Invalid option" }, 400);
 
   const wasCorrect = option.is_judge_pick;
-  const xpEarned   = wasCorrect ? XP_CORRECT : XP_WRONG;
+  const crowdCorrect = !!crowdGuessOptionId && crowdGuessOptionId === ctx.crowdLeaderOptionId;
+  const xpEarned = baseXp(wasCorrect, confidence) + (crowdCorrect ? CROWD_BONUS : 0);
 
   // --- Insert the vote ---
   const { error: voteErr } = await adminClient.from("votes").insert({
-    user_id:     user.id,
-    case_id:     caseId,
-    option_id:   optionId,
-    was_correct: wasCorrect,
-    xp_earned:   xpEarned,
+    user_id:               user.id,
+    case_id:               caseId,
+    option_id:             optionId,
+    was_correct:           wasCorrect,
+    xp_earned:             xpEarned,
+    confidence:            confidence,
+    crowd_guess_option_id: crowdGuessOptionId,
+    crowd_correct:         crowdCorrect,
   });
   if (voteErr) return json({ error: voteErr.message }, 500);
 
   // --- Update user_progress ---
   await adminClient.rpc("update_user_progress_after_vote", {
-    p_user_id:    user.id,
-    p_xp_earned:  xpEarned,
+    p_user_id:     user.id,
+    p_xp_earned:   xpEarned,
     p_was_correct: wasCorrect,
   });
 
-  const result = await buildResult(adminClient, caseId, optionId, wasCorrect, xpEarned);
-  return json({ ...result, alreadyVoted: false });
+  return json({
+    ...buildPayload(ctx, {
+      votedOptionId: optionId, wasCorrect, xpEarned, confidence, crowdGuessOptionId, crowdCorrect,
+    }),
+    alreadyVoted: false,
+  });
 });
 
-async function buildResult(
-  admin: ReturnType<typeof createClient>,
-  caseId: string,
-  votedOptionId: string,
-  wasCorrect: boolean,
-  xpEarned: number,
-) {
-  // Fetch all options for this case (including which is the judge pick)
+interface CaseContext {
+  options: any[];
+  judgeOptionId: string | null;
+  judgeOptionLetter: string | null;
+  judgeReasoning: string | null;
+  crowdLeaderOptionId: string | null;
+  crowdLeaderLetter: string | null;
+}
+
+// Everything about the case that's the same regardless of who voted: enriched
+// options (with live crowd %), the judge pick + reasoning, and the crowd leader.
+async function getCaseContext(admin: ReturnType<typeof createClient>, caseId: string): Promise<CaseContext> {
   const { data: options } = await admin
     .from("case_options")
     .select("id, letter, model_name, pick, rationale, is_judge_pick, crowd_pct")
     .eq("case_id", caseId)
     .order("letter");
 
-  // Live crowd percentages from actual votes
+  const { data: caseRow } = await admin
+    .from("daily_cases")
+    .select("judge_reasoning")
+    .eq("id", caseId)
+    .single();
+
   const { data: summary } = await admin
     .from("case_vote_summary")
     .select("option_id, pct")
     .eq("case_id", caseId);
 
   const crowdMap: Record<string, number> = {};
-  (summary ?? []).forEach((s: { option_id: string; pct: number }) => {
-    crowdMap[s.option_id] = s.pct;
-  });
+  (summary ?? []).forEach((s: { option_id: string; pct: number }) => { crowdMap[s.option_id] = s.pct; });
 
-  // Fall back to seeded crowd_pct values if no votes yet
-  const enrichedOptions = (options ?? []).map((o: any) => ({
+  const enriched = (options ?? []).map((o: any) => ({
     ...o,
     live_pct: crowdMap[o.id] ?? o.crowd_pct ?? 0,
   }));
 
-  const judgeOption = enrichedOptions.find((o: any) => o.is_judge_pick);
+  const judge = enriched.find((o: any) => o.is_judge_pick);
+
+  // Crowd leader = highest live %, tie-broken by seeded crowd_pct then letter.
+  const leader = [...enriched].sort(
+    (a, b) => (b.live_pct - a.live_pct) || (b.crowd_pct - a.crowd_pct) || a.letter.localeCompare(b.letter)
+  )[0];
 
   return {
-    wasCorrect,
-    xpEarned,
-    votedOptionId,
-    judgeOptionId:  judgeOption?.id ?? null,
-    judgeOptionLetter: judgeOption?.letter ?? null,
-    options: enrichedOptions,
+    options: enriched,
+    judgeOptionId: judge?.id ?? null,
+    judgeOptionLetter: judge?.letter ?? null,
+    judgeReasoning: (caseRow as any)?.judge_reasoning ?? null,
+    crowdLeaderOptionId: leader?.id ?? null,
+    crowdLeaderLetter: leader?.letter ?? null,
+  };
+}
+
+function buildPayload(ctx: CaseContext, v: {
+  votedOptionId: string;
+  wasCorrect: boolean;
+  xpEarned: number;
+  confidence: Confidence;
+  crowdGuessOptionId: string | null;
+  crowdCorrect: boolean;
+}) {
+  return {
+    wasCorrect:        v.wasCorrect,
+    xpEarned:          v.xpEarned,
+    votedOptionId:     v.votedOptionId,
+    confidence:        v.confidence,
+    judgeOptionId:     ctx.judgeOptionId,
+    judgeOptionLetter: ctx.judgeOptionLetter,
+    judgeReasoning:    ctx.judgeReasoning,
+    crowdGuessOptionId: v.crowdGuessOptionId,
+    crowdLeaderOptionId: ctx.crowdLeaderOptionId,
+    crowdLeaderLetter:  ctx.crowdLeaderLetter,
+    crowdCorrect:       v.crowdCorrect,
+    crowdBonus:         v.crowdCorrect ? CROWD_BONUS : 0,
+    options:            ctx.options,
   };
 }
 

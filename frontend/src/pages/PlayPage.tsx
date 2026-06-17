@@ -3,7 +3,8 @@ import { Mascot } from "../components/Mascot";
 import { AnswerCard } from "../components/AnswerCard";
 import { icon } from "../icons/Icon";
 import { useIsMobile } from "../hooks/useMediaQuery";
-import type { GameState, CardId } from "../state/types";
+import { shareResult } from "../lib/share";
+import type { GameState, CardId, Confidence } from "../state/types";
 import {
   badgesView,
   continueActiveStyle,
@@ -26,15 +27,16 @@ export interface PlayPageProps {
   caseLoading?: boolean;
   noCase?: boolean;
   onSelectCard: (id: CardId) => void;
+  onSetConfidence: (c: Confidence) => void;
+  onSetCrowdGuess: (id: CardId) => void;
   onLockIn: () => void;
   onAdvance: () => void;
   onReplay: () => void;
 }
 
-export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCard, onLockIn, onAdvance, onReplay }: PlayPageProps) {
+export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCard, onSetConfidence, onSetCrowdGuess, onLockIn, onAdvance, onReplay }: PlayPageProps) {
   const isMobile = useIsMobile();
   const cards = viewCards(state);
-  const win = state.selected === "d";
   const your = yourCard(state);
   const resultAccent = state.win ? "#58A700" : "#F57C00";
   const done = doneView(state);
@@ -135,7 +137,10 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
           <div style={{ maxWidth: 430, margin: "18px auto 0", paddingTop: 18, borderTop: "2px dashed #ECEFE4", fontSize: 14.5, fontWeight: 600, color: "#5E6553", lineHeight: 1.5 }}>
             {done.note}
           </div>
-          <div onClick={onReplay} style={{ display: "inline-block", marginTop: 16, fontWeight: 800, fontSize: 13, color: "#B2B7A6", cursor: "pointer" }}>
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 18 }}>
+            <ShareButton state={state} />
+          </div>
+          <div onClick={onReplay} style={{ display: "inline-block", marginTop: 14, fontWeight: 800, fontSize: 13, color: "#B2B7A6", cursor: "pointer" }}>
             Replay today's case
           </div>
         </div>
@@ -194,7 +199,10 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
 
         <div style={{ marginTop: 20 }}>
           {state.phase === "unvoted" && (
-            <LockButton state={state} onLockIn={onLockIn} />
+            <>
+              <WagerPanel state={state} onSetConfidence={onSetConfidence} onSetCrowdGuess={onSetCrowdGuess} />
+              <LockButton state={state} onLockIn={onLockIn} />
+            </>
           )}
 
           {state.phase === "voting" && (
@@ -241,7 +249,7 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
                 <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
                   <div style={{ textAlign: "center" }}>
                     <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 24, color: resultAccent }}>
-                      +{win ? 50 : 10}
+                      +{state.earned}
                     </div>
                     <div style={{ fontWeight: 800, fontSize: 10, letterSpacing: ".1em", color: "#9AA08C" }}>XP</div>
                   </div>
@@ -255,7 +263,26 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
                     {chip.label}
                   </span>
                 ))}
+                {state.crowdGuess && (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 999, fontWeight: 800, fontSize: 12,
+                    background: state.crowdCorrect ? "#E3F6FF" : "#F4F1EC", color: state.crowdCorrect ? "#1899D6" : "#9A8E7C" }}>
+                    {icon("users", 16, state.crowdCorrect ? "#1899D6" : "#9A8E7C")}
+                    {state.crowdCorrect ? `Called the crowd  +${state.crowdBonus}` : "Missed the crowd"}
+                  </span>
+                )}
               </div>
+
+              {state.judgeReasoning && (
+                <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 14, background: "rgba(255,255,255,.7)", border: "1.5px solid rgba(60,60,70,.08)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 800, fontSize: 11, letterSpacing: ".08em", color: "#58A700", marginBottom: 5 }}>
+                    {icon("scale", 15, "#58A700")}
+                    WHY I PICKED {jName(state).toUpperCase()} ({jPick(state)})
+                  </div>
+                  <div style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.5, color: "#5E6553" }}>{state.judgeReasoning}</div>
+                </div>
+              )}
+
+              <ShareButton state={state} />
             </div>
           )}
         </div>
@@ -402,6 +429,78 @@ function LockButton({ state, onLockIn }: { state: GameState; onLockIn: () => voi
       style={{ ...lockStyle(state), ...(active ? lockActiveStyle(state) : {}) }}
     >
       {state.selected ? "Lock in your answer" : "Pick an answer first"}
+    </button>
+  );
+}
+
+// Confidence wager + beat-the-crowd side-bet, shown before lock-in.
+const CONFIDENCE_OPTS: { id: Confidence; label: string; hint: string; tint: string; bg: string }[] = [
+  { id: "low",  label: "Safe",     hint: "+30 / +10", tint: "#1899D6", bg: "#E3F6FF" },
+  { id: "med",  label: "Balanced", hint: "+50 / +5",  tint: "#58A700", bg: "#E8FFD7" },
+  { id: "high", label: "Bold",     hint: "+100 / 0",  tint: "#E07F00", bg: "#FFF3E0" },
+];
+
+function WagerPanel({ state, onSetConfidence, onSetCrowdGuess }: {
+  state: GameState;
+  onSetConfidence: (c: Confidence) => void;
+  onSetCrowdGuess: (id: CardId) => void;
+}) {
+  return (
+    <div style={{ marginBottom: 14, padding: 16, background: "#fff", border: "2px solid #E4EAD8", borderRadius: 18 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 800, fontSize: 12, letterSpacing: ".04em", color: "#7C8470", marginBottom: 9 }}>
+        {icon("scale", 16, "#58A700")} HOW SURE ARE YOU?
+        <span style={{ fontWeight: 700, color: "#B2B7A6", textTransform: "none", letterSpacing: 0 }}>· correct / wrong</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+        {CONFIDENCE_OPTS.map((o) => {
+          const on = state.confidence === o.id;
+          return (
+            <button key={o.id} onClick={() => onSetConfidence(o.id)}
+              style={{ cursor: "pointer", padding: "10px 6px", borderRadius: 13, textAlign: "center",
+                border: "2px solid " + (on ? o.tint : "#E4EAD8"), background: on ? o.bg : "#fff",
+                transition: "background .15s,border-color .15s" }}>
+              <div style={{ fontWeight: 800, fontSize: 14, color: on ? o.tint : "#5E6553" }}>{o.label}</div>
+              <div style={{ fontWeight: 800, fontSize: 11, color: on ? o.tint : "#9AA08C", marginTop: 2 }}>{o.hint}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 800, fontSize: 12, letterSpacing: ".04em", color: "#7C8470", margin: "14px 0 9px" }}>
+        {icon("users", 16, "#1899D6")} WHO WILL THE CROWD BACK?
+        <span style={{ fontWeight: 700, color: "#B2B7A6", textTransform: "none", letterSpacing: 0 }}>· optional, +15</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
+        {state.cards.map((c) => {
+          const on = state.crowdGuess === c.id;
+          return (
+            <button key={c.id} onClick={() => onSetCrowdGuess(c.id)}
+              style={{ cursor: "pointer", padding: "10px 6px", borderRadius: 13, fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 16,
+                border: "2px solid " + (on ? "#1899D6" : "#E4EAD8"), background: on ? "#E3F6FF" : "#fff", color: on ? "#1899D6" : "#7C8470",
+                transition: "background .15s,border-color .15s" }}>
+              {c.letter}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ShareButton({ state }: { state: GameState }) {
+  const [label, setLabel] = useState("Share result");
+  async function onShare() {
+    const r = await shareResult(state);
+    if (r === "copied") { setLabel("Copied!"); setTimeout(() => setLabel("Share result"), 1800); }
+    else if (r === "error") { setLabel("Couldn't share"); setTimeout(() => setLabel("Share result"), 1800); }
+  }
+  return (
+    <button onClick={onShare}
+      style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer",
+        border: "2px solid #BEEAFD", borderBottomWidth: 4, background: "#E3F6FF", color: "#1899D6",
+        padding: "11px 20px", borderRadius: 14, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 14 }}>
+      {icon("share", 17, "#1899D6")}
+      {label}
     </button>
   );
 }
