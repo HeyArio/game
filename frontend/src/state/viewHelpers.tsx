@@ -239,7 +239,7 @@ export interface LeagueRowView {
 
 export function leagueRowsView(s: GameState): LeagueRowView[] {
   const ranked = s.league.map((p, i) => ({ ...p, rank: i + 1 }));
-  return ranked.slice(3, 8).map((p) => ({
+  return ranked.slice(0, 5).map((p) => ({
     rank: p.rank,
     name: p.name,
     initial: p.initial,
@@ -247,7 +247,7 @@ export function leagueRowsView(s: GameState): LeagueRowView[] {
     xp: p.xp.toLocaleString(),
     isYou: p.isYou,
     isBot: p.isBot,
-    promoLineBefore: p.rank === 6,
+    promoLineBefore: false,
     rankColor: p.rank <= 5 ? "#58A700" : "#B2B7A6",
     style: {
       display: "flex",
@@ -385,7 +385,8 @@ export interface LeaguesView {
 
 export function leaguesView(s: GameState): LeaguesView {
   const ranked = s.league.map((p, i) => ({ ...p, rank: i + 1 }));
-  const youRank = (ranked.find((p) => p.isYou) || ({} as LeaguePlayer & { rank: number })).rank || 6;
+  // Prefer the real global rank; fall back to the position within the loaded board.
+  const youRank = s.globalRank ?? (ranked.find((p) => p.isYou) || ({} as LeaguePlayer & { rank: number })).rank ?? ranked.length + 1;
   const tierDefs = [
     { name: "Bronze", icon: "shield", color: "#CD7F32" },
     { name: "Silver", icon: "shield", color: "#9AA6B2" },
@@ -419,9 +420,9 @@ export function leaguesView(s: GameState): LeaguesView {
     xp: p.xp.toLocaleString() + " XP",
     isYou: p.isYou,
     isBot: p.isBot,
-    rankColor: p.rank <= 5 ? "#58A700" : p.rank >= 7 ? "#FF4B4B" : "#B2B7A6",
-    promoLineBefore: p.rank === 6,
-    demoLineBefore: p.rank === 7,
+    rankColor: p.rank === 1 ? "#E6A700" : p.rank <= 3 ? "#58A700" : "#B2B7A6",
+    promoLineBefore: false,
+    demoLineBefore: false,
     style: {
       display: "flex",
       alignItems: "center",
@@ -432,11 +433,10 @@ export function leaguesView(s: GameState): LeaguesView {
       outline: p.isYou ? "2px solid #A5ED6E" : "none",
     } as CSSProperties,
   }));
-  const spots = youRank > 5 ? youRank - 5 : 0;
   const note =
-    youRank <= 5
-      ? "Nice — you're inside my promotion zone. Hold your nerve for two more days and I'll see you up in Ruby."
-      : "You're " + spots + " spot" + (spots > 1 ? "s" : "") + " off the cut. Win one more case with me and you're right back in it — I like your chances.";
+    youRank <= 10
+      ? "Top " + youRank + " across every player — sharp work. Judge a case every day and you'll hold it."
+      : "You're ranked #" + youRank.toLocaleString() + " overall. Win a few more cases with me and you'll climb fast.";
   return { tiers, rows, youRank, note, bigTrophyEl: icon("trophy", 34, "#fff"), promoIconEl: icon("trendUp", 13, "#58A700") };
 }
 

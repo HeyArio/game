@@ -341,11 +341,11 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
         <section style={{ background: "#fff", border: "2px solid #E4EAD8", borderRadius: 20, padding: 18 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16, color: "#3C3C46" }}>
-              {icon("trophy", 22, "#1CB0F6")}Emerald League
+              {icon("trophy", 22, "#1CB0F6")}Leaderboard
             </span>
-            <span style={{ fontWeight: 700, fontSize: 11, color: "#B2B7A6" }}>2 days left</span>
+            {state.globalRank != null && <span style={{ fontWeight: 800, fontSize: 12, color: "#1899D6" }}>You're #{state.globalRank.toLocaleString()}</span>}
           </div>
-          <div style={{ fontWeight: 700, fontSize: 12, color: "#8E9582", marginBottom: 8 }}>Top 5 advance to Ruby League</div>
+          <div style={{ fontWeight: 700, fontSize: 12, color: "#8E9582", marginBottom: 8 }}>Top players by total XP</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {leagueRows.map((row, i) => (
               <div key={i}>

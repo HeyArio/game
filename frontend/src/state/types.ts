@@ -71,6 +71,7 @@ export interface GameState {
   contLeft: number;
   league: LeaguePlayer[];
   stats: PlayerStats;
+  globalRank: number | null;   // the player's real rank across all players (+ bots)
 
   // Engagement: confidence wager + beat-the-crowd side-bet + judge reasoning
   confidence: Confidence;       // chosen before lock-in (default "med")

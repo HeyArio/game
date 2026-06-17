@@ -96,6 +96,14 @@ function Game() {
         agreementPct: (stats as any).agreement_pct ?? 0,
         votesThisWeek: (stats as any).votes_this_week ?? 0,
       });
+
+      // The player's real rank across everyone (they're rarely in the top 20).
+      const { data: meRow } = await supabase
+        .from("global_leaderboard")
+        .select("rank")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      game.actions.initRank((meRow as any)?.rank ?? null);
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

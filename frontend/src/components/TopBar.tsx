@@ -65,9 +65,14 @@ export function TopBar({ state, onSelectScreen, onOpenStreak }: TopBarProps) {
           }}
         >
           {navItems.map((nav) => (
-            <span key={nav.id} onClick={() => onSelectScreen(nav.id as Screen)} style={nav.style}>
+            <span
+              key={nav.id}
+              onClick={() => onSelectScreen(nav.id as Screen)}
+              title={nav.label}
+              style={isMobile ? { ...nav.style, padding: "8px 11px" } : nav.style}
+            >
               {nav.iconEl}
-              {nav.label}
+              {!isMobile && nav.label}
             </span>
           ))}
         </nav>

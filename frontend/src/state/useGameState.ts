@@ -116,6 +116,7 @@ function makeInitState(props: InitProps): GameState {
     contLeft: props.contLeft ?? 2,
     league: defaultLeague(),
     stats: { casesJudged: 0, correctCount: 0, agreementPct: 0, votesThisWeek: 0 },
+    globalRank: null,
     confidence: "med",
     crowdGuess: null,
     judgeReasoning: null,
@@ -490,6 +491,11 @@ export function useGameState(props: InitProps = {}) {
     setState((s) => ({ ...s, stats }));
   }, []);
 
+  /** Load the player's real global rank (across all players + bots) */
+  const initRank = useCallback((rank: number | null) => {
+    setState((s) => ({ ...s, globalRank: rank }));
+  }, []);
+
   return {
     state,
     countdownText,
@@ -512,6 +518,7 @@ export function useGameState(props: InitProps = {}) {
       initProgress,
       initLeague,
       initStats,
+      initRank,
       applyVoteResult,
     },
   };
