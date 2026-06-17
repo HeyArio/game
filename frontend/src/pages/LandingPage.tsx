@@ -1,0 +1,502 @@
+import { useEffect, type CSSProperties, type ReactNode } from "react";
+import { Mascot } from "../components/Mascot";
+import { useAuth } from "../auth/AuthProvider";
+import { isSupabaseConfigured } from "../lib/supabase";
+import { icon } from "../icons/Icon";
+
+// Google "G" mark — official 4-colour glyph, inline so we ship no extra asset.
+function GoogleMark({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" style={{ display: "block", flex: "none" }} aria-hidden="true">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </svg>
+  );
+}
+
+const wordmark = (size = 30, mark = 40) => (
+  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+    <span
+      style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: mark, height: mark, borderRadius: mark * 0.32,
+        background: "#58CC02", boxShadow: "0 4px 0 #46A302",
+        fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: mark * 0.6, color: "#fff",
+      }}
+    >
+      Q
+    </span>
+    <span style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: size, color: "#58A700" }}>Quorum</span>
+  </div>
+);
+
+const card: CSSProperties = {
+  background: "#fff", border: "2px solid #E4EAD8", borderBottomWidth: 4,
+  borderRadius: 22, padding: "24px 22px",
+};
+
+function Eyebrow({ children, color = "#58A700", bg = "#E8FFD7" }: { children: string; color?: string; bg?: string }) {
+  return (
+    <span style={{ display: "inline-block", padding: "6px 12px", borderRadius: 999, background: bg, color, fontWeight: 800, fontSize: 12, letterSpacing: ".06em" }}>
+      {children}
+    </span>
+  );
+}
+
+function H2({ children, id }: { children: ReactNode; id?: string }) {
+  return (
+    <h2 id={id} style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: "clamp(24px,3.2vw,34px)", lineHeight: 1.15, color: "#3C3C46", letterSpacing: "-.01em", margin: "14px 0 0", scrollMarginTop: 90 }}>
+      {children}
+    </h2>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Content — kept as data so the visible copy and the structured data stay in
+// sync. SEO: descriptive headings + semantic sections. AEO: the FAQ doubles as
+// FAQPage JSON-LD. GEO: the "What is Quorum" block states quotable, factual
+// claims a generative engine can lift verbatim.
+// ---------------------------------------------------------------------------
+
+const HOW = [
+  { ic: "eye", tint: "#1CB0F6", bg: "#E3F4FF", title: "Read four takes", body: "Each morning, four leading AI models answer one genuinely debatable question — in their own words, side by side." },
+  { ic: "scale", tint: "#CE82FF", bg: "#F4E9FF", title: "Back your pick", body: "Decide which answer is the sharpest and most defensible, set your confidence, then lock it in before the case closes." },
+  { ic: "trophy", tint: "#FF9600", bg: "#FFF3E0", title: "See the verdict", body: "Arbi, the judge model, reveals its call. Match it to earn XP, build a streak, and climb the global leagues." },
+] as const;
+
+const BENEFITS = [
+  { ic: "cap", tint: "#58CC02", bg: "#E8FFD7", title: "Sharpen your judgment", body: "Practising the daily call trains you to weigh evidence, spot weak reasoning, and commit to a view under uncertainty." },
+  { ic: "users", tint: "#1CB0F6", bg: "#E3F4FF", title: "See how AIs actually reason", body: "Watch how different frontier models approach the same question — where they agree, where they diverge, and why." },
+  { ic: "flame", tint: "#FF9600", bg: "#FFF3E0", title: "A two-minute daily habit", body: "One sharp question a day. No doomscrolling, no noise — just a quick, satisfying mental rep that compounds over time." },
+  { ic: "medal", tint: "#CE82FF", bg: "#F4E9FF", title: "Compete with friends", body: "Streaks, XP, weekly leagues, and achievements turn good thinking into a game you'll want to keep winning." },
+] as const;
+
+const USES = [
+  { ic: "target", title: "Settle a debate", body: "Use the daily case as a neutral prompt to argue with friends, colleagues, or your group chat." },
+  { ic: "calendar", title: "Start a standup", body: "A fast, fun icebreaker for teams — vote together and compare your read against the judge." },
+  { ic: "star", title: "Train your instincts", body: "Forecasters, analysts, and the merely curious use it to keep their decision-making sharp." },
+] as const;
+
+const STATS = [
+  { value: "4", label: "AI models, every day" },
+  { value: "1", label: "question that matters" },
+  { value: "2 min", label: "to play" },
+  { value: "∞", label: "bragging rights" },
+] as const;
+
+// Sample categories of the daily case — pure content for SEO/topical coverage.
+const CATEGORIES = [
+  { ic: "trendUp", name: "Sports & forecasting", q: "Who wins the next World Cup — and why?" },
+  { ic: "gem", name: "Science & tech", q: "Will fusion power reach the grid before 2040?" },
+  { ic: "cap", name: "History & culture", q: "Which invention reshaped the world the most?" },
+  { ic: "target", name: "Strategy & business", q: "Should a startup raise now or stay lean?" },
+  { ic: "face", name: "Ethics & society", q: "When is it right to break a small rule for a big good?" },
+  { ic: "star", name: "Everyday dilemmas", q: "Is it better to rent or buy in a hot market?" },
+] as const;
+
+const MODELS = [
+  { letter: "A", color: "#58CC02", name: "GPT-class" },
+  { letter: "B", color: "#1CB0F6", name: "Llama-class" },
+  { letter: "C", color: "#CE82FF", name: "Mistral-class" },
+  { letter: "D", color: "#FF9600", name: "Gemini-class" },
+] as const;
+
+// AEO: these power both the visible FAQ and the FAQPage structured data.
+const FAQ = [
+  {
+    q: "What is Quorum?",
+    a: "Quorum is a free daily game where four leading AI models answer the same debatable question, and you decide which answer is the sharpest. An impartial judge model then reveals its verdict — match it to earn XP and grow your streak. It takes about two minutes a day.",
+  },
+  {
+    q: "How do you play Quorum?",
+    a: "Read the four AI answers to today's question, pick the one you'd stand behind, set your confidence, and lock it in before the case closes. The judge model reveals its call, and you score points for matching it. A new case drops every day.",
+  },
+  {
+    q: "Is Quorum free to play?",
+    a: "Yes. Quorum is completely free, with no credit card required. Sign in with Google to save your streak, XP, and league standing across devices.",
+  },
+  {
+    q: "Which AI models does Quorum use?",
+    a: "Each daily case is answered by four different frontier AI models — drawn from families such as GPT, Llama, Mistral, and Gemini — and adjudicated by a separate judge model nicknamed Arbi, so no single model is both contestant and referee.",
+  },
+  {
+    q: "How is the winning answer decided?",
+    a: "An independent judge model reads the four answers and picks the one it finds most defensible. You score points when your pick matches the judge's verdict. You can also predict which answer the crowd will favour for a bonus.",
+  },
+  {
+    q: "How long does a game take?",
+    a: "About two minutes. Quorum is designed as a quick daily ritual — one sharp question a day — rather than something you binge.",
+  },
+  {
+    q: "Do I need an account?",
+    a: "You can preview today's case without an account. To lock in answers, keep a streak, earn XP, and appear on the leagues, sign in for free with Google.",
+  },
+  {
+    q: "What makes Quorum different from a quiz?",
+    a: "A quiz has a single factual answer. Quorum poses genuinely debatable questions where reasoning matters more than recall — you're judging the quality of an argument, not reciting a fact.",
+  },
+] as const;
+
+export function LandingPage({ onPlay }: { onPlay: () => void }) {
+  const { signInWithGoogle } = useAuth();
+
+  // Inject FAQPage structured data for answer engines, kept in sync with the
+  // visible FAQ above. Removed on unmount so it never lingers on other screens.
+  useEffect(() => {
+    const data = {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: FAQ.map((f) => ({
+        "@type": "Question",
+        name: f.q,
+        acceptedAnswer: { "@type": "Answer", text: f.a },
+      })),
+    };
+    const el = document.createElement("script");
+    el.type = "application/ld+json";
+    el.id = "faq-jsonld";
+    el.textContent = JSON.stringify(data);
+    document.head.appendChild(el);
+    return () => { el.remove(); };
+  }, []);
+
+  const PlayCTA = ({ wide = false }: { wide?: boolean }) => (
+    <button
+      onClick={onPlay}
+      onMouseDown={(e) => (e.currentTarget.style.transform = "translateY(2px)")}
+      onMouseUp={(e) => (e.currentTarget.style.transform = "translateY(0)")}
+      onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
+      style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 10,
+        width: wide ? "100%" : "auto", border: "none", background: "#58CC02", color: "#fff",
+        padding: "15px 26px", borderRadius: 15, fontFamily: "'Nunito',sans-serif", fontWeight: 800,
+        fontSize: 15.5, letterSpacing: ".01em", boxShadow: "0 4px 0 #46A302", cursor: "pointer",
+        transition: "transform .05s",
+      }}
+    >
+      {icon("play", 18, "#fff")} Play today's case
+    </button>
+  );
+
+  const SignInButton = ({ subtle = false }: { subtle?: boolean }) => (
+    <button
+      onClick={signInWithGoogle}
+      disabled={!isSupabaseConfigured}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 8,
+        border: subtle ? "2px solid #E4EAD8" : "none", borderBottomWidth: subtle ? 3 : undefined,
+        background: subtle ? "#fff" : "#fff", color: "#3C3C46",
+        padding: subtle ? "9px 16px" : "14px 22px", borderRadius: subtle ? 12 : 15,
+        fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: subtle ? 14 : 15,
+        boxShadow: subtle ? undefined : "0 4px 0 #D9E0CC",
+        cursor: isSupabaseConfigured ? "pointer" : "not-allowed", opacity: isSupabaseConfigured ? 1 : 0.6,
+      }}
+    >
+      <GoogleMark size={subtle ? 16 : 18} /> {subtle ? "Sign in" : "Sign in with Google"}
+    </button>
+  );
+
+  return (
+    <div style={{ minHeight: "100vh", background: "radial-gradient(120% 60% at 50% -8%, #EAF7DD 0%, #F4F8EE 52%)" }}>
+      {/* NAV */}
+      <header style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(244,248,238,.9)", backdropFilter: "blur(10px)", borderBottom: "2px solid #E4EAD8" }}>
+        <nav aria-label="Primary" style={{ maxWidth: 1100, margin: "0 auto", padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
+          {wordmark(24, 36)}
+          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            <div style={{ display: "none", gap: 20, alignItems: "center" }} className="lp-navlinks">
+              <a href="#how" style={navLink}>How it works</a>
+              <a href="#why" style={navLink}>Why Quorum</a>
+              <a href="#faq" style={navLink}>FAQ</a>
+            </div>
+            <SignInButton subtle />
+          </div>
+        </nav>
+      </header>
+
+      <main>
+        {/* HERO */}
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "34px 24px 8px", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 30, alignItems: "center" }}>
+          <div style={{ animation: "qrise .5s ease both" }}>
+            <Eyebrow>A NEW CASE EVERY DAY</Eyebrow>
+            <h1 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: "clamp(32px,5vw,52px)", lineHeight: 1.08, color: "#3C3C46", letterSpacing: "-.02em", margin: "16px 0 0" }}>
+              Four AIs answer.<br />You back the sharpest.
+            </h1>
+            <p style={{ fontWeight: 700, fontSize: 16.5, color: "#7C8470", lineHeight: 1.55, margin: "16px 0 0", maxWidth: 480 }}>
+              Quorum is the daily game of judgment. Read four AI takes on one tough question,
+              pick the one you'd stand behind, and see if the judge agrees. Two minutes a day to
+              keep your thinking sharp.
+            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 24 }}>
+              <PlayCTA />
+              <SignInButton />
+            </div>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontWeight: 700, fontSize: 13, color: "#9AA08C", marginTop: 16 }}>
+              {icon("shield", 16, "#9AA08C")} Free · No credit card · New case daily
+            </span>
+          </div>
+
+          {/* Hero visual — a mini mock of a case */}
+          <div style={{ ...card, padding: "20px 20px 22px", animation: "qrise .6s ease both" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ flex: "none", animation: "qbob 3s ease-in-out infinite" }}><Mascot size={44} mood="happy" /></span>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 11, letterSpacing: ".06em", color: "#58A700" }}>DAILY CASE · TECHNOLOGY</div>
+                <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 17, color: "#3C3C46", lineHeight: 1.2 }}>Will AI replace natural talent in pro sport?</div>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, marginTop: 14 }}>
+              {[
+                { l: "A", c: "#58CC02", n: "GPT-OSS 120B", p: "No — talent stays" },
+                { l: "B", c: "#1CB0F6", n: "Llama 3.3 70B", p: "Yes, eventually", win: true },
+                { l: "C", c: "#CE82FF", n: "Mistral Small", p: "No, it amplifies" },
+                { l: "D", c: "#FF9600", n: "Gemini Flash", p: "Yes — it shifts" },
+              ].map((o) => (
+                <div key={o.l} style={{ position: "relative", padding: "10px 11px", borderRadius: 13, background: o.win ? "#E8FFD7" : "#F7F9F2", border: "2px solid " + (o.win ? "#A5ED6E" : "#ECEFE4") }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: 7, background: o.c, color: "#fff", fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 12 }}>{o.l}</span>
+                    <span style={{ fontWeight: 800, fontSize: 9.5, letterSpacing: ".04em", color: "#9AA08C", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.n}</span>
+                    {o.win && <span style={{ marginLeft: "auto", flex: "none" }}>{icon("check", 14, "#58A700", 3)}</span>}
+                  </div>
+                  <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 13, color: "#3C3C46", marginTop: 6 }}>{o.p}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 13, padding: "9px 12px", borderRadius: 12, background: "#FFF8E1" }}>
+              {icon("scale", 17, "#E5A300")}
+              <span style={{ fontWeight: 700, fontSize: 12.5, color: "#9A7B00" }}>Arbi backed <b>B</b> — match the judge to earn +50 XP.</span>
+            </div>
+          </div>
+        </section>
+
+        {/* STATS STRIP */}
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "24px" }}>
+          <div style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 8, padding: "18px 10px" }}>
+            {STATS.map((s) => (
+              <div key={s.label} style={{ textAlign: "center", padding: "4px 6px" }}>
+                <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 30, color: "#58A700", lineHeight: 1 }}>{s.value}</div>
+                <div style={{ fontWeight: 700, fontSize: 12.5, color: "#8E9582", marginTop: 5 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* WHAT IS QUORUM — GEO: concise, quotable, factual */}
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 24px" }}>
+          <div style={{ ...card, padding: "32px 28px", background: "linear-gradient(180deg,#FFFFFF,#FBFEF6)" }}>
+            <Eyebrow color="#1899D6" bg="#E3F4FF">WHAT IS QUORUM</Eyebrow>
+            <H2>The daily game where you judge AI</H2>
+            <p style={{ fontWeight: 700, fontSize: 16, color: "#5E6654", lineHeight: 1.65, margin: "14px 0 0", maxWidth: 760 }}>
+              <b>Quorum is a free daily browser game in which four leading AI models answer the same
+              debatable question and you decide which answer is the most defensible.</b> An impartial
+              judge model then reveals its verdict. You score points for matching the judge, predicting
+              the crowd, and keeping a daily streak alive. There is one new case every day, and a round
+              takes about two minutes.
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14, marginTop: 22 }}>
+              {[
+                { t: "A game of judgment, not trivia", b: "Questions are genuinely debatable. You're rating the strength of an argument, not recalling a fact." },
+                { t: "Four contestants, one judge", b: "Four frontier models answer; a separate judge model, Arbi, decides — so no model grades its own work." },
+                { t: "Two minutes, every day", b: "A fast, repeatable ritual that builds the habit of weighing evidence and committing to a call." },
+              ].map((x) => (
+                <div key={x.t} style={{ borderLeft: "3px solid #A5ED6E", paddingLeft: 14 }}>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: "#3C3C46" }}>{x.t}</div>
+                  <div style={{ fontWeight: 600, fontSize: 13.5, color: "#8E9582", lineHeight: 1.5, marginTop: 4 }}>{x.b}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* HOW IT WORKS */}
+        <section id="how" style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 24px", textAlign: "center", scrollMarginTop: 80 }}>
+          <Eyebrow color="#1899D6" bg="#E3F4FF">HOW IT WORKS</Eyebrow>
+          <H2>Three steps, two minutes</H2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 16, marginTop: 24, textAlign: "left" }}>
+            {HOW.map((h, i) => (
+              <article key={h.title} style={card}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 46, height: 46, borderRadius: 14, background: h.bg, flex: "none" }}>{icon(h.ic, 24, h.tint)}</span>
+                  <span style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 28, color: "#E4EAD8" }}>{i + 1}</span>
+                </div>
+                <h3 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 19, color: "#3C3C46", marginTop: 14 }}>{h.title}</h3>
+                <p style={{ fontWeight: 600, fontSize: 14, color: "#8E9582", lineHeight: 1.55, marginTop: 6 }}>{h.body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {/* MEET THE MODELS */}
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 24px", textAlign: "center" }}>
+          <Eyebrow color="#B45CF0" bg="#F4E9FF">THE LINE-UP</Eyebrow>
+          <H2>Four answers in, one judge out</H2>
+          <p style={{ fontWeight: 700, fontSize: 15, color: "#8E9582", maxWidth: 600, margin: "12px auto 0", lineHeight: 1.55 }}>
+            Every case fields four anonymised frontier models as contestants and a separate model as
+            the judge. Identities stay hidden until the reveal, so you score the argument — not the brand.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 14, marginTop: 24 }}>
+            {MODELS.map((m) => (
+              <div key={m.letter} style={{ ...card, textAlign: "center", padding: "20px 14px" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, borderRadius: 14, background: m.color, color: "#fff", fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 24, boxShadow: `0 3px 0 rgba(0,0,0,.18)` }}>{m.letter}</span>
+                <div style={{ fontWeight: 800, fontSize: 14, color: "#3C3C46", marginTop: 12 }}>{m.name}</div>
+                <div style={{ fontWeight: 700, fontSize: 12, color: "#9AA08C", marginTop: 2 }}>Contestant</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ ...card, display: "inline-flex", alignItems: "center", gap: 14, marginTop: 16, padding: "16px 22px", textAlign: "left", background: "#FFF8E1", border: "2px solid #FFECB3" }}>
+            <span style={{ flex: "none" }}><Mascot size={40} mood="neutral" /></span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 14.5, color: "#3C3C46" }}>Meet Arbi, the judge</div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#9A7B00", marginTop: 2 }}>An independent model that reads all four answers and calls the most defensible one.</div>
+            </div>
+          </div>
+        </section>
+
+        {/* BENEFITS */}
+        <section id="why" style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 24px", textAlign: "center", scrollMarginTop: 80 }}>
+          <Eyebrow color="#58A700">WHY QUORUM</Eyebrow>
+          <H2>It's a workout for your judgment</H2>
+          <p style={{ fontWeight: 700, fontSize: 15, color: "#8E9582", maxWidth: 560, margin: "12px auto 0", lineHeight: 1.55 }}>
+            Anyone can have an opinion. Quorum rewards the discipline of picking the <i>best</i> one — and shows you how the smartest models in the world reason about the same problem.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 16, marginTop: 24, textAlign: "left" }}>
+            {BENEFITS.map((b) => (
+              <article key={b.title} style={card}>
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 46, height: 46, borderRadius: 14, background: b.bg }}>{icon(b.ic, 24, b.tint)}</span>
+                <h3 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 18, color: "#3C3C46", marginTop: 12 }}>{b.title}</h3>
+                <p style={{ fontWeight: 600, fontSize: 14, color: "#8E9582", lineHeight: 1.55, marginTop: 6 }}>{b.body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {/* SAMPLE CATEGORIES */}
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 24px", textAlign: "center" }}>
+          <Eyebrow color="#1899D6" bg="#E3F4FF">EVERY KIND OF QUESTION</Eyebrow>
+          <H2>One case a day, across every domain</H2>
+          <p style={{ fontWeight: 700, fontSize: 15, color: "#8E9582", maxWidth: 560, margin: "12px auto 0", lineHeight: 1.55 }}>
+            From sports forecasts to ethics, science to strategy — if smart people can disagree about it, it can become a Quorum case.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 14, marginTop: 24, textAlign: "left" }}>
+            {CATEGORIES.map((c) => (
+              <div key={c.name} style={{ ...card, display: "flex", gap: 13, alignItems: "flex-start" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 12, background: "#F4F8EE", flex: "none" }}>{icon(c.ic, 21, "#58A700")}</span>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: ".03em", color: "#9AA08C", textTransform: "uppercase" }}>{c.name}</div>
+                  <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16, color: "#3C3C46", marginTop: 4, lineHeight: 1.25 }}>"{c.q}"</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* USE CASES */}
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 24px", textAlign: "center" }}>
+          <Eyebrow color="#B45CF0" bg="#F4E9FF">WAYS TO PLAY</Eyebrow>
+          <H2>More than a daily puzzle</H2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 16, marginTop: 24, textAlign: "left" }}>
+            {USES.map((u) => (
+              <article key={u.title} style={{ ...card, display: "flex", gap: 13, alignItems: "flex-start" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 12, background: "#F4F8EE", flex: "none" }}>{icon(u.ic, 21, "#58A700")}</span>
+                <div>
+                  <h3 style={{ fontWeight: 800, fontSize: 15.5, color: "#3C3C46" }}>{u.title}</h3>
+                  <p style={{ fontWeight: 600, fontSize: 13.5, color: "#8E9582", lineHeight: 1.5, marginTop: 3 }}>{u.body}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {/* FAQ — AEO */}
+        <section id="faq" style={{ maxWidth: 820, margin: "0 auto", padding: "28px 24px", scrollMarginTop: 80 }}>
+          <div style={{ textAlign: "center" }}>
+            <Eyebrow color="#58A700">FAQ</Eyebrow>
+            <H2>Questions, answered</H2>
+          </div>
+          <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 10 }}>
+            {FAQ.map((f) => (
+              <details key={f.q} style={{ ...card, padding: 0, overflow: "hidden" }}>
+                <summary style={{ listStyle: "none", cursor: "pointer", padding: "16px 20px", fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16.5, color: "#3C3C46", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  {f.q}
+                  <svg className="faq-chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#58A700" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none", transition: "transform .2s" }} aria-hidden="true">
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </summary>
+                <p style={{ padding: "0 20px 18px", fontWeight: 600, fontSize: 14.5, color: "#6E7563", lineHeight: 1.6, margin: 0 }}>{f.a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+
+        {/* FINAL CTA */}
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 24px 40px" }}>
+          <div style={{ ...card, background: "linear-gradient(135deg,#58CC02,#46A302)", border: "none", textAlign: "center", padding: "38px 24px", boxShadow: "0 6px 0 #3E9000" }}>
+            <div style={{ display: "flex", justifyContent: "center", animation: "qbob 3s ease-in-out infinite" }}><Mascot size={72} mood="happy" /></div>
+            <h2 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: "clamp(24px,3.4vw,32px)", color: "#fff", margin: "12px 0 0" }}>
+              Today's case is waiting.
+            </h2>
+            <p style={{ fontWeight: 700, fontSize: 15, color: "#EAFBD9", margin: "8px auto 0", maxWidth: 420, lineHeight: 1.5 }}>
+              Make your first call, start a streak you'll want to protect, and see how your judgment stacks up against the crowd.
+            </p>
+            <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap", marginTop: 20 }}>
+              <button
+                onClick={onPlay}
+                onMouseDown={(e) => (e.currentTarget.style.transform = "translateY(2px)")}
+                onMouseUp={(e) => (e.currentTarget.style.transform = "translateY(0)")}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 10, border: "none", background: "#fff", color: "#3C3C46",
+                  padding: "15px 28px", borderRadius: 15, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 15.5,
+                  boxShadow: "0 4px 0 #2E7D00", cursor: "pointer", transition: "transform .05s",
+                }}
+              >
+                {icon("play", 18, "#3C3C46")} Play today's case
+              </button>
+              <button
+                onClick={signInWithGoogle}
+                disabled={!isSupabaseConfigured}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 10, border: "2px solid rgba(255,255,255,.6)", background: "transparent", color: "#fff",
+                  padding: "15px 26px", borderRadius: 15, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 15.5,
+                  cursor: isSupabaseConfigured ? "pointer" : "not-allowed", opacity: isSupabaseConfigured ? 1 : 0.6,
+                }}
+              >
+                <span style={{ background: "#fff", borderRadius: 6, padding: 3, display: "inline-flex" }}><GoogleMark size={16} /></span>
+                Sign in to save progress
+              </button>
+            </div>
+            {!isSupabaseConfigured && (
+              <div style={{ marginTop: 16, fontWeight: 700, fontSize: 12.5, color: "#fff", opacity: 0.95 }}>
+                Supabase isn't configured yet — copy <code>.env.example</code> to <code>.env</code> and add your project URL + anon key.
+              </div>
+            )}
+          </div>
+        </section>
+      </main>
+
+      {/* FOOTER */}
+      <footer style={{ borderTop: "2px solid #E4EAD8", background: "#fff" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "26px 24px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+          {wordmark(20, 30)}
+          <nav aria-label="Footer" style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+            <a href="#how" style={navLink}>How it works</a>
+            <a href="#why" style={navLink}>Why Quorum</a>
+            <a href="#faq" style={navLink}>FAQ</a>
+          </nav>
+          <div style={{ fontWeight: 700, fontSize: 13, color: "#9AA08C" }}>
+            Powered by{" "}
+            <a href="https://nazarbanai.com" target="_blank" rel="noopener noreferrer" style={{ color: "#58A700", fontWeight: 800, textDecoration: "none" }}>
+              nazarbanai.com
+            </a>
+          </div>
+          <div style={{ fontWeight: 700, fontSize: 12.5, color: "#B2B7A6", flexBasis: "100%" }}>© {new Date().getFullYear()} Quorum · The daily AI judgment game</div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+const navLink: CSSProperties = {
+  fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 14, color: "#6E7563", textDecoration: "none",
+};

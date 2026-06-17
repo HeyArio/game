@@ -8,19 +8,22 @@ export interface TopBarProps {
   state: GameState;
   onSelectScreen: (id: Screen) => void;
   onOpenStreak: () => void;
+  onHome?: () => void;
   guest?: boolean;
   onSignIn?: () => void;
 }
 
-export function TopBar({ state, onSelectScreen, onOpenStreak, guest = false, onSignIn }: TopBarProps) {
+export function TopBar({ state, onSelectScreen, onOpenStreak, onHome, guest = false, onSignIn }: TopBarProps) {
   const isMobile = useIsMobile();
   const navItems = navView(state.screen, onSelectScreen as (id: any) => void);
   const [logoPressed, setLogoPressed] = useState(false);
 
-  // The logo is "home": go to the daily case and scroll to the top. Doing both
-  // means a click always produces visible feedback, even when already on Play.
+  // The logo is "home". For guests that's the landing page; for signed-in
+  // players it's the daily case. Either way we scroll to the top so a click
+  // always produces visible feedback.
   function goHome() {
-    onSelectScreen("play");
+    if (onHome) onHome();
+    else onSelectScreen("play");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   return (

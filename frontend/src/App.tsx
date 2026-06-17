@@ -9,7 +9,7 @@ import { LeaguesPage } from "./pages/LeaguesPage";
 import { PlayPage } from "./pages/PlayPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { QuestsPage } from "./pages/QuestsPage";
-import { SignInPage } from "./pages/SignInPage";
+import { LandingPage } from "./pages/LandingPage";
 import { useGameState } from "./state/useGameState";
 import { useDailyCase } from "./hooks/useDailyCase";
 import { useClientCase } from "./hooks/useClientCase";
@@ -129,9 +129,12 @@ function ClientGame() {
   return <GameShell game={game} caseLoading={status === "loading"} noCase={false} error={status === "error" ? error : null} />;
 }
 
-// ---- Guest path: read-only preview of today's case for logged-out visitors ----
+// ---- Guest path: landing page first, then a read-only preview of today's case ----
 function GuestGame() {
-  const [showSignIn, setShowSignIn] = useState(false);
+  // Logged-out visitors land on the marketing page (the front door). "Play
+  // today's case" drops them into the read-only game preview; the top-left logo
+  // takes them back to the landing page.
+  const [view, setView] = useState<"landing" | "game">("landing");
   const { status: caseStatus, dailyCase, error: caseError } = useDailyCase();
   const game = useGameState(); // no onSubmitVote — guests can't score or save
 
@@ -147,9 +150,7 @@ function GuestGame() {
     });
   }, [caseStatus, dailyCase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Any gated action (lock in, see verdict, open another screen) sends the
-  // visitor to the full sign-in / landing page.
-  if (showSignIn) return <SignInPage />;
+  if (view === "landing") return <LandingPage onPlay={() => { setView("game"); window.scrollTo(0, 0); }} />;
 
   return (
     <GameShell
@@ -158,19 +159,23 @@ function GuestGame() {
       noCase={caseStatus === "no_case"}
       error={caseStatus === "error" ? caseError : null}
       guest
-      onRequireAuth={() => setShowSignIn(true)}
+      // Gated actions (lock in, see verdict, other screens) bounce back to the
+      // landing page, where the sign-in CTA lives.
+      onRequireAuth={() => { setView("landing"); window.scrollTo(0, 0); }}
+      onGoLanding={() => { setView("landing"); window.scrollTo(0, 0); }}
     />
   );
 }
 
 // ---- Shared shell ----
-function GameShell({ game, caseLoading, noCase, error, guest = false, onRequireAuth }: {
+function GameShell({ game, caseLoading, noCase, error, guest = false, onRequireAuth, onGoLanding }: {
   game: ReturnType<typeof useGameState>;
   caseLoading: boolean;
   noCase: boolean;
   error: string | null;
   guest?: boolean;
   onRequireAuth?: () => void;
+  onGoLanding?: () => void;
 }) {
   const { state, countdownText, setCanvas, actions } = game;
   const screenLabel = { play: "Daily Case", leagues: "Leagues", quests: "Quests", profile: "Profile" }[state.screen];
@@ -184,10 +189,13 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, onRequireA
     : actions.setScreen;
   const lockIn = guest ? requireAuth : actions.lockIn;
   const openStreak = guest ? requireAuth : actions.openStreak;
+  // Logo target: guests go back to the landing page; signed-in players go home
+  // (to the daily case). TopBar also scrolls to top for visible feedback.
+  const onHome = guest && onGoLanding ? onGoLanding : () => actions.setScreen("play");
 
   return (
     <div data-screen-label={screenLabel} style={{ minHeight: "100vh", background: "radial-gradient(140% 80% at 50% -20%, #EAF7DD 0%, #F4F8EE 48%)", color: "#3C3C46", padding: "0 0 60px" }}>
-      <TopBar state={state} onSelectScreen={selectScreen} onOpenStreak={openStreak} guest={guest} onSignIn={requireAuth} />
+      <TopBar state={state} onSelectScreen={selectScreen} onOpenStreak={openStreak} onHome={onHome} guest={guest} onSignIn={requireAuth} />
 
       {state.screen === "play" && (
         <PlayPage state={state} countdownText={countdownText} caseLoading={caseLoading} noCase={noCase}
