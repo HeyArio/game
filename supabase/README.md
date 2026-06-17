@@ -27,9 +27,12 @@ This creates: `profiles`, `user_progress`, `daily_cases`, `case_options`,
 profile + progress row; and Row Level Security policies on every table.
 
 The frontend reads **real data** for the daily case, voting/scoring, XP, streak,
-level (derived from XP), and the leaderboard (`global_leaderboard`, ranked by
-total XP). Quests and some profile/achievement figures are still presentational
-and will be wired next.
+level (derived from XP), the leaderboard (`global_leaderboard`, ranked by total
+XP, including labeled AI opponents), and the profile/achievement figures
+(`get_player_stats`, computed from real vote history). The daily quests reflect
+your live session progress and the weekly quest counts your real votes this
+week; quest *claiming/rewards* and tiered weekly **league** resets are the main
+remaining presentational pieces.
 
 ## 3. Enable Google login
 
@@ -121,16 +124,28 @@ select cron.schedule(
 To force a specific question instead of an AI-generated one, POST a body:
 `{ "question": "...", "category": "TECHNOLOGY · PREDICTION" }`.
 
+## 5. Labeled AI opponents (leaderboard bots)
+
+Migration `0006` seeds a roster of clearly-labeled AI opponents into
+`bot_players` and unions them into `global_leaderboard` with an `is_bot` flag
+(the frontend renders them with a 🤖 marker). This solves the empty-leaderboard
+cold start **honestly** — no fake human accounts. Their XP drifts daily via
+`tick_bot_xp()`; schedule it (SQL editor, needs pg_cron):
+
+```sql
+select cron.schedule('tick-bot-xp', '10 0 * * *', $$ select public.tick_bot_xp(); $$);
+```
+
 ## Notes / next steps
 
-- **Hiding the verdict before close.** `case_options.is_judge_pick` is the
-  answer. RLS currently exposes option rows for any *open* case, which means a
-  determined user could read the flag early via the API. For a competitive
-  leaderboard this should be hardened: expose options through a
-  `security definer` RPC that returns `is_judge_pick = null` until
-  `closes_at <= now()`, and do scoring server-side (an Edge Function or RPC that
-  records the vote, decides correctness, and awards XP) rather than in the
-  client. The current frontend still scores locally (`selected === 'd'`) — that
-  moves server-side when we wire real cases.
-- **Daily rotation & league resets** want a scheduled job — use Supabase
-  **cron** (pg_cron) or a scheduled Edge Function.
+- **Hiding the verdict before close — done.** Migration `0005` restricts direct
+  `case_options` reads to *closed* cases, so `is_judge_pick` can no longer be
+  queried early. The live path is unaffected: the case is served via the
+  `today_case` view (which omits the flag and runs with the view owner's
+  privileges), and scoring happens server-side in the `submit-vote` Edge
+  Function with the service-role key.
+- **Daily rotation & bot drift** are handled by scheduled jobs (the
+  `generate-daily-case` cron in §4 and the `tick-bot-xp` cron above).
+- **Still to wire (optional, currently presentational):** quest reward
+  claiming, and tiered **weekly league** assignment + reset (the all-time
+  `global_leaderboard` stands in for now). These need their own scheduled jobs.
