@@ -56,7 +56,7 @@ per persona slot:
 | Slot | Persona | Provider | Default model |
 |------|---------|----------|---------------|
 | 1 | ASTRA  | OpenRouter | `openrouter/free` |
-| 2 | BOREAS | Groq | `llama-3.1-70b-versatile` |
+| 2 | BOREAS | Groq | `llama-3.3-70b-versatile` |
 | 3 | CIRRUS | Mistral | `mistral-small-latest` |
 | 4 | DELPHI | Z.ai | `glm-4.7` |
 | 5 | Arbi (judge) | Gemini | `gemini-3.1-flash-lite-preview` |

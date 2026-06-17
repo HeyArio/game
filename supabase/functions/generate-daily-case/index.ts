@@ -9,7 +9,7 @@
  *
  * Each persona slot is backed by a different provider:
  *   1 ASTRA  → OpenRouter  (openrouter/free)
- *   2 BOREAS → Groq        (llama-3.1-70b-versatile)
+ *   2 BOREAS → Groq        (llama-3.3-70b-versatile)
  *   3 CIRRUS → Mistral     (mistral-small-latest)
  *   4 DELPHI → Z.ai        (glm-4.7)
  *   5 Arbi   → Gemini      (gemini-3.1-flash-lite-preview)   ← the judge
@@ -62,7 +62,7 @@ interface SlotConfig { provider: ProviderId; model: string; }
 // Default provider + model per persona slot (override via LLM_PROVIDER_N / LLM_MODEL_N).
 const DEFAULT_SLOTS: Record<number, SlotConfig> = {
   1: { provider: "openrouter", model: "openrouter/free" },              // ASTRA
-  2: { provider: "groq", model: "llama-3.1-70b-versatile" },            // BOREAS
+  2: { provider: "groq", model: "llama-3.3-70b-versatile" },            // BOREAS
   3: { provider: "mistral", model: "mistral-small-latest" },            // CIRRUS
   4: { provider: "zai", model: "glm-4.7" },                             // DELPHI
   5: { provider: "gemini", model: "gemini-3.1-flash-lite-preview" },    // Arbi (judge)
