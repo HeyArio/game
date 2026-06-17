@@ -49,7 +49,7 @@ const PROVIDERS: Record<ProviderId, ProviderDef> = {
     base: "https://openrouter.ai/api",
     keyEnv: "OPENROUTER_API_KEY",
     shape: "openai",
-    headers: { "HTTP-Referer": "http://185.221.237.90.nip.io:3002", "X-Title": "Quorum" },
+    headers: { "HTTP-Referer": "https://quorumdaily.com", "X-Title": "Quorum" },
   },
   groq: { base: "https://api.groq.com/openai", keyEnv: "GROQ_API_KEY", shape: "openai" },
   mistral: { base: "https://api.mistral.ai", keyEnv: "MISTRAL_API_KEY", shape: "openai" },

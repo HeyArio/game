@@ -43,7 +43,7 @@ const PROVIDERS: Record<ProviderId, ProviderDef> = {
     proxy: "/openrouter-api",
     keyEnv: "VITE_OPENROUTER_API_KEY",
     shape: "openai",
-    headers: { "HTTP-Referer": "http://185.221.237.90.nip.io:3002", "X-Title": "Quorum" },
+    headers: { "HTTP-Referer": "https://quorumdaily.com", "X-Title": "Quorum" },
   },
   // https://api.groq.com/openai → /groq-api
   groq: { proxy: "/groq-api", keyEnv: "VITE_GROQ_API_KEY", shape: "openai" },
