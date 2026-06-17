@@ -135,9 +135,17 @@ function GuestGame() {
   // today's case" drops them into the read-only game preview; the top-left logo
   // takes them back to the landing page.
   const [view, setView] = useState<"landing" | "game">("landing");
-  const { signInWithGoogle } = useAuth();
+  // An optional prompt shown on the landing page when a guest is bounced here
+  // from a gated action (e.g. trying to lock in an answer).
+  const [notice, setNotice] = useState<string | null>(null);
   const { status: caseStatus, dailyCase, error: caseError } = useDailyCase();
   const game = useGameState(); // no onSubmitVote — guests can't score or save
+
+  const goLanding = (msg: string | null = null) => {
+    setNotice(msg);
+    setView("landing");
+    window.scrollTo(0, 0);
+  };
 
   useEffect(() => {
     if (caseStatus !== "active" || !dailyCase) return;
@@ -151,7 +159,7 @@ function GuestGame() {
     });
   }, [caseStatus, dailyCase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (view === "landing") return <LandingPage onPlay={() => { setView("game"); window.scrollTo(0, 0); }} />;
+  if (view === "landing") return <LandingPage notice={notice} onPlay={() => { setNotice(null); setView("game"); window.scrollTo(0, 0); }} />;
 
   return (
     <GameShell
@@ -160,12 +168,12 @@ function GuestGame() {
       noCase={caseStatus === "no_case"}
       error={caseStatus === "error" ? caseError : null}
       guest
-      // Locking in is high-intent — send the guest straight to Google sign-up.
-      onRequireSignUp={signInWithGoogle}
-      // Softer gated actions (other screens) bounce back to the landing page,
-      // where the sign-in CTA lives.
-      onRequireAuth={() => { setView("landing"); window.scrollTo(0, 0); }}
-      onGoLanding={() => { setView("landing"); window.scrollTo(0, 0); }}
+      // Locking in is high-intent: take the guest to the sign-up page with a
+      // clear prompt (rather than a silent OAuth redirect that looks like a hang).
+      onRequireSignUp={() => goLanding("Create your free account to lock in your pick — it only takes a few seconds.")}
+      // Softer gated actions (other screens) bounce back to the landing page.
+      onRequireAuth={() => goLanding()}
+      onGoLanding={() => goLanding()}
     />
   );
 }

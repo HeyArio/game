@@ -139,8 +139,14 @@ const FAQ = [
   },
 ] as const;
 
-export function LandingPage({ onPlay }: { onPlay: () => void }) {
+export function LandingPage({ onPlay, notice }: { onPlay: () => void; notice?: string | null }) {
   const { signInWithGoogle } = useAuth();
+
+  // Bring a guest's attention straight to sign-up when they arrive from a gated
+  // action (e.g. trying to lock in). Run after paint so the scroll lands right.
+  useEffect(() => {
+    if (notice) window.scrollTo({ top: 0, behavior: "auto" });
+  }, [notice]);
 
   // Inject FAQPage structured data for answer engines, kept in sync with the
   // visible FAQ above. Removed on unmount so it never lingers on other screens.
@@ -216,6 +222,35 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
       </header>
 
       <main>
+        {/* SIGN-UP PROMPT — shown when a guest is bounced here from a gated action */}
+        {notice && (
+          <div style={{ maxWidth: 1100, margin: "0 auto", padding: "18px 24px 0" }}>
+            <div style={{
+              ...card, padding: "16px 20px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14,
+              background: "linear-gradient(135deg,#E8FFD7,#F4FFEA)", border: "2px solid #A5ED6E", borderBottomWidth: 4,
+              animation: "qrise .35s ease both",
+            }}>
+              <span style={{ flex: "none" }}><Mascot size={40} mood="happy" /></span>
+              <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+                <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 17, color: "#3C3C46" }}>Nice pick — now make it count</div>
+                <div style={{ fontWeight: 700, fontSize: 13.5, color: "#5E7A3C", lineHeight: 1.45, marginTop: 2 }}>{notice}</div>
+              </div>
+              <button
+                onClick={signInWithGoogle}
+                disabled={!isSupabaseConfigured}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 10, border: "none", background: "#58CC02", color: "#fff",
+                  padding: "13px 22px", borderRadius: 14, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 14.5,
+                  boxShadow: "0 4px 0 #46A302", cursor: isSupabaseConfigured ? "pointer" : "not-allowed", opacity: isSupabaseConfigured ? 1 : 0.6, flex: "none",
+                }}
+              >
+                <span style={{ background: "#fff", borderRadius: 6, padding: 3, display: "inline-flex" }}><GoogleMark size={16} /></span>
+                Sign up free
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* HERO */}
         <section style={{ maxWidth: 1100, margin: "0 auto", padding: "34px 24px 8px", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 30, alignItems: "center" }}>
           <div style={{ animation: "qrise .5s ease both" }}>
