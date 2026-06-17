@@ -48,7 +48,7 @@ create table public.case_options (
   id             uuid primary key default gen_random_uuid(),
   case_id        uuid not null references public.daily_cases (id) on delete cascade,
   letter         text not null check (letter in ('A','B','C','D')),
-  model_name     text not null,          -- e.g. ASTRA / BOREAS
+  model_name     text not null,          -- e.g. "Llama 3.3 70B"
   pick           text not null,          -- e.g. France
   rationale      text not null,
   crowd_pct      int  not null default 0,

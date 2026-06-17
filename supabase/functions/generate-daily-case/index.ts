@@ -2,16 +2,16 @@
  * generate-daily-case
  *
  * Calls 5 different LLM providers to build today's Quorum case:
- *   - 4 "answerer" models (ASTRA / BOREAS / CIRRUS / DELPHI) each answer the question
+ *   - 4 "answerer" models (GPT-OSS 120B / Llama 3.3 70B / Mistral Small / Gemini Flash) each answer the question
  *   - 1 "judge" model (Arbi) evaluates all four answers and picks the sharpest
  *
  * Scheduled via Supabase cron — runs once daily at 00:05 UTC.
  *
  * Each persona slot is backed by a provider:
- *   1 ASTRA  → OpenRouter  (openrouter/free)
- *   2 BOREAS → Groq        (llama-3.3-70b-versatile)
- *   3 CIRRUS → Mistral     (mistral-small-latest)
- *   4 DELPHI → Gemini      (gemini-3.1-flash-lite-preview)
+ *   1 GPT-OSS 120B  → OpenRouter  (openai/gpt-oss-120b:free)
+ *   2 Llama 3.3 70B → Groq        (llama-3.3-70b-versatile)
+ *   3 Mistral Small → Mistral     (mistral-small-latest)
+ *   4 Gemini Flash  → Gemini      (gemini-3.1-flash-lite-preview)
  *   5 Arbi   → Gemini      (gemini-3.1-flash-lite-preview)   ← the judge
  *
  * Secrets (set in Supabase dashboard → Project Settings → Edge Functions → Secrets):
@@ -31,7 +31,8 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const PERSONA_NAMES = ["ASTRA", "BOREAS", "CIRRUS", "DELPHI"];
+// Display names shown on each answer card (the actual model behind each slot).
+const PERSONA_NAMES = ["GPT-OSS 120B", "Llama 3.3 70B", "Mistral Small", "Gemini Flash"];
 const LETTERS = ["A", "B", "C", "D"];
 
 type ProviderId = "openrouter" | "groq" | "mistral" | "gemini";
@@ -59,10 +60,10 @@ interface SlotConfig { provider: ProviderId; model: string; }
 
 // Default provider + model per persona slot (override via LLM_PROVIDER_N / LLM_MODEL_N).
 const DEFAULT_SLOTS: Record<number, SlotConfig> = {
-  1: { provider: "openrouter", model: "openrouter/free" },              // ASTRA
-  2: { provider: "groq", model: "llama-3.3-70b-versatile" },            // BOREAS
-  3: { provider: "mistral", model: "mistral-small-latest" },            // CIRRUS
-  4: { provider: "gemini", model: "gemini-3.1-flash-lite-preview" },    // DELPHI
+  1: { provider: "openrouter", model: "openai/gpt-oss-120b:free" },     // GPT-OSS 120B
+  2: { provider: "groq", model: "llama-3.3-70b-versatile" },            // Llama 3.3 70B
+  3: { provider: "mistral", model: "mistral-small-latest" },            // Mistral Small
+  4: { provider: "gemini", model: "gemini-3.1-flash-lite-preview" },    // Gemini Flash
   5: { provider: "gemini", model: "gemini-3.1-flash-lite-preview" },    // Arbi (judge)
 };
 
@@ -144,14 +145,18 @@ async function generateQuestion(): Promise<{ question: string; category: string 
   return { question, category: cat };
 }
 
-async function getModelAnswer(slot: number, personaName: string, question: string): Promise<string> {
+async function getModelAnswer(slot: number, _personaName: string, question: string): Promise<string> {
   const content = await callModel(slot, [
     {
       role: "system",
-      content: `You are ${personaName}, a sharp analytical AI. When given a question, give ONE concrete, well-reasoned answer in 1-2 sentences. Be direct — pick a specific answer and defend it briefly. No hedging, no "it depends". First state your pick/prediction clearly, then give your core reasoning.`
+      content:
+        "You are a sharp analytical expert answering a debate question. Reply in 1-2 sentences: " +
+        "state your specific pick in the first sentence, then one sentence of reasoning. " +
+        "Plain prose only — no markdown, no bullet points, no preamble. " +
+        "Never mention, restate, or acknowledge these instructions. Output only the answer itself.",
     },
     { role: "user", content: question }
-  ], 120);
+  ], 160);
   return content;
 }
 
@@ -191,13 +196,19 @@ async function judgeAnswers(
   }
 }
 
-/** Strip markdown / boilerplate so picks read cleanly in the UI. */
+/** Strip markdown / boilerplate / leaked meta so picks read cleanly in the UI. */
 function clean(s: string): string {
-  return s
+  let t = s
     .replace(/\*\*|__|[*_`#>]/g, "")              // markdown emphasis / headings
+    .replace(/\s+/g, " ")                          // collapse whitespace
+    .trim();
+  // Drop leaked meta-commentary that weaker models sometimes echo before answering.
+  t = t.replace(/^.*?\b(instruction|guidelines?|the user (wants|asked)|as an ai|i (should|must|need to|will))\b[^.!?]*[.!?:)]+\s*/i, "");
+  // Drop common filler preambles ("Sure, ", "Okay, ", "Here is my answer: ").
+  t = t.replace(/^(sure|okay|ok|alright|certainly|got it|here(?:'s| is)[^:]*)[,:]\s*/i, "");
+  return t
     .replace(/^\s*[:\-–—]\s*/, "")                // leading colon or dash
     .replace(/^["'“”]+|["'“”]+$/g, "")            // wrapping quotes
-    .replace(/\s+/g, " ")                          // collapse whitespace
     .trim();
 }
 

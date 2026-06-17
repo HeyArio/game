@@ -157,6 +157,7 @@ export function navView(screen: string, onSelect: (id: any) => void): NavItemVie
 
 export interface ViewCard extends BaseCard {
   modelLabel: string;
+  accent: string;
   style: CSSProperties;
   badgeStyle: CSSProperties;
   showId: boolean;
@@ -181,6 +182,7 @@ export function viewCards(s: GameState): ViewCard[] {
     return {
       ...c,
       modelLabel: "MODEL " + c.letter,
+      accent: COLORS[c.letter],
       style: cardStyle(c, s),
       badgeStyle: badgeStyle(c),
       showId: s.reveal.ids,
@@ -562,7 +564,7 @@ export function profileView(s: GameState): ProfileView {
 
 export function jName(s?: GameState): string {
   const jid = judgeId(s);
-  return baseCards(s).find((c) => c.id === jid)?.name ?? "DELPHI";
+  return baseCards(s).find((c) => c.id === jid)?.name ?? "Gemini Flash";
 }
 export function jPick(s?: GameState): string {
   const jid = judgeId(s);

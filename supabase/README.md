@@ -53,12 +53,12 @@ That's it — the frontend's "Continue with Google" button
 The `generate-daily-case` Edge Function calls four LLM providers across the
 five persona slots (Gemini doubles as a contestant and the judge):
 
-| Slot | Persona | Provider | Default model |
-|------|---------|----------|---------------|
-| 1 | ASTRA  | OpenRouter | `openrouter/free` |
-| 2 | BOREAS | Groq | `llama-3.3-70b-versatile` |
-| 3 | CIRRUS | Mistral | `mistral-small-latest` |
-| 4 | DELPHI | Gemini | `gemini-3.1-flash-lite-preview` |
+| Slot | Card name | Provider | Default model |
+|------|-----------|----------|---------------|
+| 1 | GPT-OSS 120B | OpenRouter | `openai/gpt-oss-120b:free` |
+| 2 | Llama 3.3 70B | Groq | `llama-3.3-70b-versatile` |
+| 3 | Mistral Small | Mistral | `mistral-small-latest` |
+| 4 | Gemini Flash | Gemini | `gemini-3.1-flash-lite-preview` |
 | 5 | Arbi (judge) | Gemini | `gemini-3.1-flash-lite-preview` |
 
 Gemini is the judge: it evaluates the four contestant answers and picks the

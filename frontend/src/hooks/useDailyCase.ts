@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 export interface CaseOption {
   id: string;
   letter: string;       // A B C D
-  model_name: string;   // ASTRA BOREAS CIRRUS DELPHI
+  model_name: string;   // display name, e.g. "Llama 3.3 70B"
   pick: string;         // short headline
   rationale: string;    // full answer text
   crowd_pct: number;    // seed percentage (replaced by live_pct after vote)

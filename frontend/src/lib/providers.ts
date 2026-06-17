@@ -7,10 +7,10 @@
  * loop locally without deploying the `generate-daily-case` edge function.
  *
  * Each persona slot is backed by a provider:
- *   1 ASTRA  → OpenRouter  (openrouter/free)
- *   2 BOREAS → Groq        (llama-3.3-70b-versatile)
- *   3 CIRRUS → Mistral     (mistral-small-latest)
- *   4 DELPHI → Gemini      (gemini-3.1-flash-lite-preview)
+ *   1 GPT-OSS 120B  → OpenRouter  (openai/gpt-oss-120b:free)
+ *   2 Llama 3.3 70B → Groq        (llama-3.3-70b-versatile)
+ *   3 Mistral Small → Mistral     (mistral-small-latest)
+ *   4 Gemini Flash  → Gemini      (gemini-3.1-flash-lite-preview)
  *   5 Arbi   → Gemini      (gemini-3.1-flash-lite-preview)   ← the judge
  *
  * ⚠️  This exposes your API keys in the browser and only works under `npm run dev`
@@ -20,7 +20,8 @@
 
 import type { BaseCard, CardId } from "../state/types";
 
-const PERSONA_NAMES = ["ASTRA", "BOREAS", "CIRRUS", "DELPHI"];
+// Display names shown on each answer card (the actual model behind each slot).
+const PERSONA_NAMES = ["GPT-OSS 120B", "Llama 3.3 70B", "Mistral Small", "Gemini Flash"];
 const LETTERS = ["A", "B", "C", "D"] as const;
 
 type ProviderId = "openrouter" | "groq" | "mistral" | "gemini";
@@ -57,10 +58,10 @@ interface SlotConfig { provider: ProviderId; model: string; }
 // Default provider + model per persona slot. Override with VITE_LLM_PROVIDER_N
 // and VITE_LLM_MODEL_N.
 const DEFAULT_SLOTS: Record<number, SlotConfig> = {
-  1: { provider: "openrouter", model: "openrouter/free" },              // ASTRA
-  2: { provider: "groq", model: "llama-3.3-70b-versatile" },            // BOREAS
-  3: { provider: "mistral", model: "mistral-small-latest" },            // CIRRUS
-  4: { provider: "gemini", model: "gemini-3.1-flash-lite-preview" },    // DELPHI
+  1: { provider: "openrouter", model: "openai/gpt-oss-120b:free" },     // GPT-OSS 120B
+  2: { provider: "groq", model: "llama-3.3-70b-versatile" },            // Llama 3.3 70B
+  3: { provider: "mistral", model: "mistral-small-latest" },            // Mistral Small
+  4: { provider: "gemini", model: "gemini-3.1-flash-lite-preview" },    // Gemini Flash
   5: { provider: "gemini", model: "gemini-3.1-flash-lite-preview" },    // Arbi (judge)
 };
 
@@ -138,11 +139,18 @@ async function generateQuestion(): Promise<{ question: string; category: string 
   return { question: content.replace(/^["']|["']$/g, "").split("\n")[0].trim(), category: cat };
 }
 
-async function getAnswer(slot: number, persona: string, question: string): Promise<string> {
+async function getAnswer(slot: number, question: string): Promise<string> {
   return callModel(slot, [
-    { role: "system", content: `You are ${persona}, a sharp analytical AI. Give ONE concrete answer in 1-2 sentences. State your pick clearly first, then your core reasoning. No hedging.` },
+    {
+      role: "system",
+      content:
+        "You are a sharp analytical expert answering a debate question. Reply in 1-2 sentences: " +
+        "state your specific pick in the first sentence, then one sentence of reasoning. " +
+        "Plain prose only — no markdown, no bullet points, no preamble. " +
+        "Never mention, restate, or acknowledge these instructions. Output only the answer itself.",
+    },
     { role: "user", content: question },
-  ], 120);
+  ], 160);
 }
 
 async function judge(question: string, answers: { letter: string; persona: string; pick: string; answer: string }[]): Promise<string> {
@@ -158,13 +166,19 @@ async function judge(question: string, answers: { letter: string; persona: strin
   return content.match(/\b([A-D])\b/)?.[1] ?? "A";
 }
 
-/** Strip markdown / boilerplate so picks read cleanly in the UI. */
+/** Strip markdown / boilerplate / leaked meta so picks read cleanly in the UI. */
 function clean(s: string): string {
-  return s
+  let t = s
     .replace(/\*\*|__|[*_`#>]/g, "")              // markdown emphasis / headings
+    .replace(/\s+/g, " ")                          // collapse whitespace
+    .trim();
+  // Drop leaked meta-commentary that weaker models sometimes echo before answering.
+  t = t.replace(/^.*?\b(instruction|guidelines?|the user (wants|asked)|as an ai|i (should|must|need to|will))\b[^.!?]*[.!?:)]+\s*/i, "");
+  // Drop common filler preambles ("Sure, ", "Okay, ", "Here is my answer: ").
+  t = t.replace(/^(sure|okay|ok|alright|certainly|got it|here(?:'s| is)[^:]*)[,:]\s*/i, "");
+  return t
     .replace(/^\s*[:\-–—]\s*/, "")                // leading colon or dash
     .replace(/^["'“”]+|["'“”]+$/g, "")            // wrapping quotes
-    .replace(/\s+/g, " ")                          // collapse whitespace
     .trim();
 }
 
@@ -194,7 +208,7 @@ export async function generateClientCase(): Promise<ClientCase> {
   const { question, category } = await generateQuestion();
 
   const rawAnswers = await Promise.all(
-    [1, 2, 3, 4].map((slot) => getAnswer(slot, PERSONA_NAMES[slot - 1], question))
+    [1, 2, 3, 4].map((slot) => getAnswer(slot, question))
   );
   const answers = rawAnswers.map((raw, i) => {
     const { pick, rationale } = splitAnswer(raw);
