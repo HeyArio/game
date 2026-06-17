@@ -546,7 +546,7 @@ export function profileView(s: GameState): ProfileView {
   const figures = [
     { iconEl: icon("scale", 20, "#58A700"), iconWrap: wrap("#E8FFD7"), value: "72%", label: "Agreement with me" },
     { iconEl: icon("calendar", 20, "#1899D6"), iconWrap: wrap("#E3F6FF"), value: "218", label: "Cases judged" },
-    { iconEl: icon("flame", 20, "#FF9600"), iconWrap: wrap("#FFF3E0"), value: "21", label: "Best streak" },
+    { iconEl: icon("flame", 20, "#FF9600"), iconWrap: wrap("#FFF3E0"), value: String(s.bestStreak), label: "Best streak" },
     { iconEl: icon("gem", 20, "#7A3FB0"), iconWrap: wrap("#F6ECFF"), value: "340", label: "Gems" },
   ];
   const note =

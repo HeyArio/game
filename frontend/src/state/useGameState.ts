@@ -6,7 +6,7 @@ export const CROWD_LEADER: CardId = "b";
 
 const STARTING_COUNTDOWN = 60138; // seconds, ported from `_countdown = 60138`
 
-function initLeague(): LeaguePlayer[] {
+function defaultLeague(): LeaguePlayer[] {
   return [
     { name: "Mara K.", initial: "M", color: "#FF9600", xp: 3120 },
     { name: "Devin R.", initial: "D", color: "#1CB0F6", xp: 2980 },
@@ -26,6 +26,11 @@ export function baseCards(): BaseCard[] {
     { id: "c", letter: "C", name: "Mistral Small", pick: "Brazil", crowd: 22, answer: "A hungry new generation with the deepest attacking pool on the planet and a point to prove." },
     { id: "d", letter: "D", name: "Gemini Flash", pick: "Spain", crowd: 19, answer: "The Euro 2024 core matured two years; the midfield dictates tempo better than anyone alive." },
   ];
+}
+
+/** Level curve: 500 XP per level, starting at level 1. */
+export function levelFromXp(xp: number): number {
+  return Math.max(1, Math.floor(xp / 500) + 1);
 }
 
 export function fmtClock(t: number): string {
@@ -81,6 +86,8 @@ function makeInitState(props: InitProps): GameState {
     overlay: null,
     contEquipped: false,
     streak: props.streak ?? 14,
+    bestStreak: props.streak ?? 14,
+    level: levelFromXp(props.totalXp ?? 2480),
     totalXp: props.totalXp ?? 2480,
     dailyXp: props.dailyXp ?? 0,
     dailyGoal: 50,
@@ -88,7 +95,7 @@ function makeInitState(props: InitProps): GameState {
     sharpEyeGoal: 10,
     questMatch: 1,
     contLeft: props.contLeft ?? 2,
-    league: initLeague(),
+    league: defaultLeague(),
     // case data — overwritten via initCase() when DB data loads
     cards: baseCards(),
     judgeOptionId: null,
@@ -248,7 +255,9 @@ export function useGameState(props: InitProps = {}) {
         win,
         earned,
         totalXp: s.totalXp + earned,
+        level: levelFromXp(s.totalXp + earned),
         streak: s.streak + 1,
+        bestStreak: Math.max(s.bestStreak, s.streak + 1),
         dailyXp: Math.min(s.dailyGoal, s.dailyXp + earned),
         sharpEye: win ? Math.min(s.sharpEyeGoal, s.sharpEye + 1) : s.sharpEye,
         questMatch: win ? Math.min(2, s.questMatch + 1) : s.questMatch,
@@ -297,7 +306,8 @@ export function useGameState(props: InitProps = {}) {
       const youRank = league.findIndex((p) => p.isYou) + 1;
       queueMicrotask(() => { countDaily(earned); if (win) fireConfetti(); });
       return { ...s2, reveal: { ...s2.reveal, verdict: true }, scored: true, win, earned,
-        totalXp: s2.totalXp + earned, streak: s2.streak + 1,
+        totalXp: s2.totalXp + earned, level: levelFromXp(s2.totalXp + earned),
+        streak: s2.streak + 1, bestStreak: Math.max(s2.bestStreak, s2.streak + 1),
         dailyXp: Math.min(s2.dailyGoal, s2.dailyXp + earned),
         sharpEye: win ? Math.min(s2.sharpEyeGoal, s2.sharpEye + 1) : s2.sharpEye,
         questMatch: win ? Math.min(2, s2.questMatch + 1) : s2.questMatch,
@@ -409,15 +419,22 @@ export function useGameState(props: InitProps = {}) {
   }, []);
 
   /** Load user progress from DB into game state */
-  const initProgress = useCallback((p: { streak: number; totalXp: number; dailyXp: number; contLeft: number; sharpEye: number }) => {
+  const initProgress = useCallback((p: { streak: number; totalXp: number; dailyXp: number; contLeft: number; bestStreak: number }) => {
     setState((s) => ({
       ...s,
       streak: p.streak,
+      bestStreak: Math.max(p.bestStreak, p.streak),
+      level: levelFromXp(p.totalXp),
       totalXp: p.totalXp,
       dailyXp: p.dailyXp,
       contLeft: p.contLeft,
-      sharpEye: p.sharpEye,
     }));
+  }, []);
+
+  /** Load the real leaderboard from DB into game state */
+  const initLeague = useCallback((players: LeaguePlayer[]) => {
+    if (!players.length) return;
+    setState((s) => ({ ...s, league: [...players].sort((a, b) => b.xp - a.xp) }));
   }, []);
 
   return {
@@ -438,6 +455,7 @@ export function useGameState(props: InitProps = {}) {
       fireConfetti,
       initCase,
       initProgress,
+      initLeague,
       applyVoteResult,
     },
   };

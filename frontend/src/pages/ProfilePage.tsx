@@ -43,7 +43,7 @@ export function ProfilePage({ state }: ProfilePageProps) {
           <div style={{ fontWeight: 700, fontSize: 14, color: "#9AA08C" }}>{handle} · Joined March 2025</div>
           <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 10, background: "#F6ECFF", color: "#7A3FB0", fontWeight: 800, fontSize: 12 }}>
-              {profile.levelEl}Level 8
+              {profile.levelEl}Level {state.level}
             </span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 10, background: "#E3F6FF", color: "#1899D6", fontWeight: 800, fontSize: 12 }}>
               {profile.leagueEl}Emerald

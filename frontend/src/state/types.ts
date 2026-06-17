@@ -50,6 +50,8 @@ export interface GameState {
   contEquipped: boolean;
 
   streak: number;
+  bestStreak: number;
+  level: number;
   totalXp: number;
   dailyXp: number;
   dailyGoal: number;

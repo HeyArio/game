@@ -58,12 +58,30 @@ function Game() {
       if (!user) return;
       const { data } = await supabase
         .from("user_progress")
-        .select("streak, total_xp, daily_xp, continuance_count, sharpEye:sharp_eye_count")
+        .select("streak, total_xp, daily_xp, continuance_count, best_streak")
         .eq("user_id", user.id).maybeSingle();
       if (data) game.actions.initProgress({
         streak: data.streak ?? 0, totalXp: data.total_xp ?? 0, dailyXp: data.daily_xp ?? 0,
-        contLeft: data.continuance_count ?? 2, sharpEye: (data as any).sharpEye ?? 0,
+        contLeft: data.continuance_count ?? 2, bestStreak: (data as any).best_streak ?? 0,
       });
+
+      // Real leaderboard — top players by total XP, with the current user flagged.
+      const { data: board } = await supabase
+        .from("global_leaderboard")
+        .select("user_id, display_name, avatar_color, total_xp, rank")
+        .order("rank", { ascending: true })
+        .limit(20);
+      if (board?.length) {
+        game.actions.initLeague(
+          board.map((r: any) => ({
+            name: r.user_id === user.id ? "You" : r.display_name,
+            initial: (r.display_name?.[0] ?? "?").toUpperCase(),
+            color: r.avatar_color ?? "#58CC02",
+            xp: r.total_xp ?? 0,
+            isYou: r.user_id === user.id,
+          }))
+        );
+      }
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

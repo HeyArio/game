@@ -303,7 +303,7 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14, paddingTop: 14, borderTop: "2px solid #F0F2EA" }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontWeight: 800, fontSize: 13, color: "#7C8470" }}>
-              {icon("star", 19, "#CE82FF")}Level 8
+              {icon("star", 19, "#CE82FF")}Level {state.level}
             </span>
             <span style={{ fontWeight: 800, fontSize: 13, color: "#9AA08C" }}>{state.totalXp.toLocaleString()} XP</span>
           </div>

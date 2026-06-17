@@ -15,15 +15,21 @@ the VPS. Nothing here runs on the VPS.
 
 ## 2. Apply the schema
 
-Open **SQL Editor** in the Supabase dashboard, paste the contents of
-`migrations/0001_init.sql`, and run it. (Or, with the Supabase CLI linked to the
-project: `supabase db push`.)
+Open **SQL Editor** in the Supabase dashboard and run each migration in
+`migrations/` in order (`0001` → `0004`). (Or, with the Supabase CLI linked to
+the project: `supabase db push`.)
 
 This creates: `profiles`, `user_progress`, `daily_cases`, `case_options`,
 `votes`, `leagues`, `league_memberships`, `quests`, `quest_progress`,
-`achievements`, `user_achievements`, the `league_standings` leaderboard view,
-a signup trigger that seeds a profile + progress row, and Row Level Security
-policies on every table.
+`achievements`, `user_achievements`; the `today_case`, `case_vote_summary`,
+`league_standings`, and `global_leaderboard` views; the
+`update_user_progress_after_vote` scoring RPC; a signup trigger that seeds a
+profile + progress row; and Row Level Security policies on every table.
+
+The frontend reads **real data** for the daily case, voting/scoring, XP, streak,
+level (derived from XP), and the leaderboard (`global_leaderboard`, ranked by
+total XP). Quests and some profile/achievement figures are still presentational
+and will be wired next.
 
 ## 3. Enable Google login
 
