@@ -4,6 +4,7 @@ import { ConfettiCanvas } from "./components/ConfettiCanvas";
 import { PromoOverlay } from "./components/PromoOverlay";
 import { StreakOverlay } from "./components/StreakOverlay";
 import { TopBar } from "./components/TopBar";
+import { SignInOverlay } from "./components/SignInOverlay";
 import { Mascot } from "./components/Mascot";
 import { LeaguesPage } from "./pages/LeaguesPage";
 import { PlayPage } from "./pages/PlayPage";
@@ -135,14 +136,10 @@ function GuestGame() {
   // today's case" drops them into the read-only game preview; the top-left logo
   // takes them back to the landing page.
   const [view, setView] = useState<"landing" | "game">("landing");
-  // An optional prompt shown on the landing page when a guest is bounced here
-  // from a gated action (e.g. trying to lock in an answer).
-  const [notice, setNotice] = useState<string | null>(null);
   const { status: caseStatus, dailyCase, error: caseError } = useDailyCase();
   const game = useGameState(); // no onSubmitVote — guests can't score or save
 
-  const goLanding = (msg: string | null = null) => {
-    setNotice(msg);
+  const goLanding = () => {
     setView("landing");
     window.scrollTo(0, 0);
   };
@@ -159,7 +156,7 @@ function GuestGame() {
     });
   }, [caseStatus, dailyCase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (view === "landing") return <LandingPage notice={notice} onPlay={() => { setNotice(null); setView("game"); window.scrollTo(0, 0); }} />;
+  if (view === "landing") return <LandingPage onPlay={() => { setView("game"); window.scrollTo(0, 0); }} />;
 
   return (
     <GameShell
@@ -168,9 +165,6 @@ function GuestGame() {
       noCase={caseStatus === "no_case"}
       error={caseStatus === "error" ? caseError : null}
       guest
-      // Locking in is high-intent: take the guest to the sign-up page with a
-      // clear prompt (rather than a silent OAuth redirect that looks like a hang).
-      onRequireSignUp={() => goLanding("Create your free account to lock in your pick — it only takes a few seconds.")}
       // Softer gated actions (other screens) bounce back to the landing page.
       onRequireAuth={() => goLanding()}
       onGoLanding={() => goLanding()}
@@ -179,18 +173,19 @@ function GuestGame() {
 }
 
 // ---- Shared shell ----
-function GameShell({ game, caseLoading, noCase, error, guest = false, onRequireAuth, onRequireSignUp, onGoLanding }: {
+function GameShell({ game, caseLoading, noCase, error, guest = false, onRequireAuth, onGoLanding }: {
   game: ReturnType<typeof useGameState>;
   caseLoading: boolean;
   noCase: boolean;
   error: string | null;
   guest?: boolean;
   onRequireAuth?: () => void;
-  onRequireSignUp?: () => void;
   onGoLanding?: () => void;
 }) {
   const { state, countdownText, setCanvas, actions } = game;
   const screenLabel = { play: "Daily Case", leagues: "Leagues", quests: "Quests", profile: "Profile" }[state.screen];
+  // When a guest tries to lock in, prompt them to sign in via a modal popup.
+  const [signInPrompt, setSignInPrompt] = useState(false);
 
   if (state.screen === "play" && error) return <ErrorScreen message={error} />;
 
@@ -199,9 +194,9 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, onRequireA
   const selectScreen = guest
     ? (id: Screen) => { if (id === "play") actions.setScreen("play"); else requireAuth(); }
     : actions.setScreen;
-  // Guests who try to lock in are sent straight to sign-up; other gated actions
+  // Guests who try to lock in get a "please sign in" popup; other gated actions
   // fall back to the landing page.
-  const lockIn = guest ? (onRequireSignUp ?? requireAuth) : actions.lockIn;
+  const lockIn = guest ? () => setSignInPrompt(true) : actions.lockIn;
   const openStreak = guest ? requireAuth : actions.openStreak;
   // Logo target: guests go back to the landing page; signed-in players go home
   // (to the daily case). TopBar also scrolls to top for visible feedback.
@@ -224,6 +219,8 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, onRequireA
         <StreakOverlay state={state} countdownText={countdownText} onClose={actions.closeOverlay} onEquip={actions.equipContinuance} />
       )}
       {state.overlay === "promo" && <PromoOverlay onDismiss={actions.dismissPromo} />}
+
+      {signInPrompt && <SignInOverlay onClose={() => setSignInPrompt(false)} />}
 
       <ConfettiCanvas setCanvas={setCanvas} />
     </div>
