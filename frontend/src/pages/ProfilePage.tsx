@@ -2,12 +2,14 @@ import { Mascot } from "../components/Mascot";
 import type { GameState } from "../state/types";
 import { profileView } from "../state/viewHelpers";
 import { useAuth } from "../auth/AuthProvider";
+import { useIsMobile } from "../hooks/useMediaQuery";
 
 export interface ProfilePageProps {
   state: GameState;
 }
 
 export function ProfilePage({ state }: ProfilePageProps) {
+  const isMobile = useIsMobile();
   const profile = profileView(state);
   const { user, signOut } = useAuth();
 
@@ -18,7 +20,7 @@ export function ProfilePage({ state }: ProfilePageProps) {
 
   return (
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "26px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 18, padding: 22, background: "#fff", border: "2px solid #E4EAD8", borderRadius: 22 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 18, padding: 22, background: "#fff", border: "2px solid #E4EAD8", borderRadius: 22, flexWrap: "wrap" }}>
         <span
           style={{
             display: "inline-flex",
@@ -93,7 +95,7 @@ export function ProfilePage({ state }: ProfilePageProps) {
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 12 }}>
         {profile.stats.map((st, i) => (
           <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, padding: "16px 8px", background: "#fff", border: "2px solid #E4EAD8", borderRadius: 18, textAlign: "center" }}>
             <span style={st.iconWrap}>{st.iconEl}</span>
@@ -115,7 +117,7 @@ export function ProfilePage({ state }: ProfilePageProps) {
 
       <div style={{ background: "#fff", border: "2px solid #E4EAD8", borderRadius: 20, padding: 20 }}>
         <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 18, color: "#3C3C46", marginBottom: 16 }}>Achievements</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,1fr)", gap: 14 }}>
           {profile.achievements.map((a, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 13, padding: 14, borderRadius: 16, background: a.bg, border: "2px solid " + a.border }}>
               <span style={a.iconWrap}>{a.iconEl}</span>

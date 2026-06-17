@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Mascot } from "../components/Mascot";
 import { AnswerCard } from "../components/AnswerCard";
 import { icon } from "../icons/Icon";
+import { useIsMobile } from "../hooks/useMediaQuery";
 import type { GameState, CardId } from "../state/types";
 import {
   badgesView,
@@ -31,6 +32,7 @@ export interface PlayPageProps {
 }
 
 export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCard, onLockIn, onAdvance, onReplay }: PlayPageProps) {
+  const isMobile = useIsMobile();
   const cards = viewCards(state);
   const win = state.selected === "d";
   const your = yourCard(state);
@@ -146,10 +148,10 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
       style={{
         maxWidth: 1160,
         margin: "0 auto",
-        padding: "26px 24px",
+        padding: isMobile ? "18px 14px" : "26px 24px",
         display: "grid",
-        gridTemplateColumns: "minmax(0,1fr) 330px",
-        gap: 24,
+        gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1fr) 330px",
+        gap: isMobile ? 18 : 24,
         alignItems: "start",
       }}
     >
@@ -184,7 +186,7 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(auto-fit,minmax(220px,1fr))" : "1fr 1fr", gap: 14, marginTop: 18 }}>
           {cards.map((card) => (
             <AnswerCard key={card.id} card={card} onSelect={() => onSelectCard(card.id)} />
           ))}
@@ -217,11 +219,11 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
                 animation: "qrise .45s ease both",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 58, height: 58, borderRadius: "50%", background: "#fff", flex: "none", animation: "qpop .5s ease both" }}>
                   <Mascot size={50} mood={state.win ? "happy" : "soft"} />
                 </span>
-                <div style={{ minWidth: 0 }}>
+                <div style={{ flex: "1 1 200px", minWidth: 0 }}>
                   <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 23, color: resultAccent }}>
                     {state.win ? "We agree!" : "Not this time"}
                   </div>

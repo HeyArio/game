@@ -1,6 +1,7 @@
-import type { CardId, GameState, Screen } from "../state/types";
+import type { GameState, Screen } from "../state/types";
 import { icon } from "../icons/Icon";
 import { navView } from "../state/viewHelpers";
+import { useIsMobile } from "../hooks/useMediaQuery";
 
 export interface TopBarProps {
   state: GameState;
@@ -9,6 +10,7 @@ export interface TopBarProps {
 }
 
 export function TopBar({ state, onSelectScreen, onOpenStreak }: TopBarProps) {
+  const isMobile = useIsMobile();
   const navItems = navView(state.screen, onSelectScreen as (id: any) => void);
   return (
     <header
@@ -28,8 +30,9 @@ export function TopBar({ state, onSelectScreen, onOpenStreak }: TopBarProps) {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: 16,
-          padding: "13px 22px",
+          flexWrap: isMobile ? "wrap" : "nowrap",
+          gap: isMobile ? 10 : 16,
+          padding: isMobile ? "10px 14px" : "13px 22px",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -53,7 +56,14 @@ export function TopBar({ state, onSelectScreen, onOpenStreak }: TopBarProps) {
           </span>
           <span style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 23, color: "#58A700" }}>Quorum</span>
         </div>
-        <nav style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <nav
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            ...(isMobile ? { order: 3, flexBasis: "100%", justifyContent: "space-around" } : {}),
+          }}
+        >
           {navItems.map((nav) => (
             <span key={nav.id} onClick={() => onSelectScreen(nav.id as Screen)} style={nav.style}>
               {nav.iconEl}
@@ -61,7 +71,7 @@ export function TopBar({ state, onSelectScreen, onOpenStreak }: TopBarProps) {
             </span>
           ))}
         </nav>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 8, ...(isMobile ? { marginLeft: "auto" } : {}) }}>
           <span
             onClick={onOpenStreak}
             title="Streak"
@@ -114,7 +124,7 @@ export function TopBar({ state, onSelectScreen, onOpenStreak }: TopBarProps) {
             }}
           >
             {icon("trophy", 19, "#1899D6")}
-            Emerald
+            {!isMobile && "Emerald"}
           </span>
         </div>
       </div>
