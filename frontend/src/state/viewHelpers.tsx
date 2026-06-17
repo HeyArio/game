@@ -284,7 +284,7 @@ function bw(bg: string): CSSProperties {
   };
 }
 
-export function badgesView(s: GameState): BadgeView[] {
+export function badgesView(s: GameState, st: PlayerStats): BadgeView[] {
   return [
     { iconEl: icon("cap", 25, "#58CC02"), label: "Scholar", iconWrap: bw("#E8FFD7"), labelColor: "#3C3C46", showCount: false },
     {
@@ -303,7 +303,7 @@ export function badgesView(s: GameState): BadgeView[] {
       iconWrap: bw("#F6ECFF"),
       labelColor: "#3C3C46",
       showCount: true,
-      count: s.sharpEye + "/" + s.sharpEyeGoal,
+      count: st.correctCount + "/10",
       ring: "#CE82FF",
     },
     { iconEl: icon("star", 24, "#C2C7B6"), label: "Sage", iconWrap: bw("#F0F2EA"), labelColor: "#B2B7A6", showCount: false },

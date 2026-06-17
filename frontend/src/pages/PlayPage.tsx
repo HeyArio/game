@@ -40,7 +40,7 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
   const done = doneView(state);
   const weekDays = weekDaysView(state);
   const leagueRows = leagueRowsView(state);
-  const badges = badgesView(state);
+  const badges = badgesView(state, state.stats);
 
   // qspin: 24 spinner ticks fanned around a circle, opacity ramping with index — ported 1:1.
   const spinnerTicks = Array.from({ length: 24 }, (_, i) => ({
