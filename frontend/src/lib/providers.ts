@@ -10,8 +10,8 @@
  *   1 ASTRA  → OpenRouter  (openrouter/free)
  *   2 BOREAS → Groq        (llama-3.1-70b-versatile)
  *   3 CIRRUS → Mistral     (mistral-small-latest)
- *   4 DELPHI → Gemini      (gemini-3.1-flash-lite-preview)
- *   5 Arbi   → Z.ai        (glm-4.7)   ← the judge
+ *   4 DELPHI → Z.ai        (glm-4.7)
+ *   5 Arbi   → Gemini      (gemini-3.1-flash-lite-preview)   ← the judge
  *
  * ⚠️  This exposes your API keys in the browser and only works under `npm run dev`
  *     (it relies on the Vite dev proxies in vite.config.ts to avoid CORS).
@@ -62,8 +62,8 @@ const DEFAULT_SLOTS: Record<number, SlotConfig> = {
   1: { provider: "openrouter", model: "openrouter/free" },              // ASTRA
   2: { provider: "groq", model: "llama-3.1-70b-versatile" },            // BOREAS
   3: { provider: "mistral", model: "mistral-small-latest" },            // CIRRUS
-  4: { provider: "gemini", model: "gemini-3.1-flash-lite-preview" },    // DELPHI
-  5: { provider: "zai", model: "glm-4.7" },                             // Arbi (judge)
+  4: { provider: "zai", model: "glm-4.7" },                             // DELPHI
+  5: { provider: "gemini", model: "gemini-3.1-flash-lite-preview" },    // Arbi (judge)
 };
 
 const env = import.meta.env as Record<string, string | undefined>;

@@ -58,10 +58,10 @@ per persona slot:
 | 1 | ASTRA  | OpenRouter | `openrouter/free` |
 | 2 | BOREAS | Groq | `llama-3.1-70b-versatile` |
 | 3 | CIRRUS | Mistral | `mistral-small-latest` |
-| 4 | DELPHI | Gemini | `gemini-3.1-flash-lite-preview` |
-| 5 | Arbi (judge) | Z.ai | `glm-4.7` |
+| 4 | DELPHI | Z.ai | `glm-4.7` |
+| 5 | Arbi (judge) | Gemini | `gemini-3.1-flash-lite-preview` |
 
-Z.ai's GLM is the judge: it evaluates the four contestant answers and picks the
+Gemini is the judge: it evaluates the four contestant answers and picks the
 sharpest, emitting clean JSON verdicts. The function speaks each provider's
 native wire format — OpenAI-style chat completions (OpenRouter / Groq /
 Mistral), Anthropic-style messages (Z.ai), and Gemini's `generateContent`.
