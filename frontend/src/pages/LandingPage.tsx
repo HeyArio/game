@@ -28,7 +28,7 @@ const wordmark = (size = 30, mark = 40) => (
     >
       Q
     </span>
-    <span style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: size, color: "#58A700" }}>Quorum</span>
+    <span style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: size, color: "#4A9600" }}>Quorum</span>
   </div>
 );
 
@@ -37,17 +37,18 @@ const card: CSSProperties = {
   borderRadius: 22, padding: "24px 22px",
 };
 
-function Eyebrow({ children, color = "#58A700", bg = "#E8FFD7" }: { children: string; color?: string; bg?: string }) {
-  return (
-    <span style={{ display: "inline-block", padding: "6px 12px", borderRadius: 999, background: bg, color, fontWeight: 800, fontSize: 12, letterSpacing: ".06em" }}>
-      {children}
-    </span>
-  );
-}
-
 function H2({ children, id }: { children: ReactNode; id?: string }) {
   return (
-    <h2 id={id} style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: "clamp(24px,3.2vw,34px)", lineHeight: 1.15, color: "#3C3C46", letterSpacing: "-.01em", margin: "14px 0 0", scrollMarginTop: 90 }}>
+    <h2
+      id={id}
+      style={{
+        fontFamily: "'Baloo 2',cursive", fontWeight: 800,
+        fontSize: "clamp(24px,3.2vw,34px)", lineHeight: 1.15,
+        color: "#3C3C46", letterSpacing: "-.01em",
+        margin: 0, scrollMarginTop: 90,
+        textWrap: "balance" as CSSProperties["textWrap"],
+      }}
+    >
       {children}
     </h2>
   );
@@ -69,7 +70,7 @@ const HOW = [
 const BENEFITS = [
   { ic: "cap", tint: "#58CC02", bg: "#E8FFD7", title: "Sharpen your judgment", body: "Practising the daily call trains you to weigh evidence, spot weak reasoning, and commit to a view under uncertainty." },
   { ic: "users", tint: "#1CB0F6", bg: "#E3F4FF", title: "See how AIs actually reason", body: "Watch how different frontier models approach the same question — where they agree, where they diverge, and why." },
-  { ic: "flame", tint: "#FF9600", bg: "#FFF3E0", title: "A two-minute daily habit", body: "One sharp question a day. No doomscrolling, no noise — just a quick, satisfying mental rep that compounds over time." },
+  { ic: "flame", tint: "#FF9600", bg: "#FFF3E0", title: "A two-minute daily habit", body: "One sharp question a day: no doomscrolling, no noise, just a quick mental rep that compounds over time." },
   { ic: "medal", tint: "#CE82FF", bg: "#F4E9FF", title: "Compete with friends", body: "Streaks, XP, weekly leagues, and achievements turn good thinking into a game you'll want to keep winning." },
 ] as const;
 
@@ -164,6 +165,7 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
 
   const PlayCTA = ({ wide = false }: { wide?: boolean }) => (
     <button
+      className="lp-btn-play"
       onClick={onPlay}
       onMouseDown={(e) => (e.currentTarget.style.transform = "translateY(2px)")}
       onMouseUp={(e) => (e.currentTarget.style.transform = "translateY(0)")}
@@ -173,7 +175,7 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
         width: wide ? "100%" : "auto", border: "none", background: "#58CC02", color: "#fff",
         padding: "15px 26px", borderRadius: 15, fontFamily: "'Nunito',sans-serif", fontWeight: 800,
         fontSize: 15.5, letterSpacing: ".01em", boxShadow: "0 4px 0 #46A302", cursor: "pointer",
-        transition: "transform .05s",
+        transition: "transform .05s, background .1s",
       }}
     >
       {icon("play", 18, "#fff")} Play today's case
@@ -182,16 +184,20 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
 
   const SignInButton = ({ subtle = false }: { subtle?: boolean }) => (
     <button
+      className={subtle ? "lp-btn-signin-subtle" : undefined}
       onClick={signInWithGoogle}
       disabled={!isSupabaseConfigured}
       style={{
         display: "inline-flex", alignItems: "center", gap: 8,
         border: subtle ? "2px solid #E4EAD8" : "none", borderBottomWidth: subtle ? 3 : undefined,
-        background: subtle ? "#fff" : "#fff", color: "#3C3C46",
-        padding: subtle ? "9px 16px" : "14px 22px", borderRadius: subtle ? 12 : 15,
+        background: "#fff", color: "#3C3C46",
+        padding: subtle ? "9px 16px" : "14px 22px",
+        minHeight: subtle ? 44 : undefined,
+        borderRadius: subtle ? 12 : 15,
         fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: subtle ? 14 : 15,
         boxShadow: subtle ? undefined : "0 4px 0 #D9E0CC",
         cursor: isSupabaseConfigured ? "pointer" : "not-allowed", opacity: isSupabaseConfigured ? 1 : 0.6,
+        transition: "background .1s, border-color .1s",
       }}
     >
       <GoogleMark size={subtle ? 16 : 18} /> {subtle ? "Sign in" : "Sign in with Google"}
@@ -217,13 +223,17 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
 
       <main>
         {/* HERO */}
-        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "34px 24px 8px", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 30, alignItems: "center" }}>
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "56px 24px 0", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 30, alignItems: "center" }}>
           <div style={{ animation: "qrise .5s ease both" }}>
-            <Eyebrow>A NEW CASE EVERY DAY</Eyebrow>
-            <h1 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: "clamp(32px,5vw,52px)", lineHeight: 1.08, color: "#3C3C46", letterSpacing: "-.02em", margin: "16px 0 0" }}>
+            <h1 style={{
+              fontFamily: "'Baloo 2',cursive", fontWeight: 800,
+              fontSize: "clamp(32px,5vw,52px)", lineHeight: 1.08,
+              color: "#3C3C46", letterSpacing: "-.02em", margin: 0,
+              textWrap: "balance" as CSSProperties["textWrap"],
+            }}>
               Four AIs answer.<br />You back the sharpest.
             </h1>
-            <p style={{ fontWeight: 700, fontSize: 16.5, color: "#7C8470", lineHeight: 1.55, margin: "16px 0 0", maxWidth: 480 }}>
+            <p style={{ fontWeight: 700, fontSize: 16.5, color: "#5E6654", lineHeight: 1.55, margin: "16px 0 0", maxWidth: 480 }}>
               Quorum is the daily game of judgment. Read four AI takes on one tough question,
               pick the one you'd stand behind, and see if the judge agrees. Two minutes a day to
               keep your thinking sharp.
@@ -232,8 +242,8 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
               <PlayCTA />
               <SignInButton />
             </div>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontWeight: 700, fontSize: 13, color: "#9AA08C", marginTop: 16 }}>
-              {icon("shield", 16, "#9AA08C")} Free · No credit card · New case daily
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontWeight: 700, fontSize: 13, color: "#5E6654", marginTop: 16 }}>
+              {icon("shield", 16, "#5E6654")} Free · No credit card · New case daily
             </span>
           </div>
 
@@ -270,77 +280,92 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
           </div>
         </section>
 
-        {/* STATS STRIP */}
-        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "24px" }}>
-          <div style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 8, padding: "18px 10px" }}>
+        {/* FACT STRIP — inline stats, no hero-metric template */}
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 24px 64px" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", columnGap: 32, rowGap: 10, padding: "16px 0", borderTop: "2px solid #E4EAD8", borderBottom: "2px solid #E4EAD8" }}>
             {STATS.map((s) => (
-              <div key={s.label} style={{ textAlign: "center", padding: "4px 6px" }}>
-                <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 30, color: "#58A700", lineHeight: 1 }}>{s.value}</div>
-                <div style={{ fontWeight: 700, fontSize: 12.5, color: "#8E9582", marginTop: 5 }}>{s.label}</div>
+              <div key={s.label} style={{ display: "flex", alignItems: "baseline", gap: 7 }}>
+                <span style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 20, color: "#4A9600" }}>{s.value}</span>
+                <span style={{ fontWeight: 700, fontSize: 13, color: "#5E6654" }}>{s.label}</span>
               </div>
             ))}
           </div>
         </section>
 
         {/* WHAT IS QUORUM — GEO: concise, quotable, factual */}
-        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 24px" }}>
-          <div style={{ ...card, padding: "32px 28px", background: "linear-gradient(180deg,#FFFFFF,#FBFEF6)" }}>
-            <Eyebrow color="#1899D6" bg="#E3F4FF">WHAT IS QUORUM</Eyebrow>
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 72px" }}>
+          <div style={{ ...card, padding: "40px 36px", background: "linear-gradient(180deg,#FFFFFF,#FBFEF6)" }}>
             <H2>The daily game where you judge AI</H2>
-            <p style={{ fontWeight: 700, fontSize: 16, color: "#5E6654", lineHeight: 1.65, margin: "14px 0 0", maxWidth: 760 }}>
+            <p style={{ fontWeight: 700, fontSize: 16, color: "#5E6654", lineHeight: 1.65, margin: "16px 0 0", maxWidth: 760 }}>
               <b>Quorum is a free daily browser game in which four leading AI models answer the same
               debatable question and you decide which answer is the most defensible.</b> An impartial
               judge model then reveals its verdict. You score points for matching the judge, predicting
               the crowd, and keeping a daily streak alive. There is one new case every day, and a round
               takes about two minutes.
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14, marginTop: 22 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 20, marginTop: 28 }}>
               {[
                 { t: "A game of judgment, not trivia", b: "Questions are genuinely debatable. You're rating the strength of an argument, not recalling a fact." },
                 { t: "Four contestants, one judge", b: "Four frontier models answer; a separate judge model, Arbi, decides — so no model grades its own work." },
                 { t: "Two minutes, every day", b: "A fast, repeatable ritual that builds the habit of weighing evidence and committing to a call." },
               ].map((x) => (
-                <div key={x.t} style={{ borderLeft: "3px solid #A5ED6E", paddingLeft: 14 }}>
-                  <div style={{ fontWeight: 800, fontSize: 15, color: "#3C3C46" }}>{x.t}</div>
-                  <div style={{ fontWeight: 600, fontSize: 13.5, color: "#8E9582", lineHeight: 1.5, marginTop: 4 }}>{x.b}</div>
+                <div key={x.t} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <span style={{
+                    flex: "none", display: "inline-flex", width: 24, height: 24,
+                    alignItems: "center", justifyContent: "center",
+                    borderRadius: 8, background: "#E8FFD7", marginTop: 1,
+                  }}>
+                    {icon("check", 13, "#58A700")}
+                  </span>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 15, color: "#3C3C46" }}>{x.t}</div>
+                    <div style={{ fontWeight: 600, fontSize: 13.5, color: "#5E6654", lineHeight: 1.5, marginTop: 4 }}>{x.b}</div>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* HOW IT WORKS */}
-        <section id="how" style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 24px", textAlign: "center", scrollMarginTop: 80 }}>
-          <Eyebrow color="#1899D6" bg="#E3F4FF">HOW IT WORKS</Eyebrow>
+        {/* HOW IT WORKS — step numbers as visual anchors, no eyebrow */}
+        <section id="how" style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 80px", scrollMarginTop: 80 }}>
           <H2>Three steps, two minutes</H2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 16, marginTop: 24, textAlign: "left" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 16, marginTop: 32, textAlign: "left" }}>
             {HOW.map((h, i) => (
-              <article key={h.title} style={card}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 46, height: 46, borderRadius: 14, background: h.bg, flex: "none" }}>{icon(h.ic, 24, h.tint)}</span>
-                  <span style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 28, color: "#E4EAD8" }}>{i + 1}</span>
+              <article key={h.title} style={{ ...card, position: "relative", overflow: "hidden" }}>
+                <div style={{
+                  position: "absolute", top: -16, right: 10,
+                  fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 96,
+                  color: "#EAF5DF", lineHeight: 1, userSelect: "none", pointerEvents: "none",
+                }}>
+                  {i + 1}
                 </div>
-                <h3 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 19, color: "#3C3C46", marginTop: 14 }}>{h.title}</h3>
-                <p style={{ fontWeight: 600, fontSize: 14, color: "#8E9582", lineHeight: 1.55, marginTop: 6 }}>{h.body}</p>
+                <span style={{
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  width: 46, height: 46, borderRadius: 14, background: h.bg, flex: "none", position: "relative",
+                }}>
+                  {icon(h.ic, 24, h.tint)}
+                </span>
+                <h3 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 19, color: "#3C3C46", marginTop: 14, position: "relative" }}>{h.title}</h3>
+                <p style={{ fontWeight: 600, fontSize: 14, color: "#5E6654", lineHeight: 1.55, marginTop: 6, position: "relative" }}>{h.body}</p>
               </article>
             ))}
           </div>
         </section>
 
         {/* MEET THE MODELS */}
-        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 24px", textAlign: "center" }}>
-          <Eyebrow color="#B45CF0" bg="#F4E9FF">THE LINE-UP</Eyebrow>
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 80px", textAlign: "center" }}>
           <H2>Four answers in, one judge out</H2>
-          <p style={{ fontWeight: 700, fontSize: 15, color: "#8E9582", maxWidth: 600, margin: "12px auto 0", lineHeight: 1.55 }}>
+          <p style={{ fontWeight: 700, fontSize: 15, color: "#5E6654", maxWidth: 600, margin: "14px auto 0", lineHeight: 1.55 }}>
             Every case fields four anonymised frontier models as contestants and a separate model as
-            the judge. Identities stay hidden until the reveal, so you score the argument — not the brand.
+            the judge. Identities stay hidden until the reveal, so you score the argument, not the brand.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 14, marginTop: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 14, marginTop: 28 }}>
             {MODELS.map((m) => (
               <div key={m.letter} style={{ ...card, textAlign: "center", padding: "20px 14px" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, borderRadius: 14, background: m.color, color: "#fff", fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 24, boxShadow: `0 3px 0 rgba(0,0,0,.18)` }}>{m.letter}</span>
                 <div style={{ fontWeight: 800, fontSize: 14, color: "#3C3C46", marginTop: 12 }}>{m.name}</div>
-                <div style={{ fontWeight: 700, fontSize: 12, color: "#9AA08C", marginTop: 2 }}>Contestant</div>
+                <div style={{ fontWeight: 700, fontSize: 12, color: "#5E6654", marginTop: 2 }}>Contestant</div>
               </div>
             ))}
           </div>
@@ -348,42 +373,53 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
             <span style={{ flex: "none" }}><Mascot size={40} mood="neutral" /></span>
             <div>
               <div style={{ fontWeight: 800, fontSize: 14.5, color: "#3C3C46" }}>Meet Arbi, the judge</div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: "#9A7B00", marginTop: 2 }}>An independent model that reads all four answers and calls the most defensible one.</div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#7A5F00", marginTop: 2 }}>An independent model that reads all four answers and calls the most defensible one.</div>
             </div>
           </div>
         </section>
 
-        {/* BENEFITS */}
-        <section id="why" style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 24px", textAlign: "center", scrollMarginTop: 80 }}>
-          <Eyebrow color="#58A700">WHY QUORUM</Eyebrow>
+        {/* BENEFITS — horizontal item list, no eyebrow, no card grid */}
+        <section id="why" style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 80px", scrollMarginTop: 80 }}>
           <H2>It's a workout for your judgment</H2>
-          <p style={{ fontWeight: 700, fontSize: 15, color: "#8E9582", maxWidth: 560, margin: "12px auto 0", lineHeight: 1.55 }}>
-            Anyone can have an opinion. Quorum rewards the discipline of picking the <i>best</i> one — and shows you how the smartest models in the world reason about the same problem.
+          <p style={{ fontWeight: 700, fontSize: 15, color: "#5E6654", maxWidth: 560, margin: "14px 0 0", lineHeight: 1.55 }}>
+            Anyone can have an opinion. Quorum rewards the discipline of picking the <i>best</i> one, and shows you how frontier models reason about the same question.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 16, marginTop: 24, textAlign: "left" }}>
+          <div style={{ marginTop: 32, borderTop: "2px solid #E4EAD8" }}>
             {BENEFITS.map((b) => (
-              <article key={b.title} style={card}>
-                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 46, height: 46, borderRadius: 14, background: b.bg }}>{icon(b.ic, 24, b.tint)}</span>
-                <h3 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 18, color: "#3C3C46", marginTop: 12 }}>{b.title}</h3>
-                <p style={{ fontWeight: 600, fontSize: 14, color: "#8E9582", lineHeight: 1.55, marginTop: 6 }}>{b.body}</p>
+              <article
+                key={b.title}
+                style={{
+                  display: "flex", gap: 20, padding: "24px 0",
+                  borderBottom: "2px solid #E4EAD8", alignItems: "flex-start",
+                }}
+              >
+                <span style={{
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  width: 48, height: 48, borderRadius: 14, background: b.bg, flex: "none",
+                }}>
+                  {icon(b.ic, 24, b.tint)}
+                </span>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 18, color: "#3C3C46" }}>{b.title}</h3>
+                  <p style={{ fontWeight: 600, fontSize: 14, color: "#5E6654", lineHeight: 1.55, marginTop: 6, maxWidth: 580 }}>{b.body}</p>
+                </div>
               </article>
             ))}
           </div>
         </section>
 
         {/* SAMPLE CATEGORIES */}
-        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 24px", textAlign: "center" }}>
-          <Eyebrow color="#1899D6" bg="#E3F4FF">EVERY KIND OF QUESTION</Eyebrow>
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 72px" }}>
           <H2>One case a day, across every domain</H2>
-          <p style={{ fontWeight: 700, fontSize: 15, color: "#8E9582", maxWidth: 560, margin: "12px auto 0", lineHeight: 1.55 }}>
-            From sports forecasts to ethics, science to strategy — if smart people can disagree about it, it can become a Quorum case.
+          <p style={{ fontWeight: 700, fontSize: 15, color: "#5E6654", maxWidth: 560, margin: "14px 0 0", lineHeight: 1.55 }}>
+            From sports forecasts to ethics, science to strategy: if smart people can disagree about it, it can become a Quorum case.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 14, marginTop: 24, textAlign: "left" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 14, marginTop: 28 }}>
             {CATEGORIES.map((c) => (
               <div key={c.name} style={{ ...card, display: "flex", gap: 13, alignItems: "flex-start" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 12, background: "#F4F8EE", flex: "none" }}>{icon(c.ic, 21, "#58A700")}</span>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: ".03em", color: "#9AA08C", textTransform: "uppercase" }}>{c.name}</div>
+                  <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: ".03em", color: "#5E6654", textTransform: "uppercase" }}>{c.name}</div>
                   <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16, color: "#3C3C46", marginTop: 4, lineHeight: 1.25 }}>"{c.q}"</div>
                 </div>
               </div>
@@ -391,17 +427,28 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
           </div>
         </section>
 
-        {/* USE CASES */}
-        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 24px", textAlign: "center" }}>
-          <Eyebrow color="#B45CF0" bg="#F4E9FF">WAYS TO PLAY</Eyebrow>
+        {/* USE CASES — stacked strips, no eyebrow, no card grid */}
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 72px" }}>
           <H2>More than a daily puzzle</H2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 16, marginTop: 24, textAlign: "left" }}>
-            {USES.map((u) => (
-              <article key={u.title} style={{ ...card, display: "flex", gap: 13, alignItems: "flex-start" }}>
-                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 12, background: "#F4F8EE", flex: "none" }}>{icon(u.ic, 21, "#58A700")}</span>
+          <div style={{ marginTop: 28, background: "#fff", border: "2px solid #E4EAD8", borderBottomWidth: 4, borderRadius: 22, overflow: "hidden" }}>
+            {USES.map((u, i) => (
+              <article
+                key={u.title}
+                style={{
+                  display: "flex", gap: 20, padding: "22px 26px",
+                  borderTop: i > 0 ? "2px solid #EEF1E6" : undefined,
+                  alignItems: "flex-start",
+                }}
+              >
+                <span style={{
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  width: 44, height: 44, borderRadius: 13, background: "#F4F8EE", flex: "none",
+                }}>
+                  {icon(u.ic, 22, "#58A700")}
+                </span>
                 <div>
-                  <h3 style={{ fontWeight: 800, fontSize: 15.5, color: "#3C3C46" }}>{u.title}</h3>
-                  <p style={{ fontWeight: 600, fontSize: 13.5, color: "#8E9582", lineHeight: 1.5, marginTop: 3 }}>{u.body}</p>
+                  <h3 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 16, color: "#3C3C46" }}>{u.title}</h3>
+                  <p style={{ fontWeight: 600, fontSize: 14, color: "#5E6654", lineHeight: 1.5, marginTop: 4 }}>{u.body}</p>
                 </div>
               </article>
             ))}
@@ -409,12 +456,9 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
         </section>
 
         {/* FAQ — AEO */}
-        <section id="faq" style={{ maxWidth: 820, margin: "0 auto", padding: "28px 24px", scrollMarginTop: 80 }}>
-          <div style={{ textAlign: "center" }}>
-            <Eyebrow color="#58A700">FAQ</Eyebrow>
-            <H2>Questions, answered</H2>
-          </div>
-          <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 10 }}>
+        <section id="faq" style={{ maxWidth: 820, margin: "0 auto", padding: "0 24px 88px", scrollMarginTop: 80 }}>
+          <H2>Questions, answered</H2>
+          <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 10 }}>
             {FAQ.map((f) => (
               <details key={f.q} style={{ ...card, padding: 0, overflow: "hidden" }}>
                 <summary style={{ listStyle: "none", cursor: "pointer", padding: "16px 20px", fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16.5, color: "#3C3C46", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
@@ -430,17 +474,22 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
         </section>
 
         {/* FINAL CTA */}
-        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 24px 40px" }}>
-          <div style={{ ...card, background: "linear-gradient(135deg,#58CC02,#46A302)", border: "none", textAlign: "center", padding: "38px 24px", boxShadow: "0 6px 0 #3E9000" }}>
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 48px" }}>
+          <div style={{ ...card, background: "linear-gradient(135deg,#58CC02,#46A302)", border: "none", textAlign: "center", padding: "48px 24px", boxShadow: "0 6px 0 #3E9000" }}>
             <div style={{ display: "flex", justifyContent: "center", animation: "qbob 3s ease-in-out infinite" }}><Mascot size={72} mood="happy" /></div>
-            <h2 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: "clamp(24px,3.4vw,32px)", color: "#fff", margin: "12px 0 0" }}>
+            <h2 style={{
+              fontFamily: "'Baloo 2',cursive", fontWeight: 800,
+              fontSize: "clamp(24px,3.4vw,32px)", color: "#fff", margin: "12px 0 0",
+              textWrap: "balance" as CSSProperties["textWrap"],
+            }}>
               Today's case is waiting.
             </h2>
-            <p style={{ fontWeight: 700, fontSize: 15, color: "#EAFBD9", margin: "8px auto 0", maxWidth: 420, lineHeight: 1.5 }}>
+            <p style={{ fontWeight: 700, fontSize: 15, color: "#EAFBD9", margin: "10px auto 0", maxWidth: 420, lineHeight: 1.5 }}>
               Make your first call, start a streak you'll want to protect, and see how your judgment stacks up against the crowd.
             </p>
-            <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap", marginTop: 20 }}>
+            <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap", marginTop: 24 }}>
               <button
+                className="lp-btn-play-white"
                 onClick={onPlay}
                 onMouseDown={(e) => (e.currentTarget.style.transform = "translateY(2px)")}
                 onMouseUp={(e) => (e.currentTarget.style.transform = "translateY(0)")}
@@ -448,7 +497,7 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 10, border: "none", background: "#fff", color: "#3C3C46",
                   padding: "15px 28px", borderRadius: 15, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 15.5,
-                  boxShadow: "0 4px 0 #2E7D00", cursor: "pointer", transition: "transform .05s",
+                  boxShadow: "0 4px 0 #2E7D00", cursor: "pointer", transition: "transform .05s, background .1s",
                 }}
               >
                 {icon("play", 18, "#3C3C46")} Play today's case
@@ -484,13 +533,13 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
             <a href="#why" style={navLink}>Why Quorum</a>
             <a href="#faq" style={navLink}>FAQ</a>
           </nav>
-          <div style={{ fontWeight: 700, fontSize: 13, color: "#9AA08C" }}>
+          <div style={{ fontWeight: 700, fontSize: 13, color: "#5E6654" }}>
             Powered by{" "}
-            <a href="https://nazarbanai.com" target="_blank" rel="noopener noreferrer" style={{ color: "#58A700", fontWeight: 800, textDecoration: "none" }}>
+            <a href="https://nazarbanai.com" target="_blank" rel="noopener noreferrer" style={{ color: "#3E7200", fontWeight: 800, textDecoration: "none" }}>
               nazarbanai.com
             </a>
           </div>
-          <div style={{ fontWeight: 700, fontSize: 12.5, color: "#B2B7A6", flexBasis: "100%" }}>© {new Date().getFullYear()} Quorum · The daily AI judgment game</div>
+          <div style={{ fontWeight: 700, fontSize: 12.5, color: "#6E7563", flexBasis: "100%" }}>© {new Date().getFullYear()} Quorum · The daily AI judgment game</div>
         </div>
       </footer>
     </div>
@@ -498,5 +547,5 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
 }
 
 const navLink: CSSProperties = {
-  fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 14, color: "#6E7563", textDecoration: "none",
+  fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 14, color: "#5E6654", textDecoration: "none",
 };

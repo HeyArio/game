@@ -13,3 +13,27 @@ body { background: #F4F8EE; font-family: 'Nunito', system-ui, sans-serif; overfl
 .lp-navlinks a:hover { color: #58A700; }
 details > summary::-webkit-details-marker { display: none; }
 details[open] .faq-chev { transform: rotate(180deg); }
+
+/* Consistent brand focus rings for keyboard navigation */
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 3px solid #58CC02;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Landing-page button hover states */
+.lp-btn-play:hover { background: #66D80A !important; }
+.lp-btn-play-white:hover { background: #F0FFEB !important; }
+.lp-btn-signin-subtle:hover { background: #F4FAF0 !important; border-color: #C8D4B8 !important; }
+
+/* Reduced motion: redefine keyframes so content is immediately visible and stable */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes qbob  { 0%, 100% { transform: translateY(0); } }
+  @keyframes qrise { from { opacity: 1; transform: none; } to { opacity: 1; transform: none; } }
+  @keyframes qfade { from { opacity: 1; transform: none; } to { opacity: 1; transform: none; } }
+  @keyframes qpop  { 0%, 100% { transform: scale(1); opacity: 1; } }
+  @keyframes qspin { to { transform: rotate(0deg); } }
+  .faq-chev { transition: none !important; }
+}
