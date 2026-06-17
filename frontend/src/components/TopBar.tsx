@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { GameState, Screen } from "../state/types";
 import { icon } from "../icons/Icon";
 import { navView } from "../state/viewHelpers";
@@ -14,6 +15,14 @@ export interface TopBarProps {
 export function TopBar({ state, onSelectScreen, onOpenStreak, guest = false, onSignIn }: TopBarProps) {
   const isMobile = useIsMobile();
   const navItems = navView(state.screen, onSelectScreen as (id: any) => void);
+  const [logoPressed, setLogoPressed] = useState(false);
+
+  // The logo is "home": go to the daily case and scroll to the top. Doing both
+  // means a click always produces visible feedback, even when already on Play.
+  function goHome() {
+    onSelectScreen("play");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
   return (
     <header
       style={{
@@ -38,9 +47,26 @@ export function TopBar({ state, onSelectScreen, onOpenStreak, guest = false, onS
         }}
       >
         <div
-          onClick={() => onSelectScreen("play")}
+          onClick={goHome}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goHome(); } }}
+          onMouseDown={() => setLogoPressed(true)}
+          onMouseUp={() => setLogoPressed(false)}
+          onMouseLeave={() => setLogoPressed(false)}
+          onTouchStart={() => setLogoPressed(true)}
+          onTouchEnd={() => setLogoPressed(false)}
+          role="button"
+          tabIndex={0}
+          aria-label="Quorum home"
           title="Home"
-          style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            cursor: "pointer",
+            userSelect: "none",
+            transform: logoPressed ? "scale(0.95)" : "scale(1)",
+            transition: "transform .12s ease",
+          }}
         >
           <span
             style={{
