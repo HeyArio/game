@@ -7,9 +7,11 @@ export interface TopBarProps {
   state: GameState;
   onSelectScreen: (id: Screen) => void;
   onOpenStreak: () => void;
+  guest?: boolean;
+  onSignIn?: () => void;
 }
 
-export function TopBar({ state, onSelectScreen, onOpenStreak }: TopBarProps) {
+export function TopBar({ state, onSelectScreen, onOpenStreak, guest = false, onSignIn }: TopBarProps) {
   const isMobile = useIsMobile();
   const navItems = navView(state.screen, onSelectScreen as (id: any) => void);
   return (
@@ -60,26 +62,52 @@ export function TopBar({ state, onSelectScreen, onOpenStreak }: TopBarProps) {
           </span>
           <span style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 23, color: "#58A700" }}>Quorum</span>
         </div>
-        <nav
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            ...(isMobile ? { order: 3, flexBasis: "100%", justifyContent: "space-around" } : {}),
-          }}
-        >
-          {navItems.map((nav) => (
-            <span
-              key={nav.id}
-              onClick={() => onSelectScreen(nav.id as Screen)}
-              title={nav.label}
-              style={isMobile ? { ...nav.style, padding: "8px 11px" } : nav.style}
-            >
-              {nav.iconEl}
-              {!isMobile && nav.label}
-            </span>
-          ))}
-        </nav>
+        {!guest && (
+          <nav
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              ...(isMobile ? { order: 3, flexBasis: "100%", justifyContent: "space-around" } : {}),
+            }}
+          >
+            {navItems.map((nav) => (
+              <span
+                key={nav.id}
+                onClick={() => onSelectScreen(nav.id as Screen)}
+                title={nav.label}
+                style={isMobile ? { ...nav.style, padding: "8px 11px" } : nav.style}
+              >
+                {nav.iconEl}
+                {!isMobile && nav.label}
+              </span>
+            ))}
+          </nav>
+        )}
+        {guest ? (
+          <button
+            onClick={onSignIn}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "10px 18px",
+              borderRadius: 12,
+              background: "#58CC02",
+              border: "none",
+              borderBottom: "3px solid #46A302",
+              color: "#fff",
+              fontFamily: "'Nunito',sans-serif",
+              fontWeight: 800,
+              fontSize: 14,
+              cursor: "pointer",
+              ...(isMobile ? { marginLeft: "auto" } : {}),
+            }}
+          >
+            {icon("user", 17, "#fff")}
+            Sign in
+          </button>
+        ) : (
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 8, ...(isMobile ? { marginLeft: "auto" } : {}) }}>
           <span
             onClick={onOpenStreak}
@@ -136,6 +164,7 @@ export function TopBar({ state, onSelectScreen, onOpenStreak }: TopBarProps) {
             {!isMobile && "Emerald"}
           </span>
         </div>
+        )}
       </div>
     </header>
   );

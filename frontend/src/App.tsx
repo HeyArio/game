@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "./auth/AuthProvider";
 import { ConfettiCanvas } from "./components/ConfettiCanvas";
 import { PromoOverlay } from "./components/PromoOverlay";
@@ -16,12 +16,14 @@ import { useClientCase } from "./hooks/useClientCase";
 import { useVote } from "./hooks/useVote";
 import { supabase } from "./lib/supabase";
 import { isClientLlmEnabled } from "./lib/providers";
-import type { CardId } from "./state/types";
+import type { CardId, Screen } from "./state/types";
 
 export default function App() {
   const { session, loading } = useAuth();
   if (loading) return <SplashScreen />;
-  if (!session) return <SignInPage />;
+  // Logged-out visitors get a read-only preview of today's case (so shared
+  // links land on the game, not a wall). Actions prompt sign-in.
+  if (!session) return <GuestGame />;
   // TESTING ONLY: if a provider key is in frontend/.env, generate the case in the
   // browser and score locally instead of using the DB + edge functions.
   return isClientLlmEnabled() ? <ClientGame /> : <Game />;
@@ -127,26 +129,70 @@ function ClientGame() {
   return <GameShell game={game} caseLoading={status === "loading"} noCase={false} error={status === "error" ? error : null} />;
 }
 
+// ---- Guest path: read-only preview of today's case for logged-out visitors ----
+function GuestGame() {
+  const [showSignIn, setShowSignIn] = useState(false);
+  const { status: caseStatus, dailyCase, error: caseError } = useDailyCase();
+  const game = useGameState(); // no onSubmitVote — guests can't score or save
+
+  useEffect(() => {
+    if (caseStatus !== "active" || !dailyCase) return;
+    const cards = dailyCase.options.map((opt) => ({
+      id: opt.letter.toLowerCase() as CardId, letter: opt.letter, name: opt.model_name,
+      pick: opt.pick, crowd: opt.crowd_pct, answer: opt.rationale, _optionId: opt.id,
+    }));
+    game.actions.initCase({
+      caseId: dailyCase.id, question: dailyCase.question, category: dailyCase.category,
+      caseNo: dailyCase.case_no, cards: cards as any, closesAt: dailyCase.closes_at,
+    });
+  }, [caseStatus, dailyCase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Any gated action (lock in, see verdict, open another screen) sends the
+  // visitor to the full sign-in / landing page.
+  if (showSignIn) return <SignInPage />;
+
+  return (
+    <GameShell
+      game={game}
+      caseLoading={caseStatus === "loading"}
+      noCase={caseStatus === "no_case"}
+      error={caseStatus === "error" ? caseError : null}
+      guest
+      onRequireAuth={() => setShowSignIn(true)}
+    />
+  );
+}
+
 // ---- Shared shell ----
-function GameShell({ game, caseLoading, noCase, error }: {
+function GameShell({ game, caseLoading, noCase, error, guest = false, onRequireAuth }: {
   game: ReturnType<typeof useGameState>;
   caseLoading: boolean;
   noCase: boolean;
   error: string | null;
+  guest?: boolean;
+  onRequireAuth?: () => void;
 }) {
   const { state, countdownText, setCanvas, actions } = game;
   const screenLabel = { play: "Daily Case", leagues: "Leagues", quests: "Quests", profile: "Profile" }[state.screen];
 
   if (state.screen === "play" && error) return <ErrorScreen message={error} />;
 
+  const requireAuth = () => onRequireAuth?.();
+  // In guest mode, committing actions route to sign-in instead of running.
+  const selectScreen = guest
+    ? (id: Screen) => { if (id === "play") actions.setScreen("play"); else requireAuth(); }
+    : actions.setScreen;
+  const lockIn = guest ? requireAuth : actions.lockIn;
+  const openStreak = guest ? requireAuth : actions.openStreak;
+
   return (
     <div data-screen-label={screenLabel} style={{ minHeight: "100vh", background: "radial-gradient(140% 80% at 50% -20%, #EAF7DD 0%, #F4F8EE 48%)", color: "#3C3C46", padding: "0 0 60px" }}>
-      <TopBar state={state} onSelectScreen={actions.setScreen} onOpenStreak={actions.openStreak} />
+      <TopBar state={state} onSelectScreen={selectScreen} onOpenStreak={openStreak} guest={guest} onSignIn={requireAuth} />
 
       {state.screen === "play" && (
         <PlayPage state={state} countdownText={countdownText} caseLoading={caseLoading} noCase={noCase}
           onSelectCard={actions.selectCard} onSetConfidence={actions.setConfidence} onSetCrowdGuess={actions.setCrowdGuess}
-          onLockIn={actions.lockIn} onAdvance={actions.advance} onReplay={actions.reset} />
+          onLockIn={lockIn} onAdvance={actions.advance} onReplay={actions.reset} />
       )}
       {state.screen === "leagues" && <LeaguesPage state={state} />}
       {state.screen === "quests"  && <QuestsPage  state={state} />}
