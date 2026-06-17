@@ -135,6 +135,7 @@ function GuestGame() {
   // today's case" drops them into the read-only game preview; the top-left logo
   // takes them back to the landing page.
   const [view, setView] = useState<"landing" | "game">("landing");
+  const { signInWithGoogle } = useAuth();
   const { status: caseStatus, dailyCase, error: caseError } = useDailyCase();
   const game = useGameState(); // no onSubmitVote — guests can't score or save
 
@@ -159,8 +160,10 @@ function GuestGame() {
       noCase={caseStatus === "no_case"}
       error={caseStatus === "error" ? caseError : null}
       guest
-      // Gated actions (lock in, see verdict, other screens) bounce back to the
-      // landing page, where the sign-in CTA lives.
+      // Locking in is high-intent — send the guest straight to Google sign-up.
+      onRequireSignUp={signInWithGoogle}
+      // Softer gated actions (other screens) bounce back to the landing page,
+      // where the sign-in CTA lives.
       onRequireAuth={() => { setView("landing"); window.scrollTo(0, 0); }}
       onGoLanding={() => { setView("landing"); window.scrollTo(0, 0); }}
     />
@@ -168,13 +171,14 @@ function GuestGame() {
 }
 
 // ---- Shared shell ----
-function GameShell({ game, caseLoading, noCase, error, guest = false, onRequireAuth, onGoLanding }: {
+function GameShell({ game, caseLoading, noCase, error, guest = false, onRequireAuth, onRequireSignUp, onGoLanding }: {
   game: ReturnType<typeof useGameState>;
   caseLoading: boolean;
   noCase: boolean;
   error: string | null;
   guest?: boolean;
   onRequireAuth?: () => void;
+  onRequireSignUp?: () => void;
   onGoLanding?: () => void;
 }) {
   const { state, countdownText, setCanvas, actions } = game;
@@ -187,7 +191,9 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, onRequireA
   const selectScreen = guest
     ? (id: Screen) => { if (id === "play") actions.setScreen("play"); else requireAuth(); }
     : actions.setScreen;
-  const lockIn = guest ? requireAuth : actions.lockIn;
+  // Guests who try to lock in are sent straight to sign-up; other gated actions
+  // fall back to the landing page.
+  const lockIn = guest ? (onRequireSignUp ?? requireAuth) : actions.lockIn;
   const openStreak = guest ? requireAuth : actions.openStreak;
   // Logo target: guests go back to the landing page; signed-in players go home
   // (to the daily case). TopBar also scrolls to top for visible feedback.
