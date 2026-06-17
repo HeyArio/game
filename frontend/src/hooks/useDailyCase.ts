@@ -38,10 +38,15 @@ export function useDailyCase(): UseDailyCaseResult {
 
     async function load() {
       try {
+        // Order by case_no desc + limit(1) so that if more than one case is
+        // open at once (e.g. a manually triggered case overlapping the
+        // previous 24h window) we show the newest rather than erroring out.
         const { data, error: err } = await supabase
           .from("today_case")
           .select("*")
-          .single();
+          .order("case_no", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
         if (cancelled) return;
 
@@ -50,6 +55,9 @@ export function useDailyCase(): UseDailyCaseResult {
           if (err.code === "PGRST116") { setStatus("no_case"); return; }
           throw err;
         }
+
+        // maybeSingle() returns null (no error) when there are no open cases.
+        if (!data) { setStatus("no_case"); return; }
 
         // `options` comes back as JSON (from the view's json_agg)
         const raw = data as any;

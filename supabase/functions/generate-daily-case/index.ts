@@ -369,6 +369,17 @@ Deno.serve(async (req) => {
     const { error: optErr } = await supabase.from("case_options").insert(optionRows);
     if (optErr) throw optErr;
 
+    // Keep exactly one case open at a time. The `today_case` view (and the
+    // frontend's .single() query) assume a single open case; a manually
+    // triggered case mid-day would otherwise overlap the previous 24h window
+    // and break that query. Expire any *other* currently-open case now.
+    const { error: expireErr } = await supabase
+      .from("daily_cases")
+      .update({ closes_at: opens.toISOString() })
+      .neq("id", caseRow.id)
+      .gt("closes_at", opens.toISOString());
+    if (expireErr) console.error("Failed to expire previous open cases:", expireErr);
+
     return new Response(JSON.stringify({ ok: true, caseNo: nextCaseNo, question, winner: winnerLetter }), {
       headers: { "Content-Type": "application/json", ...CORS },
     });
