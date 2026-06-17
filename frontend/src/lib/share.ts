@@ -17,6 +17,30 @@ export function buildShareText(s: GameState): string {
   return lines.join("\n");
 }
 
+export const SHARE_URL = "https://quorumdaily.com";
+
+/** Pre-built deep links for one-tap sharing to specific apps. */
+export function shareLinks(s: GameState): { whatsapp: string; telegram: string; email: string } {
+  const text = encodeURIComponent(buildShareText(s));
+  const url = encodeURIComponent(SHARE_URL);
+  return {
+    whatsapp: `https://wa.me/?text=${text}`,
+    telegram: `https://t.me/share/url?url=${url}&text=${text}`,
+    email: `mailto:?subject=${encodeURIComponent("My Quorum result")}&body=${text}`,
+  };
+}
+
+/** Copy the share summary to the clipboard. Used by the Instagram flow (which
+ *  has no web share URL) so the caption is ready to paste. */
+export async function copyShareText(s: GameState): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(buildShareText(s));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Share via the native share sheet when available (mobile), otherwise copy to
  * clipboard. Returns "shared" | "copied" | "error" so the UI can confirm.

@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { Mascot } from "../components/Mascot";
 import { AnswerCard } from "../components/AnswerCard";
 import { icon } from "../icons/Icon";
 import { useIsMobile } from "../hooks/useMediaQuery";
-import { shareResult } from "../lib/share";
+import { shareResult, shareLinks, copyShareText } from "../lib/share";
 import type { GameState, CardId, Confidence } from "../state/types";
 import {
   badgesView,
@@ -137,8 +137,8 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
           <div style={{ maxWidth: 430, margin: "18px auto 0", paddingTop: 18, borderTop: "2px dashed #ECEFE4", fontSize: 14.5, fontWeight: 600, color: "#5E6553", lineHeight: 1.5 }}>
             {done.note}
           </div>
-          <div style={{ display: "flex", justifyContent: "center", marginTop: 18 }}>
-            <ShareButton state={state} />
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <ShareBar state={state} align="center" />
           </div>
           <div onClick={onReplay} style={{ display: "inline-block", marginTop: 14, fontWeight: 800, fontSize: 13, color: "#B2B7A6", cursor: "pointer" }}>
             Replay today's case
@@ -282,7 +282,7 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
                 </div>
               )}
 
-              <ShareButton state={state} />
+              <ShareBar state={state} />
             </div>
           )}
         </div>
@@ -487,21 +487,57 @@ function WagerPanel({ state, onSetConfidence, onSetCrowdGuess }: {
   );
 }
 
-function ShareButton({ state }: { state: GameState }) {
+function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" | "center" }) {
   const [label, setLabel] = useState("Share result");
+  const [toast, setToast] = useState<string | null>(null);
+  const links = shareLinks(state);
+
+  function flash(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2000); }
+
   async function onShare() {
     const r = await shareResult(state);
     if (r === "copied") { setLabel("Copied!"); setTimeout(() => setLabel("Share result"), 1800); }
     else if (r === "error") { setLabel("Couldn't share"); setTimeout(() => setLabel("Share result"), 1800); }
   }
+
+  async function onInstagram() {
+    // Instagram has no web share URL for text, so copy the caption and open it.
+    const ok = await copyShareText(state);
+    flash(ok ? "Caption copied — paste it into Instagram" : "Couldn't copy caption");
+    window.open("https://www.instagram.com/", "_blank", "noopener");
+  }
+
+  const round = (bg: string): CSSProperties => ({
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+    width: 42, height: 42, borderRadius: 12, background: bg, border: "none",
+    borderBottom: "3px solid rgba(0,0,0,.18)", cursor: "pointer", textDecoration: "none",
+  });
+
   return (
-    <button onClick={onShare}
-      style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer",
-        border: "2px solid #BEEAFD", borderBottomWidth: 4, background: "#E3F6FF", color: "#1899D6",
-        padding: "11px 20px", borderRadius: 14, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 14 }}>
-      {icon("share", 17, "#1899D6")}
-      {label}
-    </button>
+    <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 11, alignItems: align === "center" ? "center" : "flex-start" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", justifyContent: align === "center" ? "center" : "flex-start" }}>
+        <button onClick={onShare}
+          style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer",
+            border: "2px solid #BEEAFD", borderBottomWidth: 4, background: "#E3F6FF", color: "#1899D6",
+            padding: "11px 20px", borderRadius: 14, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 14 }}>
+          {icon("share", 17, "#1899D6")}
+          {label}
+        </button>
+        <a href={links.whatsapp} target="_blank" rel="noopener noreferrer" title="Share on WhatsApp" aria-label="Share on WhatsApp" style={round("#25D366")}>
+          {icon("whatsapp", 20, "#fff")}
+        </a>
+        <a href={links.telegram} target="_blank" rel="noopener noreferrer" title="Share on Telegram" aria-label="Share on Telegram" style={round("#229ED9")}>
+          {icon("telegram", 20, "#fff")}
+        </a>
+        <button onClick={onInstagram} title="Share on Instagram" aria-label="Share on Instagram" style={round("#E1306C")}>
+          {icon("instagram", 20, "#fff")}
+        </button>
+        <a href={links.email} title="Share via email" aria-label="Share via email" style={round("#7A8270")}>
+          {icon("mail", 20, "#fff")}
+        </a>
+      </div>
+      {toast && <div style={{ fontSize: 12.5, fontWeight: 800, color: "#1899D6" }}>{toast}</div>}
+    </div>
   );
 }
 

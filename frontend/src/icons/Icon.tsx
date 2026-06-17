@@ -116,6 +116,24 @@ export const ICONS: Record<string, ShapeDef[]> = {
     { t: "path", d: "M12 3l8 3v6c0 5-3.6 8-8 9-4.4-1-8-4-8-9V6z" },
     { t: "path", d: "M9 12l2 2 4-4" },
   ],
+  mail: [
+    { t: "rect", x: 3, y: 5, width: 18, height: 14, rx: 2.6 },
+    { t: "path", d: "M3.6 7l8.4 6 8.4-6" },
+  ],
+  whatsapp: [
+    { t: "path", d: "M3 21l1.5-4.3A8 8 0 1 1 7.8 19.7z" },
+    { t: "path", d: "M8.7 8.3c.2-.4.4-.4.7-.4h.5c.2 0 .4.1.6.5l.7 1.6c.1.2 0 .4-.1.6l-.4.5c-.2.2-.2.4-.1.6.5.9 1.3 1.6 2.3 2 .3.1.5.1.6-.1l.5-.6c.2-.2.4-.2.6-.1l1.6.8c.2.1.3.3.3.5 0 1-.8 1.7-1.7 1.7a7 7 0 0 1-6.4-7c0-.9.8-1.6 1.6-1.6z", f: 1 },
+  ],
+  telegram: [
+    { t: "path", d: "M22 3.5L2.4 11l5.6 1.9L20 5.5z" },
+    { t: "path", d: "M8 12.9l.4 5 3-3.2 5.4 4 3.2-15.2" },
+    { t: "path", d: "M8 12.9l9-7" },
+  ],
+  instagram: [
+    { t: "rect", x: 3.5, y: 3.5, width: 17, height: 17, rx: 5 },
+    { t: "circle", cx: 12, cy: 12, r: 4 },
+    { t: "circle", cx: 17, cy: 7, r: 1.1, f: 1 },
+  ],
 };
 
 export type IconName = keyof typeof ICONS;
