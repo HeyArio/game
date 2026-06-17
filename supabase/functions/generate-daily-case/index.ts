@@ -75,6 +75,9 @@ function slotConfig(slot: number): SlotConfig {
 
 interface ChatMessage { role: "system" | "user" | "assistant"; content: string; }
 
+// Per-request ceiling so one slow/hung provider can't stall the whole job.
+const REQUEST_TIMEOUT_MS = 30_000;
+
 async function callModel(slot: number, messages: ChatMessage[], maxTokens = 512): Promise<string> {
   const { provider, model } = slotConfig(slot);
   const def = PROVIDERS[provider];
@@ -89,6 +92,7 @@ async function callOpenAI(def: ProviderDef, apiKey: string, model: string, messa
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}`, ...def.headers },
     body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.7 }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`API error for ${model}: ${res.status} ${await res.text()}`);
   const data = await res.json();
@@ -114,11 +118,23 @@ async function callGemini(def: ProviderDef, apiKey: string, model: string, messa
       ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
       generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens },
     }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`API error for ${model}: ${res.status} ${await res.text()}`);
   const data = await res.json();
   return (data.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "").trim();
 }
+
+// Used when the question-generating model is unavailable, so the daily job
+// still produces a playable case instead of failing outright.
+const FALLBACK_QUESTIONS: { question: string; category: string }[] = [
+  { question: "Which emerging technology will most reshape daily life by 2035?", category: "TECHNOLOGY · PREDICTION" },
+  { question: "What single policy would most improve a major city's housing affordability?", category: "ECONOMICS · FORECAST" },
+  { question: "Which scientific field is most likely to deliver the next paradigm shift?", category: "SCIENCE · DEBATE" },
+  { question: "What is the most underrated skill for the next decade of work?", category: "BUSINESS · STRATEGY" },
+  { question: "Which factor matters most for a national team winning a World Cup?", category: "SPORT · FORECAST" },
+  { question: "What is the most effective lever for cutting global emissions this decade?", category: "ENVIRONMENT · POLICY" },
+];
 
 async function generateQuestion(): Promise<{ question: string; category: string }> {
   const categories = [
@@ -129,20 +145,26 @@ async function generateQuestion(): Promise<{ question: string; category: string 
   const cat = categories[Math.floor(Math.random() * categories.length)];
   const topic = cat.split(" · ")[0].toLowerCase();
 
-  const content = await callModel(5, [
-    {
-      role: "system",
-      content: "You generate crisp, debatable daily trivia / prediction questions. Output ONLY the question — no preamble, no punctuation beyond the question mark."
-    },
-    {
-      role: "user",
-      content: `Generate a single compelling, open-ended question about ${topic} that reasonable experts could disagree on. It should have a clear "best" answer but not be obvious. Make it timely and interesting. One sentence, ends with a question mark.`
-    }
-  ], 80);
+  try {
+    const content = await callModel(5, [
+      {
+        role: "system",
+        content: "You generate crisp, debatable daily trivia / prediction questions. Output ONLY the question — no preamble, no punctuation beyond the question mark."
+      },
+      {
+        role: "user",
+        content: `Generate a single compelling, open-ended question about ${topic} that reasonable experts could disagree on. It should have a clear "best" answer but not be obvious. Make it timely and interesting. One sentence, ends with a question mark.`
+      }
+    ], 80);
 
-  // Strip leading/trailing quotes or extra text
-  const question = content.replace(/^["']|["']$/g, "").split("\n")[0].trim();
-  return { question, category: cat };
+    // Strip leading/trailing quotes or extra text
+    const question = content.replace(/^["']|["']$/g, "").split("\n")[0].trim();
+    if (!question) throw new Error("Empty question from model");
+    return { question, category: cat };
+  } catch (e) {
+    console.error("generateQuestion failed, using fallback:", e);
+    return FALLBACK_QUESTIONS[Math.floor(Math.random() * FALLBACK_QUESTIONS.length)];
+  }
 }
 
 async function getModelAnswer(slot: number, _personaName: string, question: string): Promise<string> {
@@ -170,29 +192,40 @@ async function judgeAnswers(
     .map(a => `Option ${a.letter} (${a.persona}):\nPick: ${a.pick}\nReasoning: ${a.answer}`)
     .join("\n\n");
 
-  const content = await callModel(5, [
-    {
-      role: "system",
-      content: "You are Arbi, a rigorous AI judge. You evaluate competing answers by their quality of reasoning, specificity, and defensibility. You are decisive and fair. Output ONLY a JSON object, nothing else."
-    },
-    {
-      role: "user",
-      content: `Question: ${question}\n\nFour AI models have each given an answer:\n\n${answerBlock}\n\nEvaluate all four. Which answer is the sharpest — the most well-reasoned, specific, and defensible? Output JSON: {"winner": "A"|"B"|"C"|"D", "reasoning": "one sentence explaining why this is the sharpest answer"}`
-    }
-  ], 150);
+  // Only the letters that actually have a real answer are eligible to win.
+  const eligible = answers.map((a) => a.letter);
+  const firstEligible = eligible[0] ?? "A";
+
+  let content = "";
+  try {
+    content = await callModel(5, [
+      {
+        role: "system",
+        content: "You are Arbi, a rigorous AI judge. You evaluate competing answers by their quality of reasoning, specificity, and defensibility. You are decisive and fair. Output ONLY a JSON object, nothing else."
+      },
+      {
+        role: "user",
+        content: `Question: ${question}\n\nThese AI models have each given an answer:\n\n${answerBlock}\n\nEvaluate them. Which answer is the sharpest — the most well-reasoned, specific, and defensible? Output JSON: {"winner": "<letter>", "reasoning": "one sentence explaining why this is the sharpest answer"}`
+      }
+    ], 150);
+  } catch (e) {
+    console.error("judge model failed, using fallback winner:", e);
+    return { winnerLetter: firstEligible, reasoning: "" };
+  }
 
   try {
     // Extract JSON from the response (model may wrap it in markdown)
     const jsonMatch = content.match(/\{[\s\S]*?\}/);
     if (!jsonMatch) throw new Error("No JSON in judge response");
     const parsed = JSON.parse(jsonMatch[0]);
-    const winner = (parsed.winner ?? "A").toUpperCase();
-    if (!LETTERS.includes(winner)) throw new Error(`Invalid winner: ${winner}`);
+    const winner = (parsed.winner ?? "").toUpperCase();
+    if (!eligible.includes(winner)) throw new Error(`Invalid/ineligible winner: ${winner}`);
     return { winnerLetter: winner, reasoning: parsed.reasoning ?? "" };
   } catch {
-    // Fallback: scan content for a letter choice
+    // Fallback: scan content for an eligible letter choice, else first eligible.
     const match = content.match(/\b([A-D])\b/);
-    return { winnerLetter: match?.[1] ?? "A", reasoning: "" };
+    const scanned = match?.[1] ?? "";
+    return { winnerLetter: eligible.includes(scanned) ? scanned : firstEligible, reasoning: "" };
   }
 }
 
@@ -225,10 +258,17 @@ function splitAnswer(raw: string): { pick: string; rationale: string } {
   return { pick: text.slice(0, 80), rationale: text };
 }
 
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+};
+
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   // Allow both cron invocations (no body) and manual POST with { question, category }
   if (req.method !== "POST" && req.method !== "GET") {
-    return new Response("Method not allowed", { status: 405 });
+    return new Response("Method not allowed", { status: 405, headers: CORS });
   }
 
   const supabase = createClient(
@@ -265,9 +305,16 @@ Deno.serve(async (req) => {
       ({ question, category } = await generateQuestion());
     }
 
-    // Get answers from all 4 models in parallel
+    // Get answers from all 4 models in parallel. A single model failing (timeout,
+    // outage, rate limit) must not kill the whole case — it just shows up as a
+    // "No response" card, exactly like the runtime handles a slow model.
     const rawAnswers = await Promise.all(
-      models.map(m => getModelAnswer(m.slot, m.persona, question))
+      models.map(m =>
+        getModelAnswer(m.slot, m.persona, question).catch((e) => {
+          console.error(`Answer model slot ${m.slot} (${m.persona}) failed:`, e);
+          return "";
+        })
+      )
     );
 
     const answers = rawAnswers.map((raw, i) => {
@@ -275,8 +322,14 @@ Deno.serve(async (req) => {
       return { letter: LETTERS[i], persona: PERSONA_NAMES[i], pick, answer: rationale };
     });
 
-    // Judge picks the winner
-    const { winnerLetter } = await judgeAnswers(question, answers);
+    // Need at least two real answers for the case to be worth judging.
+    const realAnswers = answers.filter((a) => a.pick !== "No response");
+    if (realAnswers.length < 2) {
+      throw new Error(`Only ${realAnswers.length} model(s) responded — not enough for a case`);
+    }
+
+    // Judge picks the winner (judgeAnswers never throws; it falls back internally).
+    const { winnerLetter } = await judgeAnswers(question, realAnswers);
 
     // Plausible crowd distribution (judge answer gets slightly lower share — makes game interesting)
     const shuffled = [...answers].sort(() => Math.random() - 0.5);
@@ -317,10 +370,10 @@ Deno.serve(async (req) => {
     if (optErr) throw optErr;
 
     return new Response(JSON.stringify({ ok: true, caseNo: nextCaseNo, question, winner: winnerLetter }), {
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...CORS },
     });
   } catch (e) {
     console.error(e);
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { "Content-Type": "application/json", ...CORS } });
   }
 });
