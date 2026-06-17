@@ -96,7 +96,13 @@ async function callOpenAI(def: ProviderDef, apiKey: string, model: string, messa
   });
   if (!res.ok) throw new Error(`${model}: ${res.status} ${await res.text()}`);
   const data = await res.json();
-  return data.choices?.[0]?.message?.content?.trim() ?? "";
+  const msg = data.choices?.[0]?.message;
+  // Some providers (e.g. OpenRouter's free router) return content as an array of
+  // parts, or put the text in `reasoning` when `content` comes back empty.
+  const content = Array.isArray(msg?.content)
+    ? msg.content.map((p: { text?: string }) => p?.text ?? "").join("")
+    : msg?.content ?? "";
+  return (content || msg?.reasoning || "").trim();
 }
 
 async function callGemini(def: ProviderDef, apiKey: string, model: string, messages: Msg[], maxTokens: number): Promise<string> {
@@ -152,13 +158,25 @@ async function judge(question: string, answers: { letter: string; persona: strin
   return content.match(/\b([A-D])\b/)?.[1] ?? "A";
 }
 
+/** Strip markdown / boilerplate so picks read cleanly in the UI. */
+function clean(s: string): string {
+  return s
+    .replace(/\*\*|__|[*_`#>]/g, "")              // markdown emphasis / headings
+    .replace(/^\s*[:\-–—]\s*/, "")                // leading colon or dash
+    .replace(/^["'“”]+|["'“”]+$/g, "")            // wrapping quotes
+    .replace(/\s+/g, " ")                          // collapse whitespace
+    .trim();
+}
+
 function splitAnswer(raw: string): { pick: string; rationale: string } {
-  const parts = raw.match(/^([^.!?]+[.!?])\s*([\s\S]*)$/);
-  if (parts) return {
-    pick: parts[1].trim().replace(/^(I (pick|predict|choose|go with|say)|My (pick|answer|prediction) is)\s*/i, ""),
-    rationale: parts[2].trim() || parts[1].trim(),
-  };
-  return { pick: raw.slice(0, 60).trim(), rationale: raw };
+  const text = clean(raw);
+  if (!text) return { pick: "No response", rationale: "This model didn't return an answer in time." };
+  const parts = text.match(/^([^.!?]+[.!?])\s*([\s\S]*)$/);
+  if (parts) {
+    const pick = clean(parts[1]).replace(/^(I (pick|predict|choose|go with|say)|My (pick|answer|prediction) is)\s*/i, "");
+    return { pick, rationale: clean(parts[2]) || pick };
+  }
+  return { pick: text.slice(0, 80), rationale: text };
 }
 
 export interface ClientCase {

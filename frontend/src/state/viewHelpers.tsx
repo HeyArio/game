@@ -38,6 +38,7 @@ export function cardStyle(c: BaseCard, s: GameState): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
+    minHeight: "200px",
     padding: "18px",
     borderRadius: "18px",
     background: bg,

@@ -65,11 +65,11 @@ export function AnswerCard({ card, onSelect }: AnswerCardProps) {
         )}
       </div>
 
-      <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginTop: 13 }}>
-        <span style={{ fontWeight: 800, fontSize: 11, letterSpacing: ".06em", color: "#B2B7A6" }}>PICKS</span>
-        <span style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 18, color: "#3C3C46" }}>{card.pick}</span>
+      <div style={{ marginTop: 14 }}>
+        <span style={{ display: "block", fontWeight: 800, fontSize: 10.5, letterSpacing: ".09em", color: "#B2B7A6", marginBottom: 4 }}>PICKS</span>
+        <span style={{ display: "block", fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16.5, lineHeight: 1.3, color: "#3C3C46" }}>{card.pick}</span>
       </div>
-      <p style={{ marginTop: 5, fontSize: 14, lineHeight: 1.5, color: "#74796B", fontWeight: 600 }}>{card.answer}</p>
+      <p style={{ marginTop: 8, fontSize: 13.5, lineHeight: 1.55, color: "#74796B", fontWeight: 600 }}>{card.answer}</p>
 
       {card.showBars && (
         <div style={{ marginTop: 14, animation: "qfade .4s ease both" }}>
