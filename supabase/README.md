@@ -48,40 +48,43 @@ policies on every table.
 That's it — the frontend's "Continue with Google" button
 (`supabase.auth.signInWithOAuth({ provider: 'google' })`) now works end to end.
 
-## 4. NVIDIA models + daily case generation
+## 4. LLM providers + daily case generation
 
-The `generate-daily-case` Edge Function calls 5 models from build.nvidia.com:
+The `generate-daily-case` Edge Function calls 5 different LLM providers, one
+per persona slot:
 
-| Slot | Persona | Model |
-|------|---------|-------|
-| 1 | ASTRA  | `minimaxai/minimax-m3` |
-| 2 | BOREAS | `mistralai/mistral-medium-3.5-128b` |
-| 3 | CIRRUS | `deepseek-ai/deepseek-v4-pro` |
-| 4 | DELPHI | `google/gemma-4-31b-it` |
-| 5 | Arbi (judge) | `nvidia/nemotron-3-ultra-550b-a55b` |
+| Slot | Persona | Provider | Default model |
+|------|---------|----------|---------------|
+| 1 | ASTRA  | OpenRouter | `openrouter/free` |
+| 2 | BOREAS | Groq | `llama-3.1-70b-versatile` |
+| 3 | CIRRUS | Mistral | `mistral-small-latest` |
+| 4 | DELPHI | Gemini | `gemini-3.1-flash-lite-preview` |
+| 5 | Arbi (judge) | Z.ai | `glm-4.7` |
 
-Nemotron is the judge: it's the most capable model and NVIDIA's Nemotron line
-is tuned for instruction-following / evaluation, so it gives the most reliable
-verdicts and cleanest JSON output. The smaller models are the contestants.
+Z.ai's GLM is the judge: it evaluates the four contestant answers and picks the
+sharpest, emitting clean JSON verdicts. The function speaks each provider's
+native wire format — OpenAI-style chat completions (OpenRouter / Groq /
+Mistral), Anthropic-style messages (Z.ai), and Gemini's `generateContent`.
 
-These IDs are baked in as defaults — you do **not** need to set model env vars.
-(Override any slot with `NVIDIA_MODEL_1`..`NVIDIA_MODEL_5` if you swap models.)
+These provider/model pairs are baked in as defaults — you do **not** need to
+set them. Override any slot with `LLM_PROVIDER_1`..`5` and `LLM_MODEL_1`..`5`
+if you want to swap a provider or model without redeploying.
 
-**Set the API key.** Keep your keys in a local `.env` file and push them up —
+**Set the API keys.** Keep your keys in a local `.env` file and push them up —
 no dashboard clicking needed:
 
 ```bash
-cp supabase/.env.example supabase/.env   # then edit supabase/.env, add your key
+cp supabase/.env.example supabase/.env   # then edit supabase/.env, add your keys
 supabase secrets set --env-file ./supabase/.env
 ```
 
-`supabase/.env` is git-ignored, so your key never gets committed. One
-build.nvidia.com key works for all 5 models (`NVIDIA_API_KEY`); set
-`NVIDIA_API_KEY_1`..`_5` only if your models need separate keys.
+`supabase/.env` is git-ignored, so your keys never get committed. Each provider
+has its own key: `OPENROUTER_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`,
+`GEMINI_API_KEY`, `ZAI_API_KEY`.
 
 > ⚠️ Do **not** put these keys in `frontend/.env`. That file is compiled into
 > the browser bundle and is publicly visible — it would leak your API keys.
-> NVIDIA keys are server-side only and belong in `supabase/.env`.
+> These keys are server-side only and belong in `supabase/.env`.
 
 (You can also set them via the dashboard → **Settings → Edge Functions →
 Secrets** if you prefer — same result.)

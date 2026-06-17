@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { generateClientCase, type ClientCase } from "../lib/nvidia";
+import { generateClientCase, type ClientCase } from "../lib/providers";
 
 export type ClientCaseStatus = "loading" | "active" | "error";
 
 /**
- * TESTING-ONLY hook: generates a case in the browser via the NVIDIA models.
- * Used when VITE_NVIDIA_API_KEY is set, in place of useDailyCase (which reads
+ * TESTING-ONLY hook: generates a case in the browser via the LLM providers.
+ * Used when a provider API key is set, in place of useDailyCase (which reads
  * from the database).
  */
 export function useClientCase() {

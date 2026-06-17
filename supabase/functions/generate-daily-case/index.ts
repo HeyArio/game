@@ -1,24 +1,30 @@
 /**
  * generate-daily-case
  *
- * Calls 5 NVIDIA models to build today's Quorum case:
+ * Calls 5 different LLM providers to build today's Quorum case:
  *   - 4 "answerer" models (ASTRA / BOREAS / CIRRUS / DELPHI) each answer the question
  *   - 1 "judge" model (Arbi) evaluates all four answers and picks the sharpest
  *
  * Scheduled via Supabase cron — runs once daily at 00:05 UTC.
  *
+ * Each persona slot is backed by a different provider:
+ *   1 ASTRA  → OpenRouter  (openrouter/free)
+ *   2 BOREAS → Groq        (llama-3.1-70b-versatile)
+ *   3 CIRRUS → Mistral     (mistral-small-latest)
+ *   4 DELPHI → Gemini      (gemini-3.1-flash-lite-preview)
+ *   5 Arbi   → Z.ai        (glm-4.7)   ← the judge
+ *
  * Secrets (set in Supabase dashboard → Project Settings → Edge Functions → Secrets):
  *
- *   NVIDIA_API_KEY     A single build.nvidia.com key used for all 5 models.
- *                      (Optionally override per-slot with NVIDIA_API_KEY_1..5.)
+ *   OPENROUTER_API_KEY   OpenRouter key
+ *   GROQ_API_KEY         Groq key
+ *   MISTRAL_API_KEY      Mistral key
+ *   GEMINI_API_KEY       Google Gemini key
+ *   ZAI_API_KEY          Z.ai key
  *
- * The model IDs default to the assignments below; override any slot with
- * NVIDIA_MODEL_1..5 if you want to swap a model without redeploying code:
- *   1 ASTRA  → minimaxai/minimax-m3
- *   2 BOREAS → mistralai/mistral-medium-3.5-128b
- *   3 CIRRUS → deepseek-ai/deepseek-v4-pro
- *   4 DELPHI → google/gemma-4-31b-it
- *   5 Arbi   → nvidia/nemotron-3-ultra-550b-a55b   (the judge — most capable model)
+ * Override any slot's provider/model without redeploying code:
+ *   LLM_PROVIDER_1..5    one of: openrouter | groq | mistral | zai | gemini
+ *   LLM_MODEL_1..5       the model id for that slot
  *
  *   SUPABASE_URL               (auto-provided by Supabase)
  *   SUPABASE_SERVICE_ROLE_KEY  (auto-provided by Supabase)
@@ -26,44 +32,104 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const NVIDIA_BASE = "https://integrate.api.nvidia.com/v1";
 const PERSONA_NAMES = ["ASTRA", "BOREAS", "CIRRUS", "DELPHI"];
 const LETTERS = ["A", "B", "C", "D"];
 
-// Default model assignment (override per-slot via NVIDIA_MODEL_1..5).
-const DEFAULT_MODELS: Record<number, string> = {
-  1: "minimaxai/minimax-m3",                 // ASTRA
-  2: "mistralai/mistral-medium-3.5-128b",    // BOREAS
-  3: "deepseek-ai/deepseek-v4-pro",          // CIRRUS
-  4: "google/gemma-4-31b-it",                // DELPHI
-  5: "nvidia/nemotron-3-ultra-550b-a55b",    // Arbi (judge — most capable model)
+type ProviderId = "openrouter" | "groq" | "mistral" | "zai" | "gemini";
+
+interface ProviderDef {
+  base: string;
+  keyEnv: string;
+  shape: "openai" | "anthropic" | "gemini";
+  headers?: Record<string, string>;
+}
+
+const PROVIDERS: Record<ProviderId, ProviderDef> = {
+  openrouter: {
+    base: "https://openrouter.ai/api",
+    keyEnv: "OPENROUTER_API_KEY",
+    shape: "openai",
+    headers: { "HTTP-Referer": "http://185.221.237.90.nip.io:3002", "X-Title": "Quorum" },
+  },
+  groq: { base: "https://api.groq.com/openai", keyEnv: "GROQ_API_KEY", shape: "openai" },
+  mistral: { base: "https://api.mistral.ai", keyEnv: "MISTRAL_API_KEY", shape: "openai" },
+  zai: { base: "https://api.z.ai/api/anthropic", keyEnv: "ZAI_API_KEY", shape: "anthropic" },
+  gemini: { base: "https://generativelanguage.googleapis.com", keyEnv: "GEMINI_API_KEY", shape: "gemini" },
 };
 
-// Resolve a model's API key: per-slot key if set, else the shared NVIDIA_API_KEY.
-function keyFor(slot: number): string {
-  return Deno.env.get(`NVIDIA_API_KEY_${slot}`) ?? Deno.env.get("NVIDIA_API_KEY") ?? "";
-}
-function modelFor(slot: number): string {
-  return Deno.env.get(`NVIDIA_MODEL_${slot}`) ?? DEFAULT_MODELS[slot];
+interface SlotConfig { provider: ProviderId; model: string; }
+
+// Default provider + model per persona slot (override via LLM_PROVIDER_N / LLM_MODEL_N).
+const DEFAULT_SLOTS: Record<number, SlotConfig> = {
+  1: { provider: "openrouter", model: "openrouter/free" },              // ASTRA
+  2: { provider: "groq", model: "llama-3.1-70b-versatile" },            // BOREAS
+  3: { provider: "mistral", model: "mistral-small-latest" },            // CIRRUS
+  4: { provider: "gemini", model: "gemini-3.1-flash-lite-preview" },    // DELPHI
+  5: { provider: "zai", model: "glm-4.7" },                             // Arbi (judge)
+};
+
+function slotConfig(slot: number): SlotConfig {
+  const provider = (Deno.env.get(`LLM_PROVIDER_${slot}`) as ProviderId | null) ?? DEFAULT_SLOTS[slot].provider;
+  const model = Deno.env.get(`LLM_MODEL_${slot}`) ?? DEFAULT_SLOTS[slot].model;
+  return { provider, model };
 }
 
-interface NvidiaMessage { role: "system" | "user" | "assistant"; content: string; }
+interface ChatMessage { role: "system" | "user" | "assistant"; content: string; }
 
-async function callModel(apiKey: string, model: string, messages: NvidiaMessage[], maxTokens = 512): Promise<string> {
-  const res = await fetch(`${NVIDIA_BASE}/chat/completions`, {
+async function callModel(slot: number, messages: ChatMessage[], maxTokens = 512): Promise<string> {
+  const { provider, model } = slotConfig(slot);
+  const def = PROVIDERS[provider];
+  const apiKey = Deno.env.get(def.keyEnv) ?? "";
+
+  if (def.shape === "openai") return callOpenAI(def, apiKey, model, messages, maxTokens);
+  if (def.shape === "anthropic") return callAnthropic(def, apiKey, model, messages, maxTokens);
+  return callGemini(def, apiKey, model, messages, maxTokens);
+}
+
+async function callOpenAI(def: ProviderDef, apiKey: string, model: string, messages: ChatMessage[], maxTokens: number): Promise<string> {
+  const res = await fetch(`${def.base}/v1/chat/completions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}`, ...def.headers },
     body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.7 }),
   });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`NVIDIA API error for ${model}: ${res.status} ${err}`);
-  }
+  if (!res.ok) throw new Error(`API error for ${model}: ${res.status} ${await res.text()}`);
   const data = await res.json();
   return data.choices?.[0]?.message?.content?.trim() ?? "";
 }
 
-async function generateQuestion(judgeKey: string, judgeModel: string): Promise<{ question: string; category: string }> {
+async function callAnthropic(def: ProviderDef, apiKey: string, model: string, messages: ChatMessage[], maxTokens: number): Promise<string> {
+  const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n");
+  const rest = messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: m.content }));
+  const res = await fetch(`${def.base}/v1/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", ...def.headers },
+    body: JSON.stringify({ model, max_tokens: maxTokens, ...(system ? { system } : {}), messages: rest }),
+  });
+  if (!res.ok) throw new Error(`API error for ${model}: ${res.status} ${await res.text()}`);
+  const data = await res.json();
+  return (data.content?.map((c: { text?: string }) => c.text ?? "").join("") ?? "").trim();
+}
+
+async function callGemini(def: ProviderDef, apiKey: string, model: string, messages: ChatMessage[], maxTokens: number): Promise<string> {
+  const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n");
+  const contents = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
+  const res = await fetch(`${def.base}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents,
+      ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+      generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens },
+    }),
+  });
+  if (!res.ok) throw new Error(`API error for ${model}: ${res.status} ${await res.text()}`);
+  const data = await res.json();
+  return (data.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "").trim();
+}
+
+async function generateQuestion(): Promise<{ question: string; category: string }> {
   const categories = [
     "GEOPOLITICS · FORECAST", "SPORT · FORECAST", "TECHNOLOGY · PREDICTION",
     "ECONOMICS · FORECAST", "SCIENCE · DEBATE", "CULTURE · OPINION",
@@ -72,7 +138,7 @@ async function generateQuestion(judgeKey: string, judgeModel: string): Promise<{
   const cat = categories[Math.floor(Math.random() * categories.length)];
   const topic = cat.split(" · ")[0].toLowerCase();
 
-  const content = await callModel(judgeKey, judgeModel, [
+  const content = await callModel(5, [
     {
       role: "system",
       content: "You generate crisp, debatable daily trivia / prediction questions. Output ONLY the question — no preamble, no punctuation beyond the question mark."
@@ -88,8 +154,8 @@ async function generateQuestion(judgeKey: string, judgeModel: string): Promise<{
   return { question, category: cat };
 }
 
-async function getModelAnswer(apiKey: string, model: string, personaName: string, question: string): Promise<string> {
-  const content = await callModel(apiKey, model, [
+async function getModelAnswer(slot: number, personaName: string, question: string): Promise<string> {
+  const content = await callModel(slot, [
     {
       role: "system",
       content: `You are ${personaName}, a sharp analytical AI. When given a question, give ONE concrete, well-reasoned answer in 1-2 sentences. Be direct — pick a specific answer and defend it briefly. No hedging, no "it depends". First state your pick/prediction clearly, then give your core reasoning.`
@@ -102,7 +168,6 @@ async function getModelAnswer(apiKey: string, model: string, personaName: string
 interface JudgeResult { winnerLetter: string; reasoning: string }
 
 async function judgeAnswers(
-  apiKey: string, model: string,
   question: string,
   answers: { letter: string; persona: string; pick: string; answer: string }[]
 ): Promise<JudgeResult> {
@@ -110,7 +175,7 @@ async function judgeAnswers(
     .map(a => `Option ${a.letter} (${a.persona}):\nPick: ${a.pick}\nReasoning: ${a.answer}`)
     .join("\n\n");
 
-  const content = await callModel(apiKey, model, [
+  const content = await callModel(5, [
     {
       role: "system",
       content: "You are Arbi, a rigorous AI judge. You evaluate competing answers by their quality of reasoning, specificity, and defensibility. You are decisive and fair. Output ONLY a JSON object, nothing else."
@@ -160,12 +225,8 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  const judgeKey   = keyFor(5);
-  const judgeModel = modelFor(5);
-
   const models = [1, 2, 3, 4].map(i => ({
-    apiKey:  keyFor(i),
-    model:   modelFor(i),
+    slot:    i,
     persona: PERSONA_NAMES[i - 1],
     letter:  LETTERS[i - 1],
   }));
@@ -190,12 +251,12 @@ Deno.serve(async (req) => {
     } catch { question = ""; category = ""; }
 
     if (!question) {
-      ({ question, category } = await generateQuestion(judgeKey, judgeModel));
+      ({ question, category } = await generateQuestion());
     }
 
     // Get answers from all 4 models in parallel
     const rawAnswers = await Promise.all(
-      models.map(m => getModelAnswer(m.apiKey, m.model, m.persona, question))
+      models.map(m => getModelAnswer(m.slot, m.persona, question))
     );
 
     const answers = rawAnswers.map((raw, i) => {
@@ -204,7 +265,7 @@ Deno.serve(async (req) => {
     });
 
     // Judge picks the winner
-    const { winnerLetter } = await judgeAnswers(judgeKey, judgeModel, question, answers);
+    const { winnerLetter } = await judgeAnswers(question, answers);
 
     // Plausible crowd distribution (judge answer gets slightly lower share — makes game interesting)
     const shuffled = [...answers].sort(() => Math.random() - 0.5);
@@ -232,7 +293,7 @@ Deno.serve(async (req) => {
     if (caseErr) throw caseErr;
 
     // Insert options
-    const optionRows = answers.map((a, i) => ({
+    const optionRows = answers.map((a) => ({
       case_id:       caseRow.id,
       letter:        a.letter,
       model_name:    a.persona,

@@ -401,7 +401,7 @@ export function useGameState(props: InitProps = {}) {
       caseNo: data.caseNo,
       cards: data.cards,
       // Production: judgeCardId stays null until the server reveals it on vote.
-      // Testing (client-side NVIDIA): the generator passes judgeCardId so the
+      // Testing (client-side LLM): the generator passes judgeCardId so the
       // local scoring fallback can decide correctness without the edge function.
       judgeCardId: data.judgeCardId ?? null,
       judgeOptionId: null,

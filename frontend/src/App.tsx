@@ -15,16 +15,16 @@ import { useDailyCase } from "./hooks/useDailyCase";
 import { useClientCase } from "./hooks/useClientCase";
 import { useVote } from "./hooks/useVote";
 import { supabase } from "./lib/supabase";
-import { isClientNvidiaEnabled } from "./lib/nvidia";
+import { isClientLlmEnabled } from "./lib/providers";
 import type { CardId } from "./state/types";
 
 export default function App() {
   const { session, loading } = useAuth();
   if (loading) return <SplashScreen />;
   if (!session) return <SignInPage />;
-  // TESTING ONLY: if a NVIDIA key is in frontend/.env, generate the case in the
+  // TESTING ONLY: if a provider key is in frontend/.env, generate the case in the
   // browser and score locally instead of using the DB + edge functions.
-  return isClientNvidiaEnabled() ? <ClientGame /> : <Game />;
+  return isClientLlmEnabled() ? <ClientGame /> : <Game />;
 }
 
 function SplashScreen() {
@@ -70,7 +70,7 @@ function Game() {
   return <GameShell game={game} caseLoading={caseStatus === "loading"} noCase={caseStatus === "no_case"} error={caseStatus === "error" ? caseError : null} />;
 }
 
-// ---- Testing path: case generated in-browser via NVIDIA, scored locally ----
+// ---- Testing path: case generated in-browser via LLM providers, scored locally ----
 function ClientGame() {
   const { status, clientCase, error } = useClientCase();
   const game = useGameState(); // no onSubmitVote → local scoring against judgeCardId
