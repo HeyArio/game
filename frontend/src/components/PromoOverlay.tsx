@@ -1,13 +1,20 @@
 import { Mascot } from "./Mascot";
 import { icon } from "../icons/Icon";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 
 export interface PromoOverlayProps {
   onDismiss: () => void;
 }
 
 export function PromoOverlay({ onDismiss }: PromoOverlayProps) {
+  const trapRef = useFocusTrap();
   return (
     <div
+      ref={trapRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="promo-dialog-title"
+      onKeyDown={(e) => { if (e.key === "Escape") onDismiss(); }}
       style={{
         position: "fixed",
         inset: 0,
@@ -40,7 +47,7 @@ export function PromoOverlay({ onDismiss }: PromoOverlayProps) {
             {icon("crown", 42, "#fff")}
           </span>
         </div>
-        <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 46, lineHeight: 1, marginTop: 16, textShadow: "0 3px 0 rgba(0,0,0,.18)" }}>
+        <div id="promo-dialog-title" style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 46, lineHeight: 1, marginTop: 16, textShadow: "0 3px 0 rgba(0,0,0,.18)" }}>
           Ruby League
         </div>
         <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 22, marginTop: 14 }}>You've been elevated</div>
@@ -64,7 +71,7 @@ export function PromoOverlay({ onDismiss }: PromoOverlayProps) {
           </span>
           <div style={{ textAlign: "left" }}>
             <div style={{ fontWeight: 800, fontSize: 12, color: "#FFD9A0", marginBottom: 1 }}>Arbi</div>
-            <div style={{ fontWeight: 700, fontSize: 13.5, lineHeight: 1.4, maxWidth: 240 }}>
+            <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.5, maxWidth: 240 }}>
               Knew you had it in you. Don't get comfortable — Ruby plays rough.
             </div>
           </div>

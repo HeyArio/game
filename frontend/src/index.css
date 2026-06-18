@@ -1,6 +1,15 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; max-width: 100%; overflow-x: hidden; }
-body { background: #F4F8EE; font-family: 'Nunito', system-ui, sans-serif; overflow-wrap: break-word; }
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-kerning: normal;
+  text-rendering: optimizeLegibility;
+}
+body { background: #F4F8EE; font-family: 'Nunito', system-ui, sans-serif; overflow-wrap: break-word; line-height: 1.6; }
+
+h1, h2, h3 { text-wrap: balance; }
+p { text-wrap: pretty; }
 
 @keyframes qspin { to { transform: rotate(360deg); } }
 @keyframes qfade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -27,6 +36,16 @@ summary:focus-visible {
 .lp-btn-play:hover { background: #66D80A !important; }
 .lp-btn-play-white:hover { background: #F0FFEB !important; }
 .lp-btn-signin-subtle:hover { background: #F4FAF0 !important; border-color: #C8D4B8 !important; }
+
+/* TopBar nav item hover — inactive items get a subtle tint */
+nav [role="button"]:not([aria-current="page"]):hover { background: #F0F7EA !important; }
+/* Streak pill hover */
+header [aria-label*="streak"]:hover { background: #FFE8C8 !important; }
+
+/* Touch target minimums — WCAG 2.5.5 (44 × 44 px) */
+@media (pointer: coarse) {
+  button, [role="button"] { min-height: 44px; }
+}
 
 /* Reduced motion: redefine keyframes so content is immediately visible and stable */
 @media (prefers-reduced-motion: reduce) {

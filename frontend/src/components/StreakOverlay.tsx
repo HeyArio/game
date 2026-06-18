@@ -1,6 +1,7 @@
 import { Mascot } from "./Mascot";
 import { icon } from "../icons/Icon";
 import type { GameState } from "../state/types";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 
 export interface StreakOverlayProps {
   state: GameState;
@@ -10,6 +11,7 @@ export interface StreakOverlayProps {
 }
 
 export function StreakOverlay({ state, countdownText, onClose, onEquip }: StreakOverlayProps) {
+  const trapRef = useFocusTrap();
   const stop = (e: React.MouseEvent) => e.stopPropagation();
   return (
     <div
@@ -28,7 +30,12 @@ export function StreakOverlay({ state, countdownText, onClose, onEquip }: Streak
       }}
     >
       <div
+        ref={trapRef}
         onClick={stop}
+        onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="streak-dialog-title"
         style={{
           width: "min(432px,100%)",
           background: "#fff",
@@ -48,8 +55,9 @@ export function StreakOverlay({ state, countdownText, onClose, onEquip }: Streak
             borderBottom: "2px solid #FBE3BE",
           }}
         >
-          <span
+          <button
             onClick={onClose}
+            aria-label="Close"
             style={{
               position: "absolute",
               top: 14,
@@ -61,6 +69,7 @@ export function StreakOverlay({ state, countdownText, onClose, onEquip }: Streak
               height: 30,
               borderRadius: 10,
               background: "rgba(255,255,255,.7)",
+              border: "none",
               color: "#B79A6B",
               fontWeight: 800,
               fontSize: 15,
@@ -68,7 +77,7 @@ export function StreakOverlay({ state, countdownText, onClose, onEquip }: Streak
             }}
           >
             ✕
-          </span>
+          </button>
           <div
             style={{
               display: "inline-flex",
@@ -84,10 +93,10 @@ export function StreakOverlay({ state, countdownText, onClose, onEquip }: Streak
           >
             {icon("flame", 38, "#FF9600")}
           </div>
-          <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 25, color: "#3C3C46", marginTop: 12, lineHeight: 1.12 }}>
+          <div id="streak-dialog-title" style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 25, color: "#3C3C46", marginTop: 12, lineHeight: 1.12 }}>
             Your {state.streak}-day streak is on the line
           </div>
-          <div style={{ fontWeight: 700, fontSize: 13.5, color: "#9A7B4C", marginTop: 5 }}>
+          <div style={{ fontWeight: 700, fontSize: 14.5, color: "#9A7B4C", marginTop: 5, lineHeight: 1.5 }}>
             Leave today's case unjudged and it resets to zero.
           </div>
           <div
@@ -142,7 +151,7 @@ export function StreakOverlay({ state, countdownText, onClose, onEquip }: Streak
                   <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16, color: "#3C3C46" }}>
                     Continuance · {state.contLeft} left
                   </div>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: "#7C8470", lineHeight: 1.4 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: "#7C8470", lineHeight: 1.5 }}>
                     Hold your streak through one missed day. Even judges grant a recess.
                   </div>
                 </div>
@@ -168,9 +177,9 @@ export function StreakOverlay({ state, countdownText, onClose, onEquip }: Streak
               >
                 Equip a Continuance
               </button>
-              <div onClick={onClose} style={{ textAlign: "center", marginTop: 12, fontWeight: 800, fontSize: 13, color: "#B2B7A6", cursor: "pointer" }}>
+              <button onClick={onClose} style={{ display: "block", width: "100%", textAlign: "center", marginTop: 12, fontWeight: 800, fontSize: 13, color: "#8E9582", background: "none", border: "none", cursor: "pointer", fontFamily: "'Nunito',sans-serif" }}>
                 I'll defend it live →
-              </div>
+              </button>
             </>
           )}
           {state.contEquipped && (
@@ -192,7 +201,7 @@ export function StreakOverlay({ state, countdownText, onClose, onEquip }: Streak
               <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 20, color: "#58A700", marginTop: 12 }}>
                 Continuance equipped
               </div>
-              <div style={{ fontWeight: 600, fontSize: 14, color: "#7C8470", marginTop: 3, lineHeight: 1.45 }}>
+              <div style={{ fontWeight: 600, fontSize: 14.5, color: "#7C8470", marginTop: 3, lineHeight: 1.55 }}>
                 Your streak holds through one missed day. {state.contLeft} continuance remaining.
               </div>
               <button

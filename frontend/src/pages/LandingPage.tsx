@@ -43,7 +43,7 @@ function H2({ children, id }: { children: ReactNode; id?: string }) {
       id={id}
       style={{
         fontFamily: "'Baloo 2',cursive", fontWeight: 800,
-        fontSize: "clamp(24px,3.2vw,34px)", lineHeight: 1.15,
+        fontSize: "clamp(24px,3.2vw,34px)", lineHeight: 1.1,
         color: "#3C3C46", letterSpacing: "-.01em",
         margin: 0, scrollMarginTop: 90,
         textWrap: "balance" as CSSProperties["textWrap"],
@@ -62,9 +62,9 @@ function H2({ children, id }: { children: ReactNode; id?: string }) {
 // ---------------------------------------------------------------------------
 
 const HOW = [
-  { ic: "eye", tint: "#1CB0F6", bg: "#E3F4FF", title: "Read four takes", body: "Each morning, four leading AI models answer one genuinely debatable question — in their own words, side by side." },
-  { ic: "scale", tint: "#CE82FF", bg: "#F4E9FF", title: "Back your pick", body: "Decide which answer is the sharpest and most defensible, set your confidence, then lock it in before the case closes." },
-  { ic: "trophy", tint: "#FF9600", bg: "#FFF3E0", title: "See the verdict", body: "Arbi, the judge model, reveals its call. Match it to earn XP, build a streak, and climb the global leagues." },
+  { ic: "eye", tint: "#1CB0F6", bg: "#E3F4FF", numColor: "#B8DCFA", title: "Read four takes", body: "Each morning, four leading AI models answer one genuinely debatable question — in their own words, side by side." },
+  { ic: "scale", tint: "#CE82FF", bg: "#F4E9FF", numColor: "#E0C8FC", title: "Back your pick", body: "Decide which answer is the sharpest and most defensible, set your confidence, then lock it in before the case closes." },
+  { ic: "trophy", tint: "#FF9600", bg: "#FFF3E0", numColor: "#FFD8A0", title: "See the verdict", body: "Arbi, the judge model, reveals its call. Match it to earn XP, build a streak, and climb the global leagues." },
 ] as const;
 
 const BENEFITS = [
@@ -89,19 +89,19 @@ const STATS = [
 
 // Sample categories of the daily case — pure content for SEO/topical coverage.
 const CATEGORIES = [
-  { ic: "trendUp", name: "Sports & forecasting", q: "Who wins the next World Cup — and why?" },
-  { ic: "gem", name: "Science & tech", q: "Will fusion power reach the grid before 2040?" },
-  { ic: "cap", name: "History & culture", q: "Which invention reshaped the world the most?" },
-  { ic: "target", name: "Strategy & business", q: "Should a startup raise now or stay lean?" },
-  { ic: "face", name: "Ethics & society", q: "When is it right to break a small rule for a big good?" },
-  { ic: "star", name: "Everyday dilemmas", q: "Is it better to rent or buy in a hot market?" },
+  { ic: "trendUp", color: "#FF9600", bg: "#FFF3E0", name: "Sports & forecasting", q: "Who wins the next World Cup — and why?" },
+  { ic: "gem",     color: "#1CB0F6", bg: "#E3F4FF", name: "Science & tech", q: "Will fusion power reach the grid before 2040?" },
+  { ic: "cap",     color: "#CE82FF", bg: "#F4E9FF", name: "History & culture", q: "Which invention reshaped the world the most?" },
+  { ic: "target",  color: "#58CC02", bg: "#E8FFD7", name: "Strategy & business", q: "Should a startup raise now or stay lean?" },
+  { ic: "face",    color: "#FF9600", bg: "#FFF3E0", name: "Ethics & society", q: "When is it right to break a small rule for a big good?" },
+  { ic: "star",    color: "#CE82FF", bg: "#F4E9FF", name: "Everyday dilemmas", q: "Is it better to rent or buy in a hot market?" },
 ] as const;
 
 const MODELS = [
-  { letter: "A", color: "#58CC02", name: "GPT-class" },
-  { letter: "B", color: "#1CB0F6", name: "Llama-class" },
-  { letter: "C", color: "#CE82FF", name: "Mistral-class" },
-  { letter: "D", color: "#FF9600", name: "Gemini-class" },
+  { letter: "A", color: "#58CC02", bg: "#F2FFEC", border: "#C4E89E", name: "GPT-class" },
+  { letter: "B", color: "#1CB0F6", bg: "#EBF8FF", border: "#A8D9F5", name: "Llama-class" },
+  { letter: "C", color: "#CE82FF", bg: "#F8EEFF", border: "#DFBEFF", name: "Mistral-class" },
+  { letter: "D", color: "#FF9600", bg: "#FFF8EE", border: "#FFD599", name: "Gemini-class" },
 ] as const;
 
 // AEO: these power both the visible FAQ and the FAQPage structured data.
@@ -223,7 +223,7 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
 
       <main>
         {/* HERO */}
-        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "56px 24px 0", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 30, alignItems: "center" }}>
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "clamp(56px,8vw,96px) 24px 0", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 30, alignItems: "center" }}>
           <div style={{ animation: "qrise .5s ease both" }}>
             <h1 style={{
               fontFamily: "'Baloo 2',cursive", fontWeight: 800,
@@ -281,20 +281,20 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
         </section>
 
         {/* FACT STRIP — inline stats, no hero-metric template */}
-        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 24px 64px" }}>
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "16px 24px 80px" }}>
           <div style={{ display: "flex", flexWrap: "wrap", columnGap: 32, rowGap: 10, padding: "16px 0", borderTop: "2px solid #E4EAD8", borderBottom: "2px solid #E4EAD8" }}>
             {STATS.map((s) => (
               <div key={s.label} style={{ display: "flex", alignItems: "baseline", gap: 7 }}>
                 <span style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 20, color: "#4A9600" }}>{s.value}</span>
-                <span style={{ fontWeight: 700, fontSize: 13, color: "#5E6654" }}>{s.label}</span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: "#5E6654" }}>{s.label}</span>
               </div>
             ))}
           </div>
         </section>
 
         {/* WHAT IS QUORUM — GEO: concise, quotable, factual */}
-        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 72px" }}>
-          <div style={{ ...card, padding: "40px 36px", background: "linear-gradient(180deg,#FFFFFF,#FBFEF6)" }}>
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 96px" }}>
+          <div style={{ ...card, padding: "44px 40px", background: "linear-gradient(180deg,#FFFFFF,#FBFEF6)" }}>
             <H2>The daily game where you judge AI</H2>
             <p style={{ fontWeight: 700, fontSize: 16, color: "#5E6654", lineHeight: 1.65, margin: "16px 0 0", maxWidth: 760 }}>
               <b>Quorum is a free daily browser game in which four leading AI models answer the same
@@ -303,7 +303,7 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
               the crowd, and keeping a daily streak alive. There is one new case every day, and a round
               takes about two minutes.
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 20, marginTop: 28 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 28, marginTop: 32 }}>
               {[
                 { t: "A game of judgment, not trivia", b: "Questions are genuinely debatable. You're rating the strength of an argument, not recalling a fact." },
                 { t: "Four contestants, one judge", b: "Four frontier models answer; a separate judge model, Arbi, decides — so no model grades its own work." },
@@ -319,7 +319,7 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
                   </span>
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 15, color: "#3C3C46" }}>{x.t}</div>
-                    <div style={{ fontWeight: 600, fontSize: 13.5, color: "#5E6654", lineHeight: 1.5, marginTop: 4 }}>{x.b}</div>
+                    <div style={{ fontWeight: 600, fontSize: 14.5, color: "#5E6654", lineHeight: 1.6, marginTop: 4 }}>{x.b}</div>
                   </div>
                 </div>
               ))}
@@ -328,15 +328,15 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
         </section>
 
         {/* HOW IT WORKS — step numbers as visual anchors, no eyebrow */}
-        <section id="how" style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 80px", scrollMarginTop: 80 }}>
+        <section id="how" style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 88px", scrollMarginTop: 80 }}>
           <H2>Three steps, two minutes</H2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 16, marginTop: 32, textAlign: "left" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 20, marginTop: 36, textAlign: "left" }}>
             {HOW.map((h, i) => (
               <article key={h.title} style={{ ...card, position: "relative", overflow: "hidden" }}>
                 <div style={{
                   position: "absolute", top: -16, right: 10,
                   fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 96,
-                  color: "#EAF5DF", lineHeight: 1, userSelect: "none", pointerEvents: "none",
+                  color: h.numColor, lineHeight: 1, userSelect: "none", pointerEvents: "none",
                 }}>
                   {i + 1}
                 </div>
@@ -347,22 +347,22 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
                   {icon(h.ic, 24, h.tint)}
                 </span>
                 <h3 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 19, color: "#3C3C46", marginTop: 14, position: "relative" }}>{h.title}</h3>
-                <p style={{ fontWeight: 600, fontSize: 14, color: "#5E6654", lineHeight: 1.55, marginTop: 6, position: "relative" }}>{h.body}</p>
+                <p style={{ fontWeight: 600, fontSize: 15, color: "#5E6654", lineHeight: 1.6, marginTop: 6, position: "relative" }}>{h.body}</p>
               </article>
             ))}
           </div>
         </section>
 
         {/* MEET THE MODELS */}
-        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 80px", textAlign: "center" }}>
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 72px", textAlign: "center" }}>
           <H2>Four answers in, one judge out</H2>
           <p style={{ fontWeight: 700, fontSize: 15, color: "#5E6654", maxWidth: 600, margin: "14px auto 0", lineHeight: 1.55 }}>
             Every case fields four anonymised frontier models as contestants and a separate model as
             the judge. Identities stay hidden until the reveal, so you score the argument, not the brand.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 14, marginTop: 28 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 16, marginTop: 32 }}>
             {MODELS.map((m) => (
-              <div key={m.letter} style={{ ...card, textAlign: "center", padding: "20px 14px" }}>
+              <div key={m.letter} style={{ ...card, background: m.bg, border: `2px solid ${m.border}`, borderBottomWidth: 4, textAlign: "center", padding: "20px 14px" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, borderRadius: 14, background: m.color, color: "#fff", fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 24, boxShadow: `0 3px 0 rgba(0,0,0,.18)` }}>{m.letter}</span>
                 <div style={{ fontWeight: 800, fontSize: 14, color: "#3C3C46", marginTop: 12 }}>{m.name}</div>
                 <div style={{ fontWeight: 700, fontSize: 12, color: "#5E6654", marginTop: 2 }}>Contestant</div>
@@ -379,17 +379,17 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
         </section>
 
         {/* BENEFITS — horizontal item list, no eyebrow, no card grid */}
-        <section id="why" style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 80px", scrollMarginTop: 80 }}>
+        <section id="why" style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 104px", scrollMarginTop: 80 }}>
           <H2>It's a workout for your judgment</H2>
           <p style={{ fontWeight: 700, fontSize: 15, color: "#5E6654", maxWidth: 560, margin: "14px 0 0", lineHeight: 1.55 }}>
             Anyone can have an opinion. Quorum rewards the discipline of picking the <i>best</i> one, and shows you how frontier models reason about the same question.
           </p>
-          <div style={{ marginTop: 32, borderTop: "2px solid #E4EAD8" }}>
+          <div style={{ marginTop: 36, borderTop: "2px solid #E4EAD8" }}>
             {BENEFITS.map((b) => (
               <article
                 key={b.title}
                 style={{
-                  display: "flex", gap: 20, padding: "24px 0",
+                  display: "flex", gap: 22, padding: "28px 0",
                   borderBottom: "2px solid #E4EAD8", alignItems: "flex-start",
                 }}
               >
@@ -401,7 +401,7 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
                 </span>
                 <div style={{ flex: 1 }}>
                   <h3 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 18, color: "#3C3C46" }}>{b.title}</h3>
-                  <p style={{ fontWeight: 600, fontSize: 14, color: "#5E6654", lineHeight: 1.55, marginTop: 6, maxWidth: 580 }}>{b.body}</p>
+                  <p style={{ fontWeight: 600, fontSize: 15, color: "#5E6654", lineHeight: 1.6, marginTop: 6, maxWidth: 580 }}>{b.body}</p>
                 </div>
               </article>
             ))}
@@ -409,15 +409,15 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
         </section>
 
         {/* SAMPLE CATEGORIES */}
-        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 72px" }}>
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 88px" }}>
           <H2>One case a day, across every domain</H2>
           <p style={{ fontWeight: 700, fontSize: 15, color: "#5E6654", maxWidth: 560, margin: "14px 0 0", lineHeight: 1.55 }}>
             From sports forecasts to ethics, science to strategy: if smart people can disagree about it, it can become a Quorum case.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 14, marginTop: 28 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 16, marginTop: 32 }}>
             {CATEGORIES.map((c) => (
-              <div key={c.name} style={{ ...card, display: "flex", gap: 13, alignItems: "flex-start" }}>
-                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 12, background: "#F4F8EE", flex: "none" }}>{icon(c.ic, 21, "#58A700")}</span>
+              <div key={c.name} style={{ ...card, display: "flex", gap: 14, alignItems: "flex-start" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 12, background: c.bg, flex: "none" }}>{icon(c.ic, 21, c.color)}</span>
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: ".03em", color: "#5E6654", textTransform: "uppercase" }}>{c.name}</div>
                   <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16, color: "#3C3C46", marginTop: 4, lineHeight: 1.25 }}>"{c.q}"</div>
@@ -428,14 +428,14 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
         </section>
 
         {/* USE CASES — stacked strips, no eyebrow, no card grid */}
-        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 72px" }}>
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 80px" }}>
           <H2>More than a daily puzzle</H2>
-          <div style={{ marginTop: 28, background: "#fff", border: "2px solid #E4EAD8", borderBottomWidth: 4, borderRadius: 22, overflow: "hidden" }}>
+          <div style={{ marginTop: 32, background: "#fff", border: "2px solid #E4EAD8", borderBottomWidth: 4, borderRadius: 22, overflow: "hidden" }}>
             {USES.map((u, i) => (
               <article
                 key={u.title}
                 style={{
-                  display: "flex", gap: 20, padding: "22px 26px",
+                  display: "flex", gap: 20, padding: "24px 28px",
                   borderTop: i > 0 ? "2px solid #EEF1E6" : undefined,
                   alignItems: "flex-start",
                 }}
@@ -448,7 +448,7 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
                 </span>
                 <div>
                   <h3 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 16, color: "#3C3C46" }}>{u.title}</h3>
-                  <p style={{ fontWeight: 600, fontSize: 14, color: "#5E6654", lineHeight: 1.5, marginTop: 4 }}>{u.body}</p>
+                  <p style={{ fontWeight: 600, fontSize: 15, color: "#5E6654", lineHeight: 1.6, marginTop: 4 }}>{u.body}</p>
                 </div>
               </article>
             ))}
@@ -456,26 +456,26 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
         </section>
 
         {/* FAQ — AEO */}
-        <section id="faq" style={{ maxWidth: 820, margin: "0 auto", padding: "0 24px 88px", scrollMarginTop: 80 }}>
+        <section id="faq" style={{ maxWidth: 820, margin: "0 auto", padding: "0 24px 96px", scrollMarginTop: 80 }}>
           <H2>Questions, answered</H2>
-          <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 12 }}>
             {FAQ.map((f) => (
               <details key={f.q} style={{ ...card, padding: 0, overflow: "hidden" }}>
-                <summary style={{ listStyle: "none", cursor: "pointer", padding: "16px 20px", fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16.5, color: "#3C3C46", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <summary style={{ listStyle: "none", cursor: "pointer", padding: "18px 20px", fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16.5, color: "#3C3C46", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                   {f.q}
                   <svg className="faq-chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#58A700" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none", transition: "transform .2s" }} aria-hidden="true">
                     <path d="M6 9l6 6 6-6" />
                   </svg>
                 </summary>
-                <p style={{ padding: "0 20px 18px", fontWeight: 600, fontSize: 14.5, color: "#6E7563", lineHeight: 1.6, margin: 0 }}>{f.a}</p>
+                <p style={{ padding: "0 20px 20px", fontWeight: 600, fontSize: 15, color: "#6E7563", lineHeight: 1.65, margin: 0 }}>{f.a}</p>
               </details>
             ))}
           </div>
         </section>
 
         {/* FINAL CTA */}
-        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 48px" }}>
-          <div style={{ ...card, background: "linear-gradient(135deg,#58CC02,#46A302)", border: "none", textAlign: "center", padding: "48px 24px", boxShadow: "0 6px 0 #3E9000" }}>
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 80px" }}>
+          <div style={{ ...card, background: "linear-gradient(135deg,#58CC02,#46A302)", border: "none", textAlign: "center", padding: "56px 32px", boxShadow: "0 6px 0 #3E9000" }}>
             <div style={{ display: "flex", justifyContent: "center", animation: "qbob 3s ease-in-out infinite" }}><Mascot size={72} mood="happy" /></div>
             <h2 style={{
               fontFamily: "'Baloo 2',cursive", fontWeight: 800,
@@ -539,7 +539,7 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
               nazarbanai.com
             </a>
           </div>
-          <div style={{ fontWeight: 700, fontSize: 12.5, color: "#6E7563", flexBasis: "100%" }}>© {new Date().getFullYear()} Quorum · The daily AI judgment game</div>
+          <div style={{ fontWeight: 700, fontSize: 13, color: "#6E7563", flexBasis: "100%" }}>© {new Date().getFullYear()} Quorum · The daily AI judgment game</div>
         </div>
       </footer>
     </div>

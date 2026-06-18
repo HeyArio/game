@@ -14,7 +14,11 @@ export function AnswerCard({ card, onSelect }: AnswerCardProps) {
 
   return (
     <div
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      aria-label={interactive ? `Select answer ${card.letter}` : undefined}
       onClick={onSelect}
+      onKeyDown={interactive ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(); } } : undefined}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
@@ -46,7 +50,7 @@ export function AnswerCard({ card, onSelect }: AnswerCardProps) {
               <span style={{ fontWeight: 800, fontSize: 10, letterSpacing: ".1em", color: "#B2B7A6", marginTop: 2 }}>{card.modelLabel}</span>
             </>
           ) : (
-            <span style={{ fontWeight: 800, fontSize: 12, letterSpacing: ".11em", color: "#9AA08C" }}>{card.modelLabel}</span>
+            <span style={{ fontWeight: 800, fontSize: 12, letterSpacing: ".08em", color: "#9AA08C" }}>{card.modelLabel}</span>
           )}
         </div>
         {card.showArbiter && (
@@ -100,7 +104,7 @@ export function AnswerCard({ card, onSelect }: AnswerCardProps) {
         }}
       >
         <span style={{ position: "absolute", left: 6, top: 11, bottom: 11, width: 4, borderRadius: 999, background: card.accent, opacity: noAnswer ? 0.25 : 1 }} />
-        <span style={{ display: "block", fontWeight: 800, fontSize: 10, letterSpacing: ".11em", color: card.accent, marginBottom: 3, opacity: noAnswer ? 0.5 : 0.9 }}>PICK</span>
+        <span style={{ display: "block", fontWeight: 800, fontSize: 10, letterSpacing: ".08em", color: card.accent, marginBottom: 3, opacity: noAnswer ? 0.5 : 0.9 }}>PICK</span>
         <span
           style={{
             display: "block",
@@ -120,8 +124,8 @@ export function AnswerCard({ card, onSelect }: AnswerCardProps) {
       <p
         style={{
           marginTop: 10,
-          fontSize: 13.5,
-          lineHeight: 1.55,
+          fontSize: 14.5,
+          lineHeight: 1.6,
           color: noAnswer ? "#A7AC9C" : "#6E7365",
           fontWeight: 600,
           fontStyle: noAnswer ? "italic" : "normal",

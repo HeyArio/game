@@ -19,7 +19,7 @@ export function ProfilePage({ state }: ProfilePageProps) {
   const initial = (displayName[0] || "Y").toUpperCase();
 
   return (
-    <div style={{ maxWidth: 760, margin: "0 auto", padding: "26px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: "26px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
       <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "flex-start" : "center", gap: isMobile ? 14 : 18, padding: 22, background: "#fff", border: "2px solid #E4EAD8", borderRadius: 22, flexWrap: "wrap" }}>
         <span
           style={{
@@ -97,7 +97,7 @@ export function ProfilePage({ state }: ProfilePageProps) {
 
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 12 }}>
         {profile.stats.map((st, i) => (
-          <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, padding: "16px 8px", background: "#fff", border: "2px solid #E4EAD8", borderRadius: 18, textAlign: "center" }}>
+          <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, padding: "16px 12px", background: "#fff", border: "2px solid #E4EAD8", borderRadius: 18, textAlign: "center" }}>
             <span style={st.iconWrap}>{st.iconEl}</span>
             <span style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 21, color: "#3C3C46", lineHeight: 1 }}>{st.value}</span>
             <span style={{ fontWeight: 700, fontSize: 11.5, color: "#9AA08C" }}>{st.label}</span>
@@ -111,7 +111,7 @@ export function ProfilePage({ state }: ProfilePageProps) {
         </span>
         <div>
           <div style={{ fontWeight: 800, fontSize: 13, color: "#7A3FB0", marginBottom: 3 }}>A note from Arbi</div>
-          <div style={{ fontSize: 14.5, fontWeight: 600, color: "#5E4576", lineHeight: 1.5 }}>{profile.note}</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "#5E4576", lineHeight: 1.6 }}>{profile.note}</div>
         </div>
       </div>
 
@@ -133,7 +133,7 @@ export function ProfilePage({ state }: ProfilePageProps) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
         {profile.figures.map((f, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 13, padding: 16, background: "#fff", border: "2px solid #E4EAD8", borderRadius: 18 }}>
             <span style={f.iconWrap}>{f.iconEl}</span>

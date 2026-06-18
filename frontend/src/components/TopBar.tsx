@@ -15,7 +15,7 @@ export interface TopBarProps {
 
 export function TopBar({ state, onSelectScreen, onOpenStreak, onHome, guest = false, onSignIn }: TopBarProps) {
   const isMobile = useIsMobile();
-  const navItems = navView(state.screen, onSelectScreen as (id: any) => void);
+  const navItems = navView(state.screen);
   const [logoPressed, setLogoPressed] = useState(false);
 
   // The logo is "home". For guests that's the landing page; for signed-in
@@ -103,7 +103,12 @@ export function TopBar({ state, onSelectScreen, onOpenStreak, onHome, guest = fa
             {navItems.map((nav) => (
               <span
                 key={nav.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => onSelectScreen(nav.id as Screen)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectScreen(nav.id as Screen); } }}
+                aria-label={nav.label}
+                aria-current={nav.active ? "page" : undefined}
                 title={nav.label}
                 style={isMobile ? { ...nav.style, padding: "8px 11px" } : nav.style}
               >
@@ -139,8 +144,12 @@ export function TopBar({ state, onSelectScreen, onOpenStreak, onHome, guest = fa
         ) : (
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 8, ...(isMobile ? { marginLeft: "auto" } : {}) }}>
           <span
+            role="button"
+            tabIndex={0}
             onClick={onOpenStreak}
-            title="Streak"
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenStreak(); } }}
+            aria-label={`${state.streak}-day streak — view details`}
+            title="View streak"
             style={{
               display: "inline-flex",
               alignItems: "center",

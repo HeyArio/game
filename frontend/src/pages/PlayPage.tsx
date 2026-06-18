@@ -114,8 +114,8 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
               marginTop: 14,
               padding: "11px 22px",
               borderRadius: 16,
-              background: "#F4F8EE",
-              border: "2px solid #E4EAD8",
+              background: "#E8FFD7",
+              border: "2px solid #9EDF6A",
               fontFamily: "'Baloo 2',cursive",
               fontWeight: 800,
               fontSize: 31,
@@ -134,15 +134,15 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
               </span>
             ))}
           </div>
-          <div style={{ maxWidth: 430, margin: "18px auto 0", paddingTop: 18, borderTop: "2px dashed #ECEFE4", fontSize: 14.5, fontWeight: 600, color: "#5E6553", lineHeight: 1.5 }}>
+          <div style={{ maxWidth: 430, margin: "18px auto 0", paddingTop: 18, borderTop: "2px dashed #ECEFE4", fontSize: 15, fontWeight: 600, color: "#5E6553", lineHeight: 1.6 }}>
             {done.note}
           </div>
           <div style={{ display: "flex", justifyContent: "center" }}>
             <ShareBar state={state} align="center" />
           </div>
-          <div onClick={onReplay} style={{ display: "inline-block", marginTop: 14, fontWeight: 800, fontSize: 13, color: "#B2B7A6", cursor: "pointer" }}>
+          <button onClick={onReplay} style={{ display: "inline-block", marginTop: 14, fontWeight: 800, fontSize: 13, color: "#8E9582", cursor: "pointer", background: "none", border: "none", fontFamily: "'Nunito',sans-serif" }}>
             Replay today's case
-          </div>
+          </button>
         </div>
       </div>
     );
@@ -153,10 +153,10 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
       style={{
         maxWidth: 1160,
         margin: "0 auto",
-        padding: isMobile ? "18px 14px" : "26px 24px",
+        padding: isMobile ? "18px 14px" : "32px 24px",
         display: "grid",
         gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1fr) 330px",
-        gap: isMobile ? 18 : 24,
+        gap: isMobile ? 18 : 28,
         alignItems: "start",
       }}
     >
@@ -175,23 +175,23 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
           </span>
         </div>
 
-        <h1 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: "clamp(28px,3.6vw,42px)", lineHeight: 1.12, color: "#3C3C46", letterSpacing: "-.01em" }}>
+        <h1 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: "clamp(28px,3.6vw,42px)", lineHeight: 1.1, color: "#3C3C46", letterSpacing: "-.01em", textWrap: "balance" as CSSProperties["textWrap"] }}>
           {state.question}
         </h1>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16, padding: "13px 16px", background: "#fff", border: "2px solid #E4EAD8", borderRadius: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16, padding: "13px 16px", background: "#FFFBF0", border: "2px solid #FFE9A0", borderRadius: 16 }}>
           <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 52, height: 52, flex: "none", animation: "qbob 3s ease-in-out infinite" }}>
             <Mascot size={52} mood="neutral" />
           </span>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 800, fontSize: 14, color: "#3C3C46" }}>Hey — I'm Arbi, and I'm judging today's case.</div>
-            <div style={{ fontSize: 13, color: "#8E9582", fontWeight: 600 }}>
+            <div style={{ fontWeight: 800, fontSize: 15, color: "#3C3C46" }}>Hey — I'm Arbi, and I'm judging today's case.</div>
+            <div style={{ fontSize: 14, color: "#7A6540", fontWeight: 600 }}>
               Four answers, one's the sharpest. Back the one you'd defend and see if we land in the same place.
             </div>
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(auto-fit,minmax(220px,1fr))" : "1fr 1fr", gap: 14, marginTop: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(auto-fit,minmax(220px,1fr))" : "1fr 1fr", gap: 16, marginTop: 20 }}>
           {cards.map((card) => (
             <AnswerCard key={card.id} card={card} onSelect={() => onSelectCard(card.id)} />
           ))}
@@ -235,7 +235,7 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
                   <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 23, color: resultAccent }}>
                     {state.win ? "We agree!" : "Not this time"}
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#5E6553" }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#5E6553" }}>
                     {state.win
                       ? "Great read — I went with " + jName(state) + " (" + jPick(state) + ") too. That is exactly how I saw it."
                       : "I went with " +
@@ -278,7 +278,7 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
                     {icon("scale", 15, "#58A700")}
                     WHY I PICKED {jName(state).toUpperCase()} ({jPick(state)})
                   </div>
-                  <div style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.5, color: "#5E6553" }}>{state.judgeReasoning}</div>
+                  <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.6, color: "#5E6553" }}>{state.judgeReasoning}</div>
                 </div>
               )}
 
@@ -289,8 +289,8 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
       </main>
 
       {/* GAME RAIL */}
-      <aside style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-        <section style={{ background: "#fff", border: "2px solid #E4EAD8", borderRadius: 20, padding: 18 }}>
+      <aside style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <section style={{ background: "#F5FFF0", border: "2px solid #D4F0B0", borderRadius: 20, padding: "20px 18px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
             <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, borderRadius: 14, background: "#FFF3E0", flex: "none" }}>
               {icon("flame", 30, "#FF9600")}
@@ -373,9 +373,8 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
         </section>
 
         <section style={{ background: "#fff", border: "2px solid #E4EAD8", borderRadius: 20, padding: 18 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <div style={{ marginBottom: 14 }}>
             <span style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16, color: "#3C3C46" }}>Achievements</span>
-            <span style={{ fontWeight: 800, fontSize: 12, color: "#1CB0F6" }}>See all</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
             {badges.map((b, i) => (
@@ -434,10 +433,10 @@ function LockButton({ state, onLockIn }: { state: GameState; onLockIn: () => voi
 }
 
 // Confidence wager + beat-the-crowd side-bet, shown before lock-in.
-const CONFIDENCE_OPTS: { id: Confidence; label: string; hint: string; tint: string; bg: string }[] = [
-  { id: "low",  label: "Safe",     hint: "+30 / +10", tint: "#1899D6", bg: "#E3F6FF" },
-  { id: "med",  label: "Balanced", hint: "+50 / +5",  tint: "#58A700", bg: "#E8FFD7" },
-  { id: "high", label: "Bold",     hint: "+100 / 0",  tint: "#E07F00", bg: "#FFF3E0" },
+const CONFIDENCE_OPTS: { id: Confidence; label: string; hint: string; tint: string; bg: string; hoverBg: string; hoverBorder: string }[] = [
+  { id: "low",  label: "Safe",     hint: "+30 / +10", tint: "#1899D6", bg: "#E3F6FF", hoverBg: "#F0FAFF", hoverBorder: "#9ACCE8" },
+  { id: "med",  label: "Balanced", hint: "+50 / +5",  tint: "#58A700", bg: "#E8FFD7", hoverBg: "#F2FFE8", hoverBorder: "#A8D88C" },
+  { id: "high", label: "Bold",     hint: "+100 / 0",  tint: "#E07F00", bg: "#FFF3E0", hoverBg: "#FFF8F0", hoverBorder: "#E8C088" },
 ];
 
 function WagerPanel({ state, onSetConfidence, onSetCrowdGuess }: {
@@ -445,22 +444,29 @@ function WagerPanel({ state, onSetConfidence, onSetCrowdGuess }: {
   onSetConfidence: (c: Confidence) => void;
   onSetCrowdGuess: (id: CardId) => void;
 }) {
+  const [hoverConf, setHoverConf] = useState<Confidence | null>(null);
+  const [hoverCrowd, setHoverCrowd] = useState<CardId | null>(null);
+
   return (
     <div style={{ marginBottom: 14, padding: 16, background: "#fff", border: "2px solid #E4EAD8", borderRadius: 18 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 800, fontSize: 12, letterSpacing: ".04em", color: "#7C8470", marginBottom: 9 }}>
         {icon("scale", 16, "#58A700")} HOW SURE ARE YOU?
-        <span style={{ fontWeight: 700, color: "#B2B7A6", textTransform: "none", letterSpacing: 0 }}>· correct / wrong</span>
+        <span style={{ fontWeight: 700, color: "#9AA08C", textTransform: "none", letterSpacing: 0 }}>· correct / wrong</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
         {CONFIDENCE_OPTS.map((o) => {
           const on = state.confidence === o.id;
+          const hov = hoverConf === o.id && !on;
           return (
             <button key={o.id} onClick={() => onSetConfidence(o.id)}
+              onMouseEnter={() => setHoverConf(o.id)}
+              onMouseLeave={() => setHoverConf(null)}
               style={{ cursor: "pointer", padding: "10px 6px", borderRadius: 13, textAlign: "center",
-                border: "2px solid " + (on ? o.tint : "#E4EAD8"), background: on ? o.bg : "#fff",
+                border: "2px solid " + (on ? o.tint : hov ? o.hoverBorder : "#E4EAD8"),
+                background: on ? o.bg : hov ? o.hoverBg : "#fff",
                 transition: "background .15s,border-color .15s" }}>
-              <div style={{ fontWeight: 800, fontSize: 14, color: on ? o.tint : "#5E6553" }}>{o.label}</div>
-              <div style={{ fontWeight: 800, fontSize: 11, color: on ? o.tint : "#9AA08C", marginTop: 2 }}>{o.hint}</div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: on ? o.tint : hov ? o.tint : "#5E6553" }}>{o.label}</div>
+              <div style={{ fontWeight: 800, fontSize: 11, color: on ? o.tint : hov ? o.tint : "#7C8470", marginTop: 2 }}>{o.hint}</div>
             </button>
           );
         })}
@@ -468,16 +474,21 @@ function WagerPanel({ state, onSetConfidence, onSetCrowdGuess }: {
 
       <div style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 800, fontSize: 12, letterSpacing: ".04em", color: "#7C8470", margin: "14px 0 9px" }}>
         {icon("users", 16, "#1899D6")} WHO WILL THE CROWD BACK?
-        <span style={{ fontWeight: 700, color: "#B2B7A6", textTransform: "none", letterSpacing: 0 }}>· optional, +15</span>
+        <span style={{ fontWeight: 700, color: "#9AA08C", textTransform: "none", letterSpacing: 0 }}>· optional, +15</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
         {state.cards.map((c) => {
           const on = state.crowdGuess === c.id;
+          const hov = hoverCrowd === c.id && !on;
           return (
             <button key={c.id} onClick={() => onSetCrowdGuess(c.id)}
+              onMouseEnter={() => setHoverCrowd(c.id)}
+              onMouseLeave={() => setHoverCrowd(null)}
               style={{ cursor: "pointer", padding: "10px 6px", borderRadius: 13, fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 16,
-                border: "2px solid " + (on ? "#1899D6" : "#E4EAD8"), background: on ? "#E3F6FF" : "#fff", color: on ? "#1899D6" : "#7C8470",
-                transition: "background .15s,border-color .15s" }}>
+                border: "2px solid " + (on ? "#1899D6" : hov ? "#9ACCE8" : "#E4EAD8"),
+                background: on ? "#E3F6FF" : hov ? "#F0FAFF" : "#fff",
+                color: on ? "#1899D6" : hov ? "#1899D6" : "#5E6553",
+                transition: "background .15s,border-color .15s,color .15s" }}>
               {c.letter}
             </button>
           );

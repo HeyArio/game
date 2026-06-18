@@ -1,6 +1,7 @@
 import { Mascot } from "./Mascot";
 import { useAuth } from "../auth/AuthProvider";
 import { isSupabaseConfigured } from "../lib/supabase";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 
 // Google "G" mark — official 4-colour glyph, inline so we ship no extra asset.
 function GoogleMark({ size = 18 }: { size?: number }) {
@@ -24,20 +25,23 @@ export interface SignInOverlayProps {
  *  they try to lock in an answer). Sign-in itself is the Google OAuth flow. */
 export function SignInOverlay({ reason, onClose }: SignInOverlayProps) {
   const { signInWithGoogle } = useAuth();
+  const trapRef = useFocusTrap();
 
   return (
     <div
       onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Sign in to continue"
       style={{
         position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center",
         padding: 24, background: "rgba(38, 46, 30, .55)", backdropFilter: "blur(3px)", animation: "qfade .2s ease both",
       }}
     >
       <div
+        ref={trapRef}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="signin-dialog-title"
         style={{
           position: "relative", width: "100%", maxWidth: 380, background: "#fff",
           border: "2px solid #E4EAD8", borderBottomWidth: 5, borderRadius: 24,
@@ -59,10 +63,10 @@ export function SignInOverlay({ reason, onClose }: SignInOverlayProps) {
 
         <span style={{ display: "inline-flex", animation: "qbob 3s ease-in-out infinite" }}><Mascot size={64} mood="happy" /></span>
 
-        <h2 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 24, color: "#3C3C46", margin: "12px 0 0" }}>
+        <h2 id="signin-dialog-title" style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 24, color: "#3C3C46", margin: "12px 0 0" }}>
           Sign in to lock it in
         </h2>
-        <p style={{ fontWeight: 700, fontSize: 14.5, color: "#8E9582", lineHeight: 1.5, margin: "8px auto 0", maxWidth: 300 }}>
+        <p style={{ fontWeight: 700, fontSize: 15, color: "#8E9582", lineHeight: 1.6, margin: "8px auto 0", maxWidth: 300 }}>
           {reason ?? "Create your free account to lock in your pick, see Arbi's verdict, and start a streak."}
         </p>
 

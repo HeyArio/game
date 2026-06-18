@@ -10,14 +10,14 @@ export function QuestsPage({ state }: QuestsPageProps) {
   const quests = questsView(state, state.stats.votesThisWeek);
 
   return (
-    <div style={{ maxWidth: 680, margin: "0 auto", padding: "26px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, padding: 18, background: "#fff", border: "2px solid #E4EAD8", borderRadius: 20 }}>
+    <div style={{ maxWidth: 680, margin: "0 auto", padding: "26px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, padding: 18, background: "#FFFBF0", border: "2px solid #FFE9A0", borderRadius: 20 }}>
         <span style={{ flex: "none", animation: "qbob 3s ease-in-out infinite" }}>
           <Mascot size={48} mood="neutral" />
         </span>
         <div>
           <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 18, color: "#3C3C46" }}>Here's what I've set for you</div>
-          <div style={{ fontSize: 13.5, fontWeight: 600, color: "#8E9582" }}>Clear these and I'll make it worth your while.</div>
+          <div style={{ fontSize: 14.5, fontWeight: 600, color: "#7A6540" }}>Clear these and I'll make it worth your while.</div>
         </div>
       </div>
 
@@ -30,7 +30,7 @@ export function QuestsPage({ state }: QuestsPageProps) {
       </div>
 
       {quests.daily.map((q, i) => (
-        <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: 16, background: "#fff", border: "2px solid #E4EAD8", borderRadius: 18 }}>
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: 16, background: q.cardBg, border: `2px solid ${q.cardBorder}`, borderRadius: 18 }}>
           <span style={q.iconWrap}>{q.iconEl}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
@@ -56,7 +56,7 @@ export function QuestsPage({ state }: QuestsPageProps) {
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 20, lineHeight: 1.1 }}>{quests.weekly.label}</div>
-            <div style={{ opacity: 0.92, fontWeight: 700, fontSize: 13, margin: "3px 0 10px" }}>{quests.weekly.sub}</div>
+            <div style={{ opacity: 0.92, fontWeight: 700, fontSize: 14, margin: "3px 0 10px" }}>{quests.weekly.sub}</div>
             <div style={{ height: 13, borderRadius: 999, background: "rgba(255,255,255,.28)", overflow: "hidden" }}>
               <div style={{ height: "100%", borderRadius: 999, width: quests.weekly.barWidth, background: "#fff" }} />
             </div>

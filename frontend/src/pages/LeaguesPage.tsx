@@ -10,7 +10,7 @@ export function LeaguesPage({ state }: LeaguesPageProps) {
   const leagues = leaguesView(state);
 
   return (
-    <div style={{ maxWidth: 760, margin: "0 auto", padding: "26px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: "32px 24px", display: "flex", flexDirection: "column", gap: 20 }}>
       <div style={{ position: "relative", overflow: "hidden", padding: 24, borderRadius: 22, background: "linear-gradient(135deg,#58CC02,#46A302)", color: "#fff", boxShadow: "0 6px 0 #3E9000" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 64, height: 64, borderRadius: 20, background: "rgba(255,255,255,.18)", flex: "none" }}>
@@ -33,7 +33,24 @@ export function LeaguesPage({ state }: LeaguesPageProps) {
         </span>
         <div>
           <div style={{ fontWeight: 800, fontSize: 13, color: "#7A3FB0", marginBottom: 2 }}>Arbi</div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "#5E4576", lineHeight: 1.45 }}>{leagues.note}</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "#5E4576", lineHeight: 1.6 }}>{leagues.note}</div>
+        </div>
+      </div>
+
+      <div style={{ background: "#fff", border: "2px solid #E4EAD8", borderRadius: 20, padding: "16px 20px" }}>
+        <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 14, color: "#7C8470", marginBottom: 14 }}>Your progression</div>
+        <div style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", paddingBottom: 4 }}>
+          {leagues.tiers.map((t, i) => (
+            <div key={t.name} style={{ display: "flex", alignItems: "flex-start", minWidth: 0 }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: "none" }}>
+                <span style={t.badgeStyle}>{t.iconEl}</span>
+                <span style={{ fontWeight: 800, fontSize: 11, color: t.labelColor, whiteSpace: "nowrap" }}>{t.name}</span>
+              </div>
+              {i < leagues.tiers.length - 1 && (
+                <div style={{ width: 20, height: 2, background: "#E4EAD8", flex: "none", marginTop: 25 }} />
+              )}
+            </div>
+          ))}
         </div>
       </div>
 

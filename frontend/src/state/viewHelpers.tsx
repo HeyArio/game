@@ -103,7 +103,7 @@ export function continueStyle(s: GameState): CSSProperties {
     borderRadius: "14px",
     fontFamily: "'Nunito',sans-serif",
     fontWeight: 800,
-    fontSize: "14px",
+    fontSize: "15px",
     letterSpacing: ".04em",
     color: "#fff",
     background: c,
@@ -125,7 +125,7 @@ export interface NavItemView {
   style: CSSProperties;
 }
 
-export function navView(screen: string, onSelect: (id: any) => void): NavItemView[] {
+export function navView(screen: string): NavItemView[] {
   const items = [
     { id: "play", label: "Play", icon: "play" },
     { id: "leagues", label: "Leagues", icon: "trophy" },
@@ -138,7 +138,7 @@ export function navView(screen: string, onSelect: (id: any) => void): NavItemVie
       id: it.id,
       label: it.label,
       active,
-      iconEl: icon(it.icon, 19, active ? "#58A700" : "#9AA08C"),
+      iconEl: icon(it.icon, 19, active ? "#58A700" : "#6E7764"),
       style: {
         display: "inline-flex",
         alignItems: "center",
@@ -147,9 +147,10 @@ export function navView(screen: string, onSelect: (id: any) => void): NavItemVie
         borderRadius: "13px",
         cursor: "pointer",
         background: active ? "#E8FFD7" : "transparent",
-        color: active ? "#58A700" : "#9AA08C",
+        color: active ? "#58A700" : "#6E7764",
         fontWeight: active ? 800 : 700,
-        fontSize: "13.5px",
+        fontSize: "14px",
+        transition: "background .15s, color .15s",
       },
     };
   });
@@ -451,6 +452,8 @@ export interface QuestItemView {
   rewardEl: JSX.Element | null;
   rewardLabel: string;
   rewardStyle: CSSProperties;
+  cardBg: string;
+  cardBorder: string;
 }
 
 export interface QuestsView {
@@ -474,7 +477,9 @@ export function questsView(s: GameState, votesThisWeek = 0): QuestsView {
     rEl: JSX.Element | null,
     rLabel: string,
     rBg: string,
-    rCol: string
+    rCol: string,
+    cardBg: string,
+    cardBorder: string
   ): QuestItemView => {
     const done = cur >= goal;
     const pct = Math.min(100, (cur / goal) * 100);
@@ -489,12 +494,14 @@ export function questsView(s: GameState, votesThisWeek = 0): QuestsView {
       rewardEl: done ? icon("check", 16, "#fff", 2.6) : rEl,
       rewardLabel: done ? "Claim" : rLabel,
       rewardStyle: done ? reward("#58CC02", "#fff") : reward(rBg, rCol),
+      cardBg,
+      cardBorder,
     };
   };
   const daily = [
-    mk("bolt", "#E5A300", "#FFF8E1", "Earn 40 XP today", s.dailyXp, 40, "#FFC800", icon("gem", 16, "#1899D6"), "+15", "#E3F6FF", "#1899D6"),
-    mk("scale", "#58A700", "#E8FFD7", "Match my verdict twice", s.questMatch, 2, "#58CC02", icon("chest", 16, "#E07F00"), "Chest", "#FFF3E0", "#FF9600"),
-    mk("flame", "#FF9600", "#FFF3E0", "Keep your streak alive", s.scored ? 1 : 0, 1, "#FF9600", icon("bolt", 16, "#E5A300"), "+10", "#FFF8E1", "#E5A300"),
+    mk("bolt", "#E5A300", "#FFF8E1", "Earn 40 XP today", s.dailyXp, 40, "#FFC800", icon("gem", 16, "#1899D6"), "+15", "#E3F6FF", "#1899D6", "#FFFDF5", "#FFE9B8"),
+    mk("scale", "#58A700", "#E8FFD7", "Match my verdict twice", s.questMatch, 2, "#58CC02", icon("chest", 16, "#E07F00"), "Chest", "#FFF3E0", "#FF9600", "#F4FFEE", "#C4E89E"),
+    mk("flame", "#FF9600", "#FFF3E0", "Keep your streak alive", s.scored ? 1 : 0, 1, "#FF9600", icon("bolt", 16, "#E5A300"), "+10", "#FFF8E1", "#E5A300", "#FFFDF5", "#FFE5B8"),
   ];
   const weeklyGoal = 25;
   const weeklyDone = Math.min(votesThisWeek, weeklyGoal);
