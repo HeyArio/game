@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ARBI — head module (animation-ready, neutral mood)
+  Ideal for talking-head / reaction animations. Layered <g id="...">.
+  Blink: scaleY the eye groups (pivot at each eye centre).
+  Antenna glow pulse: animate #arbi-glow opacity 0.4 → 1.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 150" width="160" height="150">
+  <defs>
+    <radialGradient id="arbiGlowH" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#BFF06A"/>
+      <stop offset="100%" stop-color="#7BE021" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <g id="arbi-head" transform="translate(30 8)">
+    <g id="arbi-antenna">
+      <circle id="arbi-glow" cx="50" cy="5" r="14" fill="url(#arbiGlowH)"/>
+      <line x1="50" y1="38" x2="50" y2="12" stroke="#46A302" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="50" cy="5" r="7" fill="#58CC02"/>
+      <circle cx="47" cy="2" r="2.2" fill="#fff" opacity="0.7"/>
+    </g>
+
+    <circle cx="-3" cy="84" r="8" fill="#46A302"/>
+    <circle cx="103" cy="84" r="8" fill="#46A302"/>
+
+    <rect x="2" y="38" width="96" height="92" rx="32" fill="#58CC02"/>
+    <rect x="2" y="104" width="96" height="26" rx="13" fill="#4FBE00"/>
+
+    <rect id="arbi-screen" x="16" y="58" width="68" height="56" rx="24" fill="#ECFCDD"/>
+
+    <g id="arbi-face">
+      <g id="arbi-eye-left">
+        <circle cx="36" cy="82" r="8.5" fill="#2E6B00"/>
+        <circle cx="39" cy="79" r="2.6" fill="#fff"/>
+      </g>
+      <g id="arbi-eye-right">
+        <circle cx="64" cy="82" r="8.5" fill="#2E6B00"/>
+        <circle cx="67" cy="79" r="2.6" fill="#fff"/>
+      </g>
+      <path id="arbi-mouth" d="M36 96 Q50 105 64 96" fill="none"
+            stroke="#2E6B00" stroke-width="5" stroke-linecap="round"/>
+      <circle id="arbi-cheek-left"  cx="25" cy="93" r="4" fill="#FF8FA3" opacity="0.75"/>
+      <circle id="arbi-cheek-right" cx="75" cy="93" r="4" fill="#FF8FA3" opacity="0.75"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ARBI — full-body character (animation-ready)
+  Quorum's AI-judge mascot. Every animatable part lives in its own <g id="...">.
+  Suggested pivots (transform-origin) noted per group for rigging in
+  After Effects / Lottie / Rive / CSS.
+
+  Palette
+    body         #58CC02   shade   #4FBE00   accent #46A302
+    glow         #7BE021   screen  #ECFCDD   ink    #2E6B00
+    blush        #FF8FA3   wood    #C68A3E   wood-dk #9E6B2A
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 280" width="220" height="280">
+  <defs>
+    <radialGradient id="arbiGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#BFF06A"/>
+      <stop offset="100%" stop-color="#7BE021" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- ground shadow — scaleX on a float cycle. pivot: 110,252 -->
+  <g id="arbi-shadow">
+    <ellipse cx="110" cy="252" rx="48" ry="10" fill="#1F2937" opacity="0.10"/>
+  </g>
+
+  <!-- whole rig — float bob translateY ±4px. pivot: 110,140 -->
+  <g id="arbi-body-rig">
+
+    <!-- LEFT ARM (viewer left) — rotate from shoulder. pivot: 80,146 -->
+    <g id="arbi-arm-left" transform="rotate(0 80 148)">
+      <rect x="70" y="144" width="19" height="46" rx="9.5" fill="#4FBE00"/>
+      <circle cx="79" cy="190" r="11" fill="#58CC02"/>
+    </g>
+
+    <!-- RIGHT ARM (viewer right) — raised, holding gavel. pivot: 142,150 -->
+    <g id="arbi-arm-right" transform="rotate(0 142 150)">
+      <rect x="142" y="120" width="20" height="48" rx="10" fill="#4FBE00" transform="rotate(28 152 144)"/>
+      <circle cx="170" cy="125" r="11" fill="#58CC02"/>
+
+      <!-- GAVEL prop — rotate for a "verdict" tap. pivot: 170,125 -->
+      <g id="arbi-gavel" transform="rotate(0 170 125)">
+        <rect x="166" y="100" width="8" height="58" rx="4" fill="#C68A3E" transform="rotate(38 170 128)"/>
+        <g transform="rotate(38 150 100)">
+          <rect x="132" y="86" width="40" height="22" rx="8" fill="#C68A3E"/>
+          <rect x="132" y="86" width="6"  height="22" rx="3" fill="#9E6B2A"/>
+          <rect x="166" y="86" width="6"  height="22" rx="3" fill="#9E6B2A"/>
+          <rect x="138" y="91" width="28" height="4" rx="2" fill="#E6B777" opacity="0.7"/>
+        </g>
+      </g>
+    </g>
+
+    <!-- TORSO -->
+    <g id="arbi-torso">
+      <rect x="82" y="132" width="56" height="60" rx="24" fill="#58CC02"/>
+      <rect x="82" y="168" width="56" height="24" rx="12" fill="#4FBE00"/>
+      <!-- belly panel + scales-of-justice emblem -->
+      <rect x="92" y="144" width="36" height="34" rx="13" fill="#ECFCDD"/>
+      <g id="arbi-emblem" stroke="#2E6B00" stroke-width="2.2" stroke-linecap="round" fill="none">
+        <line x1="110" y1="151" x2="110" y2="171"/>
+        <line x1="99"  y1="155" x2="121" y2="155"/>
+        <path d="M99 155 q-4 7 -7 0" fill="#2E6B00" stroke="none"/>
+        <path d="M121 155 q4 7 7 0" fill="#2E6B00" stroke="none"/>
+        <circle cx="110" cy="172" r="2.4" fill="#2E6B00" stroke="none"/>
+      </g>
+      <!-- feet nubs -->
+      <circle cx="95"  cy="196" r="9" fill="#4FBE00"/>
+      <circle cx="125" cy="196" r="9" fill="#4FBE00"/>
+    </g>
+
+    <!-- HEAD — slight tilt for "thinking". pivot: 110,92 -->
+    <g id="arbi-head" transform="rotate(0 110 92)">
+
+      <!-- antenna -->
+      <g id="arbi-antenna">
+        <circle id="arbi-glow" cx="110" cy="13" r="14" fill="url(#arbiGlow)"/>
+        <line x1="110" y1="46" x2="110" y2="20" stroke="#46A302" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="110" cy="13" r="7" fill="#58CC02"/>
+        <circle cx="107" cy="10" r="2.2" fill="#fff" opacity="0.7"/>
+      </g>
+
+      <!-- ear bumps -->
+      <circle cx="57"  cy="92" r="8" fill="#46A302"/>
+      <circle cx="163" cy="92" r="8" fill="#46A302"/>
+
+      <!-- head shell -->
+      <rect x="62" y="46" width="96" height="92" rx="32" fill="#58CC02"/>
+      <rect x="62" y="112" width="96" height="26" rx="13" fill="#4FBE00"/>
+
+      <!-- face screen -->
+      <rect id="arbi-screen" x="76" y="66" width="68" height="56" rx="24" fill="#ECFCDD"/>
+
+      <!-- FACE (neutral). Swap this group's contents for other moods. -->
+      <g id="arbi-face">
+        <!-- eyes — blink = scaleY 1→0.1. pivots: 96,90 and 124,90 -->
+        <g id="arbi-eye-left">
+          <circle cx="96" cy="90" r="8.5" fill="#2E6B00"/>
+          <circle cx="99" cy="87" r="2.6" fill="#fff"/>
+        </g>
+        <g id="arbi-eye-right">
+          <circle cx="124" cy="90" r="8.5" fill="#2E6B00"/>
+          <circle cx="127" cy="87" r="2.6" fill="#fff"/>
+        </g>
+        <!-- mouth -->
+        <path id="arbi-mouth" d="M96 104 Q110 113 124 104" fill="none"
+              stroke="#2E6B00" stroke-width="5" stroke-linecap="round"/>
+        <!-- cheeks -->
+        <circle id="arbi-cheek-left"  cx="85"  cy="101" r="4" fill="#FF8FA3" opacity="0.75"/>
+        <circle id="arbi-cheek-right" cx="135" cy="101" r="4" fill="#FF8FA3" opacity="0.75"/>
+      </g>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Arbi — Character Design Sheet</title>
+<style>
+  :root{
+    --green:#58CC02; --shade:#4FBE00; --accent:#46A302; --glow:#7BE021;
+    --screen:#ECFCDD; --ink:#2E6B00; --blush:#FF8FA3; --wood:#C68A3E;
+    --paper:#F7FBF0; --line:#DCE9CC;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       color:#1c2b12;background:var(--paper)}
+  header{padding:40px 32px 24px;border-bottom:2px solid var(--line)}
+  h1{margin:0;font-size:34px;letter-spacing:-.02em}
+  h1 span{color:var(--accent)}
+  .sub{color:#5a6b48;margin-top:6px;max-width:680px}
+  main{padding:32px;display:grid;gap:32px;max-width:1080px;margin:0 auto}
+  section{background:#fff;border:1px solid var(--line);border-radius:18px;padding:26px}
+  h2{margin:0 0 4px;font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:var(--accent)}
+  h2 + p{margin:0 0 20px;color:#5a6b48;font-size:14px}
+  .row{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-end}
+  .cell{text-align:center}
+  .cell small{display:block;margin-top:8px;color:#5a6b48;font-weight:600;font-size:12px;
+              text-transform:uppercase;letter-spacing:.08em}
+  .swatches{display:flex;flex-wrap:wrap;gap:14px}
+  .sw{width:120px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .sw .chip{height:64px}
+  .sw .meta{padding:8px 10px;font-size:12px}
+  .sw .meta b{display:block;font-size:13px}
+  .sw .meta code{color:#5a6b48}
+  ul.rig{margin:0;padding-left:18px;columns:2;gap:36px}
+  ul.rig li{margin:0 0 8px;break-inside:avoid;font-size:14px}
+  ul.rig code{background:var(--screen);padding:1px 6px;border-radius:6px;color:var(--ink);font-size:12px}
+  .hero{background:radial-gradient(circle at 50% 38%, #fff, var(--screen));border-radius:16px}
+  .note{font-size:13px;color:#5a6b48;margin-top:14px}
+  /* idle animation on the live preview */
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+  @keyframes blink{0%,92%,100%{transform:scaleY(1)}96%{transform:scaleY(.08)}}
+  @keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+  #live #arbi-body-rig{animation:bob 3s ease-in-out infinite;transform-origin:110px 140px}
+  #live #arbi-glow{animation:pulse 2.2s ease-in-out infinite;transform-origin:110px 13px}
+  #live #arbi-eye-left{animation:blink 4s ease-in-out infinite;transform-origin:96px 90px}
+  #live #arbi-eye-right{animation:blink 4s ease-in-out infinite;transform-origin:124px 90px}
+  @media (max-width:640px){ul.rig{columns:1}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Arbi <span>/ character design sheet</span></h1>
+  <p class="sub">Quorum's AI-judge mascot, extended into a full-body, animation-ready figure.
+  Vector throughout — import the SVGs into After Effects (Lottie), Figma, Rive, or animate with CSS/SVG.
+  This page is a reference; the editable assets are <code>arbi-full.svg</code> and <code>arbi-head.svg</code>.</p>
+</header>
+
+<main>
+
+  <!-- LIVE / HERO -->
+  <section class="hero" style="text-align:center">
+    <h2 style="color:var(--accent)">Live preview</h2>
+    <p style="color:#5a6b48">Idle bob · antenna pulse · auto-blink — all driven by the named layers below.</p>
+    <div id="live" style="display:inline-block">
+      <!-- INLINE COPY OF arbi-full.svg so the page is self-contained -->
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 280" width="260" height="330">
+        <defs><radialGradient id="g1" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#BFF06A"/><stop offset="100%" stop-color="#7BE021" stop-opacity="0"/>
+        </radialGradient></defs>
+        <ellipse cx="110" cy="252" rx="48" ry="10" fill="#1F2937" opacity="0.10"/>
+        <g id="arbi-body-rig">
+          <g transform="rotate(0 80 148)"><rect x="70" y="144" width="19" height="46" rx="9.5" fill="#4FBE00"/><circle cx="79" cy="190" r="11" fill="#58CC02"/></g>
+          <g transform="rotate(0 142 150)">
+            <rect x="142" y="120" width="20" height="48" rx="10" fill="#4FBE00" transform="rotate(28 152 144)"/>
+            <circle cx="170" cy="125" r="11" fill="#58CC02"/>
+            <g transform="rotate(0 170 125)">
+              <rect x="166" y="100" width="8" height="58" rx="4" fill="#C68A3E" transform="rotate(38 170 128)"/>
+              <g transform="rotate(38 150 100)">
+                <rect x="132" y="86" width="40" height="22" rx="8" fill="#C68A3E"/>
+                <rect x="132" y="86" width="6" height="22" rx="3" fill="#9E6B2A"/>
+                <rect x="166" y="86" width="6" height="22" rx="3" fill="#9E6B2A"/>
+                <rect x="138" y="91" width="28" height="4" rx="2" fill="#E6B777" opacity="0.7"/>
+              </g>
+            </g>
+          </g>
+          <g>
+            <rect x="82" y="132" width="56" height="60" rx="24" fill="#58CC02"/>
+            <rect x="82" y="168" width="56" height="24" rx="12" fill="#4FBE00"/>
+            <rect x="92" y="144" width="36" height="34" rx="13" fill="#ECFCDD"/>
+            <g stroke="#2E6B00" stroke-width="2.2" stroke-linecap="round" fill="none">
+              <line x1="110" y1="151" x2="110" y2="171"/><line x1="99" y1="155" x2="121" y2="155"/>
+              <path d="M99 155 q-4 7 -7 0" fill="#2E6B00" stroke="none"/>
+              <path d="M121 155 q4 7 7 0" fill="#2E6B00" stroke="none"/>
+              <circle cx="110" cy="172" r="2.4" fill="#2E6B00" stroke="none"/>
+            </g>
+            <circle cx="95" cy="196" r="9" fill="#4FBE00"/><circle cx="125" cy="196" r="9" fill="#4FBE00"/>
+          </g>
+          <g transform="rotate(0 110 92)">
+            <g><circle id="arbi-glow" cx="110" cy="13" r="14" fill="url(#g1)"/>
+              <line x1="110" y1="46" x2="110" y2="20" stroke="#46A302" stroke-width="4" stroke-linecap="round"/>
+              <circle cx="110" cy="13" r="7" fill="#58CC02"/><circle cx="107" cy="10" r="2.2" fill="#fff" opacity="0.7"/></g>
+            <circle cx="57" cy="92" r="8" fill="#46A302"/><circle cx="163" cy="92" r="8" fill="#46A302"/>
+            <rect x="62" y="46" width="96" height="92" rx="32" fill="#58CC02"/>
+            <rect x="62" y="112" width="96" height="26" rx="13" fill="#4FBE00"/>
+            <rect x="76" y="66" width="68" height="56" rx="24" fill="#ECFCDD"/>
+            <g id="arbi-eye-left"><circle cx="96" cy="90" r="8.5" fill="#2E6B00"/><circle cx="99" cy="87" r="2.6" fill="#fff"/></g>
+            <g id="arbi-eye-right"><circle cx="124" cy="90" r="8.5" fill="#2E6B00"/><circle cx="127" cy="87" r="2.6" fill="#fff"/></g>
+            <path d="M96 104 Q110 113 124 104" fill="none" stroke="#2E6B00" stroke-width="5" stroke-linecap="round"/>
+            <circle cx="85" cy="101" r="4" fill="#FF8FA3" opacity="0.75"/><circle cx="135" cy="101" r="4" fill="#FF8FA3" opacity="0.75"/>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <!-- EXPRESSIONS -->
+  <section>
+    <h2>Expressions</h2>
+    <p>Four head states. Animate by swapping the contents of <code>#arbi-face</code> (or morphing eyes &amp; mouth).</p>
+    <div class="row" style="justify-content:center">
+
+      <div class="cell">
+        <svg viewBox="0 0 110 110" width="150" height="150">
+          <rect x="7" y="20" width="96" height="80" rx="30" fill="#58CC02"/>
+          <rect x="22" y="36" width="66" height="52" rx="22" fill="#ECFCDD"/>
+          <circle cx="42" cy="60" r="8" fill="#2E6B00"/><circle cx="68" cy="60" r="8" fill="#2E6B00"/>
+          <circle cx="44.6" cy="57.4" r="2.4" fill="#fff"/><circle cx="70.6" cy="57.4" r="2.4" fill="#fff"/>
+          <path d="M42 74 Q55 83 68 74" fill="none" stroke="#2E6B00" stroke-width="5" stroke-linecap="round"/>
+          <line x1="55" y1="20" x2="55" y2="8" stroke="#46A302" stroke-width="3.5" stroke-linecap="round"/>
+          <circle cx="55" cy="4.5" r="5.5" fill="#58CC02"/>
+        </svg>
+        <small>Neutral · default</small>
+      </div>
+
+      <div class="cell">
+        <svg viewBox="0 0 110 110" width="150" height="150">
+          <rect x="7" y="20" width="96" height="80" rx="30" fill="#58CC02"/>
+          <rect x="22" y="36" width="66" height="52" rx="22" fill="#ECFCDD"/>
+          <path d="M34 60 Q42 51 50 60" fill="none" stroke="#2E6B00" stroke-width="4" stroke-linecap="round"/>
+          <path d="M60 60 Q68 51 76 60" fill="none" stroke="#2E6B00" stroke-width="4" stroke-linecap="round"/>
+          <path d="M40 70 Q55 86 70 70 Z" fill="#2E6B00"/>
+          <circle cx="33" cy="70" r="3.5" fill="#FF8FA3" opacity=".85"/>
+          <circle cx="77" cy="70" r="3.5" fill="#FF8FA3" opacity=".85"/>
+          <line x1="55" y1="20" x2="55" y2="8" stroke="#46A302" stroke-width="3.5" stroke-linecap="round"/>
+          <circle cx="55" cy="4.5" r="5.5" fill="#7BE021"/>
+        </svg>
+        <small>Happy · correct match</small>
+      </div>
+
+      <div class="cell">
+        <svg viewBox="0 0 110 110" width="150" height="150">
+          <g transform="rotate(-7 55 60)">
+          <rect x="7" y="20" width="96" height="80" rx="30" fill="#58CC02"/>
+          <rect x="22" y="36" width="66" height="52" rx="22" fill="#ECFCDD"/>
+          <circle cx="44" cy="58" r="7.5" fill="#2E6B00"/><circle cx="70" cy="58" r="7.5" fill="#2E6B00"/>
+          <path d="M34 48 L50 50" stroke="#2E6B00" stroke-width="3" stroke-linecap="round" fill="none"/>
+          <path d="M60 50 L76 48" stroke="#2E6B00" stroke-width="3" stroke-linecap="round" fill="none"/>
+          <path d="M44 78 Q55 73 66 78" fill="none" stroke="#2E6B00" stroke-width="4.5" stroke-linecap="round"/>
+          <line x1="55" y1="20" x2="60" y2="9" stroke="#46A302" stroke-width="3.5" stroke-linecap="round"/>
+          <circle cx="61" cy="6" r="5.5" fill="#58CC02"/>
+          </g>
+        </svg>
+        <small>Thinking · deliberating</small>
+      </div>
+
+      <div class="cell">
+        <svg viewBox="0 0 110 110" width="150" height="150">
+          <rect x="7" y="20" width="96" height="80" rx="30" fill="#58CC02"/>
+          <rect x="22" y="36" width="66" height="52" rx="22" fill="#ECFCDD"/>
+          <circle cx="42" cy="62" r="7" fill="#2E6B00"/><circle cx="68" cy="62" r="7" fill="#2E6B00"/>
+          <path d="M33 50 L48 48" stroke="#2E6B00" stroke-width="3" stroke-linecap="round" fill="none"/>
+          <path d="M62 48 L77 50" stroke="#2E6B00" stroke-width="3" stroke-linecap="round" fill="none"/>
+          <path d="M44 76 Q55 81 66 76" fill="none" stroke="#2E6B00" stroke-width="4.5" stroke-linecap="round"/>
+          <line x1="55" y1="20" x2="55" y2="8" stroke="#46A302" stroke-width="3.5" stroke-linecap="round"/>
+          <circle cx="55" cy="4.5" r="5.5" fill="#58CC02"/>
+        </svg>
+        <small>Soft · verdict / gentle</small>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- TURNAROUND -->
+  <section>
+    <h2>Proportions &amp; turnaround</h2>
+    <p>Head ≈ 1.4× the torso. Floating posture (no ground contact) — Arbi hovers as an AI presence.</p>
+    <div class="row" style="justify-content:center">
+      <div class="cell">
+        <object data="arbi-full.svg" type="image/svg+xml" width="170" height="216" aria-label="front"></object>
+        <small>Front (¾ reads same)</small>
+      </div>
+      <div class="cell">
+        <svg viewBox="0 0 220 280" width="170" height="216">
+          <ellipse cx="110" cy="252" rx="40" ry="9" fill="#1F2937" opacity=".1"/>
+          <rect x="82" y="132" width="50" height="60" rx="22" fill="#58CC02"/>
+          <rect x="82" y="168" width="50" height="24" rx="12" fill="#4FBE00"/>
+          <circle cx="95" cy="196" r="9" fill="#4FBE00"/><circle cx="118" cy="196" r="9" fill="#4FBE00"/>
+          <rect x="68" y="46" width="88" height="92" rx="32" fill="#58CC02"/>
+          <rect x="68" y="112" width="88" height="26" rx="13" fill="#4FBE00"/>
+          <circle cx="150" cy="92" r="8" fill="#46A302"/>
+          <line x1="112" y1="46" x2="112" y2="20" stroke="#46A302" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="112" cy="13" r="7" fill="#58CC02"/>
+          <rect x="140" y="84" width="14" height="18" rx="7" fill="#ECFCDD"/>
+          <circle cx="147" cy="90" r="5" fill="#2E6B00"/>
+        </svg>
+        <small>Side profile</small>
+      </div>
+      <div class="cell">
+        <svg viewBox="0 0 220 280" width="170" height="216">
+          <ellipse cx="110" cy="252" rx="48" ry="10" fill="#1F2937" opacity=".1"/>
+          <rect x="58" y="146" width="20" height="46" rx="10" fill="#46A302"/>
+          <rect x="142" y="146" width="20" height="46" rx="10" fill="#46A302"/>
+          <rect x="82" y="132" width="56" height="60" rx="24" fill="#46A302"/>
+          <rect x="82" y="168" width="56" height="24" rx="12" fill="#3C8A00"/>
+          <circle cx="95" cy="196" r="9" fill="#3C8A00"/><circle cx="125" cy="196" r="9" fill="#3C8A00"/>
+          <rect x="62" y="46" width="96" height="92" rx="32" fill="#46A302"/>
+          <line x1="110" y1="46" x2="110" y2="20" stroke="#3C8A00" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="110" cy="13" r="7" fill="#46A302"/>
+        </svg>
+        <small>Back</small>
+      </div>
+    </div>
+  </section>
+
+  <!-- PALETTE -->
+  <section>
+    <h2>Palette</h2>
+    <p>Same green system as the live product — locked to the existing brand tokens.</p>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:#58CC02"></div><div class="meta"><b>Body</b><code>#58CC02</code></div></div>
+      <div class="sw"><div class="chip" style="background:#4FBE00"></div><div class="meta"><b>Shade</b><code>#4FBE00</code></div></div>
+      <div class="sw"><div class="chip" style="background:#46A302"></div><div class="meta"><b>Accent</b><code>#46A302</code></div></div>
+      <div class="sw"><div class="chip" style="background:#7BE021"></div><div class="meta"><b>Glow</b><code>#7BE021</code></div></div>
+      <div class="sw"><div class="chip" style="background:#ECFCDD"></div><div class="meta"><b>Screen</b><code>#ECFCDD</code></div></div>
+      <div class="sw"><div class="chip" style="background:#2E6B00"></div><div class="meta"><b>Ink</b><code>#2E6B00</code></div></div>
+      <div class="sw"><div class="chip" style="background:#FF8FA3"></div><div class="meta"><b>Blush</b><code>#FF8FA3</code></div></div>
+      <div class="sw"><div class="chip" style="background:#C68A3E"></div><div class="meta"><b>Wood (gavel)</b><code>#C68A3E</code></div></div>
+    </div>
+  </section>
+
+  <!-- RIG GUIDE -->
+  <section>
+    <h2>Rigging guide — layers &amp; pivots</h2>
+    <p>Every group below is a named <code>&lt;g id&gt;</code> in <code>arbi-full.svg</code>. Suggested transform-origins:</p>
+    <ul class="rig">
+      <li><code>#arbi-body-rig</code> — whole-body float bob. Translate Y ±4px, 3s ease.</li>
+      <li><code>#arbi-glow</code> — antenna pulse. Opacity 0.35→1, 2s. Pivot <code>110,13</code>.</li>
+      <li><code>#arbi-eye-left</code> / <code>#arbi-eye-right</code> — blink. scaleY 1→0.08. Pivots <code>96,90</code> / <code>124,90</code>.</li>
+      <li><code>#arbi-mouth</code> — talk / smile. Morph the <code>d</code> path.</li>
+      <li><code>#arbi-head</code> — tilt for "thinking". Rotate ±8°. Pivot <code>110,92</code>.</li>
+      <li><code>#arbi-arm-right</code> — raise / swing. Rotate. Pivot <code>142,150</code>.</li>
+      <li><code>#arbi-gavel</code> — "verdict" tap. Rotate -25°→0. Pivot <code>170,125</code>.</li>
+      <li><code>#arbi-arm-left</code> — wave / gesture. Rotate. Pivot <code>78,150</code>.</li>
+      <li><code>#arbi-cheek-left</code> / <code>-right</code> — blush fade-in on "happy".</li>
+      <li><code>#arbi-emblem</code> — scales-of-justice; keep static or shimmer on verdict.</li>
+    </ul>
+    <p class="note">Workflow: open <code>arbi-full.svg</code> in Figma or Illustrator (layers are preserved) → export to
+    <b>Lottie</b> via the LottieFiles plugin, or hand off to <b>Rive</b> / <b>After Effects</b>. For lightweight web
+    use, the CSS in this file's <code>&lt;style&gt;</code> block is a ready starting point for an idle loop.</p>
+  </section>
+
+</main>
+</body>
+</html>
