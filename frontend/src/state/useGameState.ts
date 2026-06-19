@@ -15,7 +15,9 @@ export const CROWD_LEADER: CardId = "b";
 const STARTING_COUNTDOWN = 60138; // seconds, ported from `_countdown = 60138`
 
 // Placeholder leaderboard shown only until the real global_leaderboard loads
-// (and in offline dev mode). Opponents are labeled AI bots, never fake humans.
+// (and in offline dev mode). Opponents are labeled AI bots, never fake humans —
+// and "You" starts at an honest 0 XP (last) so nobody is shown a fabricated
+// standing before they've played.
 function defaultLeague(): LeaguePlayer[] {
   return [
     { name: "Opus-Bot", initial: "O", color: "#FF9600", xp: 3120, isBot: true },
@@ -23,9 +25,9 @@ function defaultLeague(): LeaguePlayer[] {
     { name: "Gemini-Bot", initial: "G", color: "#CE82FF", xp: 2870, isBot: true },
     { name: "Llama-Bot", initial: "L", color: "#58CC02", xp: 2680, isBot: true },
     { name: "Mistral-Bot", initial: "M", color: "#FF4B4B", xp: 2510, isBot: true },
-    { name: "You", initial: "Y", color: "#58CC02", xp: 2480, isYou: true },
     { name: "Grok-Bot", initial: "G", color: "#1CB0F6", xp: 2360, isBot: true },
     { name: "Qwen-Bot", initial: "Q", color: "#CE82FF", xp: 2240, isBot: true },
+    { name: "You", initial: "Y", color: "#58CC02", xp: 0, isYou: true },
   ];
 }
 
@@ -104,16 +106,16 @@ function makeInitState(props: InitProps): GameState {
     completed: false,
     overlay: null,
     contEquipped: false,
-    streak: props.streak ?? 14,
-    bestStreak: props.streak ?? 14,
-    level: levelFromXp(props.totalXp ?? 2480),
-    totalXp: props.totalXp ?? 2480,
+    streak: props.streak ?? 0,
+    bestStreak: props.streak ?? 0,
+    level: levelFromXp(props.totalXp ?? 0),
+    totalXp: props.totalXp ?? 0,
     dailyXp: props.dailyXp ?? 0,
     dailyGoal: 50,
-    sharpEye: props.sharpEye ?? 7,
+    sharpEye: props.sharpEye ?? 0,
     sharpEyeGoal: 10,
-    questMatch: 1,
-    contLeft: props.contLeft ?? 2,
+    questMatch: 0,
+    contLeft: props.contLeft ?? 0,
     league: defaultLeague(),
     stats: { casesJudged: 0, correctCount: 0, agreementPct: 0, votesThisWeek: 0 },
     globalRank: null,
@@ -144,6 +146,11 @@ function makeInitState(props: InitProps): GameState {
 export function useGameState(props: InitProps = {}) {
   const [state, setState] = useState<GameState>(() => makeInitState(props));
   const onSubmitVoteRef = useRef(props.onSubmitVote);
+
+  // Last real progress loaded from the DB. Now that the initial state defaults to
+  // honest zeros, replaying today's case (reset) restores the player's true
+  // streak / XP from here instead of showing 0s.
+  const progressRef = useRef<Partial<Pick<GameState, "streak" | "totalXp" | "dailyXp" | "contLeft">>>({});
 
   // Mutable refs mirroring the original instance fields (timers, countdown, DOM-bound clocks).
   const t1 = useRef<number | null>(null);
@@ -423,7 +430,8 @@ export function useGameState(props: InitProps = {}) {
 
   const reset = useCallback(() => {
     clearAllTimers();
-    setState(() => makeInitState(props));
+    // Preserve the player's real progress across a replay (defaults are now 0s).
+    setState(() => makeInitState({ ...props, ...progressRef.current }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clearAllTimers]);
 
@@ -469,6 +477,7 @@ export function useGameState(props: InitProps = {}) {
 
   /** Load user progress from DB into game state */
   const initProgress = useCallback((p: { streak: number; totalXp: number; dailyXp: number; contLeft: number; bestStreak: number }) => {
+    progressRef.current = { streak: p.streak, totalXp: p.totalXp, dailyXp: p.dailyXp, contLeft: p.contLeft };
     setState((s) => ({
       ...s,
       streak: p.streak,

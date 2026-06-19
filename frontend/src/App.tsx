@@ -212,7 +212,7 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, onRequireA
           onLockIn={lockIn} onAdvance={actions.advance} onReplay={actions.reset} />
       )}
       {state.screen === "leagues" && <LeaguesPage state={state} />}
-      {state.screen === "quests"  && <QuestsPage  state={state} />}
+      {state.screen === "quests"  && <QuestsPage  state={state} countdownText={countdownText} />}
       {state.screen === "profile" && <ProfilePage state={state} />}
 
       {state.overlay === "streak" && (

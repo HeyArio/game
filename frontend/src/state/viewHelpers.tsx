@@ -285,30 +285,27 @@ function bw(bg: string): CSSProperties {
   };
 }
 
+// Play-rail achievements, all measured against the player's *real* lifetime
+// stats so the widget reflects actual progress (and stays consistent with the
+// Profile page) instead of showing decorative always-earned / always-locked
+// tiles. `mk` tints + colours the tile when earned and greys it when locked.
 export function badgesView(s: GameState, st: PlayerStats): BadgeView[] {
+  const mk = (earned: boolean, iconName: string, tint: string, tintBg: string, label: string, count?: string): BadgeView => ({
+    iconEl: icon(iconName, 25, earned ? tint : "#C2C7B6"),
+    label,
+    iconWrap: bw(earned ? tintBg : "#F0F2EA"),
+    labelColor: earned ? "#3C3C46" : "#B2B7A6",
+    showCount: count != null,
+    count,
+    ring: earned ? tint : "#C2C7B6",
+  });
   return [
-    { iconEl: icon("cap", 25, "#58CC02"), label: "Scholar", iconWrap: bw("#E8FFD7"), labelColor: "#3C3C46", showCount: false },
-    {
-      iconEl: icon("flame", 25, "#FF9600"),
-      label: "On Fire",
-      iconWrap: bw("#FFF3E0"),
-      labelColor: "#3C3C46",
-      showCount: true,
-      count: String(s.streak),
-      ring: "#FF9600",
-    },
-    { iconEl: icon("users", 25, "#1CB0F6"), label: "Crowd Reader", iconWrap: bw("#E3F6FF"), labelColor: "#3C3C46", showCount: false },
-    {
-      iconEl: icon("eye", 25, "#CE82FF"),
-      label: "Sharp Eye",
-      iconWrap: bw("#F6ECFF"),
-      labelColor: "#3C3C46",
-      showCount: true,
-      count: st.correctCount + "/10",
-      ring: "#CE82FF",
-    },
-    { iconEl: icon("star", 24, "#C2C7B6"), label: "Sage", iconWrap: bw("#F0F2EA"), labelColor: "#B2B7A6", showCount: false },
-    { iconEl: icon("lock", 23, "#C2C7B6"), label: "Perfect Week", iconWrap: bw("#F0F2EA"), labelColor: "#B2B7A6", showCount: false },
+    mk(st.casesJudged >= 10, "medal", "#58CC02", "#E8FFD7", "Apprentice"),
+    mk(st.casesJudged >= 50, "cap", "#1CB0F6", "#E3F6FF", "Scholar"),
+    mk(s.streak >= 14, "flame", "#FF9600", "#FFF3E0", "On Fire", String(s.streak)),
+    mk(st.correctCount >= 10, "eye", "#CE82FF", "#F6ECFF", "Sharp Eye", `${Math.min(st.correctCount, 10)}/10`),
+    mk(st.correctCount >= 50, "scale", "#58A700", "#E8FFD7", "Sage"),
+    mk(st.casesJudged >= 20 && st.agreementPct >= 60, "target", "#E5A300", "#FFF8E1", "Marksman"),
   ];
 }
 
@@ -449,9 +446,10 @@ export interface QuestItemView {
   countColor: string;
   barWidth: string;
   barColor: string;
-  rewardEl: JSX.Element | null;
-  rewardLabel: string;
-  rewardStyle: CSSProperties;
+  done: boolean;
+  statusEl: JSX.Element | null;
+  statusLabel: string;
+  statusStyle: CSSProperties;
   cardBg: string;
   cardBorder: string;
 }
@@ -460,12 +458,17 @@ export interface QuestsView {
   clockEl: JSX.Element | null;
   refresh: string;
   daily: QuestItemView[];
-  weekly: { chestEl: JSX.Element | null; label: string; sub: string; count: string; goalLabel: string; barWidth: string };
+  weekly: { iconEl: JSX.Element | null; label: string; sub: string; count: string; goalLabel: string; barWidth: string };
 }
 
-export function questsView(s: GameState, votesThisWeek = 0): QuestsView {
+// Quests are honest progress trackers tied to things that genuinely happen as
+// you play (XP earned, verdicts matched, streak kept) — not a separate loot
+// economy. So each row shows a truthful "In progress / Done" status rather than
+// a "Claim" / chest / "+15" reward that nothing in the backend actually grants.
+// `refresh` is the real countdown to the next case (the daily reset).
+export function questsView(s: GameState, votesThisWeek = 0, refresh = ""): QuestsView {
   const wrap = (bg: string): CSSProperties => ({ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "48px", height: "48px", borderRadius: "15px", flex: "none", background: bg });
-  const reward = (bg: string, col: string): CSSProperties => ({ display: "inline-flex", alignItems: "center", gap: "5px", padding: "9px 13px", borderRadius: "12px", flex: "none", background: bg, color: col, fontWeight: 800, fontSize: "12.5px" });
+  const pill = (bg: string, col: string): CSSProperties => ({ display: "inline-flex", alignItems: "center", gap: "5px", padding: "8px 13px", borderRadius: "999px", flex: "none", background: bg, color: col, fontWeight: 800, fontSize: "12.5px" });
   const mk = (
     iconName: string,
     iconColor: string,
@@ -474,10 +477,6 @@ export function questsView(s: GameState, votesThisWeek = 0): QuestsView {
     cur: number,
     goal: number,
     barColor: string,
-    rEl: JSX.Element | null,
-    rLabel: string,
-    rBg: string,
-    rCol: string,
     cardBg: string,
     cardBorder: string
   ): QuestItemView => {
@@ -491,22 +490,23 @@ export function questsView(s: GameState, votesThisWeek = 0): QuestsView {
       countColor: done ? "#58A700" : "#9AA08C",
       barWidth: pct + "%",
       barColor: done ? "#58CC02" : barColor,
-      rewardEl: done ? icon("check", 16, "#fff", 2.6) : rEl,
-      rewardLabel: done ? "Claim" : rLabel,
-      rewardStyle: done ? reward("#58CC02", "#fff") : reward(rBg, rCol),
+      done,
+      statusEl: done ? icon("check", 15, "#fff", 2.6) : null,
+      statusLabel: done ? "Done" : "In progress",
+      statusStyle: done ? pill("#58CC02", "#fff") : pill("#F0F2EA", "#9AA08C"),
       cardBg,
       cardBorder,
     };
   };
   const daily = [
-    mk("bolt", "#E5A300", "#FFF8E1", "Earn 40 XP today", s.dailyXp, 40, "#FFC800", icon("gem", 16, "#1899D6"), "+15", "#E3F6FF", "#1899D6", "#FFFDF5", "#FFE9B8"),
-    mk("scale", "#58A700", "#E8FFD7", "Match my verdict twice", s.questMatch, 2, "#58CC02", icon("chest", 16, "#E07F00"), "Chest", "#FFF3E0", "#FF9600", "#F4FFEE", "#C4E89E"),
-    mk("flame", "#FF9600", "#FFF3E0", "Keep your streak alive", s.scored ? 1 : 0, 1, "#FF9600", icon("bolt", 16, "#E5A300"), "+10", "#FFF8E1", "#E5A300", "#FFFDF5", "#FFE5B8"),
+    mk("bolt", "#E5A300", "#FFF8E1", "Earn 40 XP today", s.dailyXp, 40, "#FFC800", "#FFFDF5", "#FFE9B8"),
+    mk("scale", "#58A700", "#E8FFD7", "Match my verdict twice", s.questMatch, 2, "#58CC02", "#F4FFEE", "#C4E89E"),
+    mk("flame", "#FF9600", "#FFF3E0", "Keep your streak alive", s.scored ? 1 : 0, 1, "#FF9600", "#FFFDF5", "#FFE5B8"),
   ];
   const weeklyGoal = 25;
   const weeklyDone = Math.min(votesThisWeek, weeklyGoal);
-  const weekly = { chestEl: icon("chest", 34, "#fff"), label: "Judge 25 cases this week", sub: "Weigh in on 25 cases before the week resets", count: String(votesThisWeek), goalLabel: "/ " + weeklyGoal, barWidth: (weeklyDone / weeklyGoal) * 100 + "%" };
-  return { clockEl: icon("clock", 15, "#FF9600"), refresh: "18h left", daily, weekly };
+  const weekly = { iconEl: icon("trophy", 32, "#fff"), label: "Judge 25 cases this week", sub: "Weigh in on 25 cases before the week resets", count: String(votesThisWeek), goalLabel: "/ " + weeklyGoal, barWidth: (weeklyDone / weeklyGoal) * 100 + "%" };
+  return { clockEl: icon("clock", 15, "#FF9600"), refresh, daily, weekly };
 }
 
 export interface ProfileView {

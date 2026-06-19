@@ -245,6 +245,16 @@ function clean(s: string): string {
     .trim();
 }
 
+/** Cap text at a word boundary (+ ellipsis) so one verbose model can't turn a
+ * card into a wall of text. The answer prompt already asks for 1-2 sentences;
+ * this is the backstop for when a model ignores that. */
+function cap(s: string, max: number): string {
+  if (s.length <= max) return s;
+  const slice = s.slice(0, max);
+  const cut = slice.lastIndexOf(" ");
+  return (cut > max * 0.6 ? slice.slice(0, cut) : slice).replace(/[\s,;:.–—-]+$/, "") + "…";
+}
+
 /** Split raw model answer into a short "pick" headline and the full rationale */
 function splitAnswer(raw: string): { pick: string; rationale: string } {
   const text = clean(raw);
@@ -253,9 +263,9 @@ function splitAnswer(raw: string): { pick: string; rationale: string } {
   const parts = text.match(/^([^.!?]+[.!?])\s*([\s\S]*)$/);
   if (parts) {
     const pick = clean(parts[1]).replace(/^(I (pick|predict|choose|go with|say)|My (pick|answer|prediction) is)\s*/i, "");
-    return { pick, rationale: clean(parts[2]) || pick };
+    return { pick: cap(pick, 90), rationale: cap(clean(parts[2]) || pick, 220) };
   }
-  return { pick: text.slice(0, 80), rationale: text };
+  return { pick: cap(text, 90), rationale: cap(text, 220) };
 }
 
 const CORS = {

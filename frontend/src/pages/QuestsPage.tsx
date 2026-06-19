@@ -4,10 +4,11 @@ import { questsView } from "../state/viewHelpers";
 
 export interface QuestsPageProps {
   state: GameState;
+  countdownText?: string;
 }
 
-export function QuestsPage({ state }: QuestsPageProps) {
-  const quests = questsView(state, state.stats.votesThisWeek);
+export function QuestsPage({ state, countdownText = "" }: QuestsPageProps) {
+  const quests = questsView(state, state.stats.votesThisWeek, countdownText);
 
   return (
     <div style={{ maxWidth: 680, margin: "0 auto", padding: "26px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
@@ -17,16 +18,18 @@ export function QuestsPage({ state }: QuestsPageProps) {
         </span>
         <div>
           <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 18, color: "#3C3C46" }}>Here's what I've set for you</div>
-          <div style={{ fontSize: 14.5, fontWeight: 600, color: "#7A6540" }}>Clear these and I'll make it worth your while.</div>
+          <div style={{ fontSize: 14.5, fontWeight: 600, color: "#7A6540" }}>Small daily targets that keep your streak and XP climbing.</div>
         </div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 2 }}>
         <span style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 18, color: "#3C3C46" }}>Daily Quests</span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 11, background: "#FFF3E0", border: "2px solid #FFE0B2", color: "#FF9600", fontWeight: 800, fontSize: 13 }}>
-          {quests.clockEl}
-          {quests.refresh}
-        </span>
+        {quests.refresh && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 11, background: "#FFF3E0", border: "2px solid #FFE0B2", color: "#FF9600", fontWeight: 800, fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
+            {quests.clockEl}
+            {quests.refresh}
+          </span>
+        )}
       </div>
 
       {quests.daily.map((q, i) => (
@@ -41,9 +44,9 @@ export function QuestsPage({ state }: QuestsPageProps) {
               <div style={{ height: "100%", borderRadius: 999, width: q.barWidth, background: q.barColor, transition: "width .3s ease" }} />
             </div>
           </div>
-          <span style={q.rewardStyle}>
-            {q.rewardEl}
-            {q.rewardLabel}
+          <span style={q.statusStyle}>
+            {q.statusEl}
+            {q.statusLabel}
           </span>
         </div>
       ))}
@@ -52,7 +55,7 @@ export function QuestsPage({ state }: QuestsPageProps) {
       <div style={{ position: "relative", overflow: "hidden", padding: 22, borderRadius: 22, background: "linear-gradient(135deg,#1CB0F6,#1899D6)", color: "#fff", boxShadow: "0 6px 0 #137FB5" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 62, height: 62, borderRadius: 20, background: "rgba(255,255,255,.2)", flex: "none" }}>
-            {quests.weekly.chestEl}
+            {quests.weekly.iconEl}
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 20, lineHeight: 1.1 }}>{quests.weekly.label}</div>

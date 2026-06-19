@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { icon } from "../icons/Icon";
 import type { ViewCard } from "../state/viewHelpers";
 
@@ -9,8 +9,33 @@ export interface AnswerCardProps {
 
 export function AnswerCard({ card, onSelect }: AnswerCardProps) {
   const [hover, setHover] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [overflowing, setOverflowing] = useState(false);
+  const rationaleRef = useRef<HTMLParagraphElement>(null);
   const interactive = card.style.cursor === "pointer";
   const noAnswer = card.pick === "No response";
+
+  // Progressive disclosure: the rationale is clamped to two lines so the card
+  // reads as a skimmable PICK first. Only when the text actually overflows that
+  // clamp do we surface a "Why this?" expander — short answers just show in full.
+  // Re-measured when the answer changes, the card collapses, or the layout reflows.
+  useLayoutEffect(() => {
+    if (noAnswer) { setOverflowing(false); return; }
+    const measure = () => {
+      const el = rationaleRef.current;
+      if (!el || expanded) return;
+      setOverflowing(el.scrollHeight - el.clientHeight > 2);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [card.answer, expanded, noAnswer]);
+
+  const showToggle = !noAnswer && (overflowing || expanded);
+
+  const clampStyle: CSSProperties = expanded
+    ? {}
+    : { display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden" };
 
   return (
     <div
@@ -92,7 +117,8 @@ export function AnswerCard({ card, onSelect }: AnswerCardProps) {
         )}
       </div>
 
-      {/* Pick — the model's stance, accented */}
+      {/* Pick — the model's stance, accented. This is the hero of the card; kept
+          to a tight headline (clamped) so the four takes stay glanceable. */}
       <div
         style={{
           position: "relative",
@@ -107,7 +133,10 @@ export function AnswerCard({ card, onSelect }: AnswerCardProps) {
         <span style={{ display: "block", fontWeight: 800, fontSize: 10, letterSpacing: ".08em", color: card.accent, marginBottom: 3, opacity: noAnswer ? 0.5 : 0.9 }}>PICK</span>
         <span
           style={{
-            display: "block",
+            display: "-webkit-box",
+            WebkitBoxOrient: "vertical",
+            WebkitLineClamp: 3,
+            overflow: "hidden",
             fontFamily: "'Baloo 2',cursive",
             fontWeight: 700,
             fontSize: 17,
@@ -120,8 +149,9 @@ export function AnswerCard({ card, onSelect }: AnswerCardProps) {
         </span>
       </div>
 
-      {/* Rationale */}
+      {/* Rationale — collapsed to two lines by default, expandable on demand. */}
       <p
+        ref={rationaleRef}
         style={{
           marginTop: 10,
           fontSize: 14.5,
@@ -129,10 +159,52 @@ export function AnswerCard({ card, onSelect }: AnswerCardProps) {
           color: noAnswer ? "#A7AC9C" : "#6E7365",
           fontWeight: 600,
           fontStyle: noAnswer ? "italic" : "normal",
+          ...clampStyle,
         }}
       >
         {card.answer}
       </p>
+
+      {showToggle && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") e.stopPropagation(); }}
+          style={{
+            alignSelf: "flex-start",
+            marginTop: 6,
+            padding: 0,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontFamily: "'Nunito',sans-serif",
+            fontWeight: 800,
+            fontSize: 12.5,
+            color: card.accent,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          {expanded ? "Show less" : "Why this?"}
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={card.accent}
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ transform: expanded ? "rotate(180deg)" : "none", transition: "transform .2s" }}
+            aria-hidden="true"
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+      )}
 
       {/* Spacer pushes the voters bar to the bottom so cards align */}
       <div style={{ flex: 1 }} />
