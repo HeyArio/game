@@ -5,6 +5,7 @@ import { PromoOverlay } from "./components/PromoOverlay";
 import { StreakOverlay } from "./components/StreakOverlay";
 import { TopBar } from "./components/TopBar";
 import { SignInOverlay } from "./components/SignInOverlay";
+import { OnboardingOverlay } from "./components/OnboardingOverlay";
 import { Mascot } from "./components/Mascot";
 import { LeaguesPage } from "./pages/LeaguesPage";
 import { PlayPage } from "./pages/PlayPage";
@@ -187,6 +188,11 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, onRequireA
   const screenLabel = { play: "Daily Case", leagues: "Leagues", quests: "Quests", profile: "Profile" }[state.screen];
   // When a guest tries to lock in, prompt them to sign in via a modal popup.
   const [signInPrompt, setSignInPrompt] = useState(false);
+  // First-run onboarding: shown once to signed-in players (guests already came
+  // through the landing page, which explains the game).
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    try { return !guest && !localStorage.getItem("quorum_onboarded_v1"); } catch { return false; }
+  });
 
   if (state.screen === "play" && error) return <ErrorScreen message={error} />;
 
@@ -222,6 +228,10 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, onRequireA
       {state.overlay === "promo" && <PromoOverlay onDismiss={actions.dismissPromo} tierName={leagueTier(state.totalXp).name} tierColor={leagueTier(state.totalXp).color} />}
 
       {signInPrompt && <SignInOverlay onClose={() => setSignInPrompt(false)} />}
+
+      {showOnboarding && state.screen === "play" && (
+        <OnboardingOverlay onDone={() => { try { localStorage.setItem("quorum_onboarded_v1", "1"); } catch { /* ignore */ } setShowOnboarding(false); }} />
+      )}
 
       <footer style={{ textAlign: "center", padding: "28px 16px 6px", fontWeight: 700, fontSize: 12, color: "#9AA08C" }}>
         Powered by{" "}

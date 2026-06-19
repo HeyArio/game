@@ -4,9 +4,11 @@ import { AnswerCard } from "../components/AnswerCard";
 import { icon } from "../icons/Icon";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { shareResult, shareLinks, copyShareText } from "../lib/share";
+import { shareResultImage } from "../lib/shareCard";
 import type { GameState, CardId, Confidence } from "../state/types";
 import {
   badgesView,
+  COLORS,
   continueActiveStyle,
   continueStyle,
   doneView,
@@ -286,6 +288,7 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
                   <ContinueButton state={state} onAdvance={onAdvance} />
                 </div>
               </div>
+              <VerdictBoard state={state} />
               <div style={{ display: "flex", flexWrap: "wrap", gap: 9, marginTop: 14, paddingTop: 14, borderTop: "2px dashed rgba(0,0,0,.08)" }}>
                 {rewardChipsView(state).map((chip, i) => (
                   <span key={i} style={chip.style}>
@@ -530,6 +533,7 @@ function WagerPanel({ state, onSetConfidence, onSetCrowdGuess }: {
 
 function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" | "center" }) {
   const [label, setLabel] = useState("Share result");
+  const [imgLabel, setImgLabel] = useState("Share image");
   const [toast, setToast] = useState<string | null>(null);
   const links = shareLinks(state);
 
@@ -539,6 +543,14 @@ function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" 
     const r = await shareResult(state);
     if (r === "copied") { setLabel("Copied!"); setTimeout(() => setLabel("Share result"), 1800); }
     else if (r === "error") { setLabel("Couldn't share"); setTimeout(() => setLabel("Share result"), 1800); }
+  }
+
+  async function onShareImage() {
+    setImgLabel("Creating…");
+    const r = await shareResultImage(state);
+    setImgLabel(r === "shared" ? "Shared!" : r === "downloaded" ? "Image saved" : r === "error" ? "Couldn't create" : "Share image");
+    if (r !== "cancelled") setTimeout(() => setImgLabel("Share image"), 2200);
+    else setImgLabel("Share image");
   }
 
   async function onInstagram() {
@@ -557,6 +569,15 @@ function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" 
   return (
     <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 11, alignItems: align === "center" ? "center" : "flex-start" }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", justifyContent: align === "center" ? "center" : "flex-start" }}>
+        <button onClick={onShareImage}
+          style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer",
+            border: "2px solid #A5ED6E", borderBottomWidth: 4, background: "#58CC02", color: "#fff",
+            padding: "11px 20px", borderRadius: 14, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 14 }}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="3" /><circle cx="9" cy="11" r="2" /><path d="M21 16l-4.5-4.5L7 21" />
+          </svg>
+          {imgLabel}
+        </button>
         <button onClick={onShare}
           style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer",
             border: "2px solid #BEEAFD", borderBottomWidth: 4, background: "#E3F6FF", color: "#1899D6",
@@ -578,6 +599,41 @@ function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" 
         </a>
       </div>
       {toast && <div style={{ fontSize: 12.5, fontWeight: 800, color: "#1899D6" }}>{toast}</div>}
+    </div>
+  );
+}
+
+// Punchy three-way summary of the reveal — You vs Arbi vs the Crowd — so the
+// payoff reads at a glance: who you backed, who Arbi backed, who the crowd did.
+function VerdictBoard({ state }: { state: GameState }) {
+  const your = state.cards.find((c) => c.id === state.selected);
+  const judge = state.cards.find((c) => c.id === state.judgeCardId);
+  const crowd = state.cards.find((c) => c.id === state.crowdLeaderId);
+  if (!your || !judge) return null;
+  const youMatched = your.id === judge.id;
+  const crowdMatched = !!crowd && crowd.id === judge.id;
+  const crowdPct = crowd ? Math.round((state.displayPct as any)[crowd.id] ?? crowd.crowd ?? 0) : 0;
+
+  const Tile = ({ label, letter, sub, accent, ring, tick }: { label: string; letter: string; sub: string; accent: string; ring: string; tick?: boolean }) => (
+    <div style={{ flex: 1, minWidth: 0, textAlign: "center", padding: "12px 6px", borderRadius: 14, background: "#fff", border: `2px solid ${ring}` }}>
+      <div style={{ fontWeight: 800, fontSize: 10, letterSpacing: ".1em", color: "#9AA08C", marginBottom: 7 }}>{label}</div>
+      <span style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center", width: 42, height: 42, borderRadius: "50%", background: accent, color: "#fff", fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 19 }}>
+        {letter}
+        {tick && (
+          <span style={{ position: "absolute", bottom: -3, right: -3, width: 19, height: 19, borderRadius: "50%", background: "#58CC02", border: "2px solid #fff", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            {icon("check", 12, "#fff", 3)}
+          </span>
+        )}
+      </span>
+      <div style={{ fontWeight: 800, fontSize: 11.5, color: "#5E6553", marginTop: 7, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sub}</div>
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", alignItems: "stretch", gap: 8, marginTop: 14 }}>
+      <Tile label="YOU" letter={your.letter} sub={your.name} accent={COLORS[your.letter]} ring={youMatched ? "#A5ED6E" : "#FFCC80"} tick={youMatched} />
+      <Tile label="ARBI" letter={judge.letter} sub={judge.name} accent="#58CC02" ring="#A5ED6E" tick />
+      <Tile label="CROWD" letter={crowd ? crowd.letter : "—"} sub={crowd ? `${crowdPct}% backed` : "—"} accent="#1CB0F6" ring={crowdMatched ? "#A5ED6E" : "#BEEAFD"} tick={crowdMatched} />
     </div>
   );
 }
