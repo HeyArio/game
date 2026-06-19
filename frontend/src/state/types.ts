@@ -30,6 +30,18 @@ export interface PlayerStats {
   votesThisWeek: number;
 }
 
+/** One quest's live state, from the get_quest_state() RPC. */
+export interface QuestStateRow {
+  quest_key: string;
+  label: string;
+  qtype: "daily" | "weekly";
+  progress: number;
+  goal: number;
+  reward_xp: number;
+  done: boolean;
+  claimed: boolean;
+}
+
 export interface RevealFlags {
   ids: boolean;
   bars: boolean;

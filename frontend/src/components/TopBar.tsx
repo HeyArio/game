@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { GameState, Screen } from "../state/types";
 import { icon } from "../icons/Icon";
-import { navView } from "../state/viewHelpers";
+import { navView, leagueTierName } from "../state/viewHelpers";
 import { useIsMobile } from "../hooks/useMediaQuery";
 
 export interface TopBarProps {
@@ -199,7 +199,7 @@ export function TopBar({ state, onSelectScreen, onOpenStreak, onHome, guest = fa
             }}
           >
             {icon("trophy", 19, "#1899D6")}
-            {!isMobile && "Emerald"}
+            {!isMobile && leagueTierName(state.totalXp)}
           </span>
         </div>
         )}

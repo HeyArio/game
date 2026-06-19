@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { Icon, icon } from "../icons/Icon";
-import type { BaseCard, CardId, GameState, LeaguePlayer, PlayerStats } from "./types";
+import type { BaseCard, CardId, GameState, LeaguePlayer, PlayerStats, QuestStateRow } from "./types";
 import { CROWD_LEADER, JUDGE_ID, baseCards as _baseCards } from "./useGameState";
 
 function baseCards(s?: GameState) { return s?.cards?.length ? s.cards : _baseCards(); }
@@ -13,6 +13,33 @@ export function shade(hex: string): string {
     ({ "#58CC02": "#46A302", "#1CB0F6": "#1899D6", "#CE82FF": "#A95FE0", "#FF9600": "#E07F00" } as Record<string, string>)[hex] ||
     "#999"
   );
+}
+
+// XP-banded league tiers. The player's tier is derived from their real total XP
+// so "Emerald" et al. reflect actual standing — and the Profile badge and the
+// Leagues ladder stay in sync with one source of truth.
+export const LEAGUE_TIERS: { name: string; min: number; icon: string; color: string }[] = [
+  { name: "Bronze",   min: 0,     icon: "shield", color: "#CD7F32" },
+  { name: "Silver",   min: 1000,  icon: "shield", color: "#9AA6B2" },
+  { name: "Gold",     min: 2500,  icon: "shield", color: "#E6A700" },
+  { name: "Sapphire", min: 5000,  icon: "shield", color: "#1CB0F6" },
+  { name: "Emerald",  min: 10000, icon: "trophy", color: "#58CC02" },
+  { name: "Ruby",     min: 20000, icon: "crown",  color: "#FF4B4B" },
+  { name: "Diamond",  min: 40000, icon: "gem",    color: "#7DD3FC" },
+];
+
+export function leagueTierIndex(totalXp: number): number {
+  let idx = 0;
+  for (let i = 0; i < LEAGUE_TIERS.length; i++) if (totalXp >= LEAGUE_TIERS[i].min) idx = i;
+  return idx;
+}
+
+export function leagueTierName(totalXp: number): string {
+  return LEAGUE_TIERS[leagueTierIndex(totalXp)].name;
+}
+
+export function leagueTier(totalXp: number): { name: string; min: number; icon: string; color: string } {
+  return LEAGUE_TIERS[leagueTierIndex(totalXp)];
 }
 
 export function cardStyle(c: BaseCard, s: GameState): CSSProperties {
@@ -385,31 +412,29 @@ export function leaguesView(s: GameState): LeaguesView {
   const ranked = s.league.map((p, i) => ({ ...p, rank: i + 1 }));
   // Prefer the real global rank; fall back to the position within the loaded board.
   const youRank = s.globalRank ?? (ranked.find((p) => p.isYou) || ({} as LeaguePlayer & { rank: number })).rank ?? ranked.length + 1;
-  const tierDefs = [
-    { name: "Bronze", icon: "shield", color: "#CD7F32" },
-    { name: "Silver", icon: "shield", color: "#9AA6B2" },
-    { name: "Gold", icon: "shield", color: "#E6A700" },
-    { name: "Sapphire", icon: "shield", color: "#1CB0F6" },
-    { name: "Emerald", icon: "trophy", color: "#58CC02", current: true },
-    { name: "Ruby", icon: "crown", color: "#FF4B4B", locked: true },
-    { name: "Diamond", icon: "gem", color: "#7DD3FC", locked: true },
-  ];
-  const tiers = tierDefs.map((t) => ({
-    name: t.name,
-    labelColor: t.current ? "#58A700" : t.locked ? "#C2C7B6" : "#7C8470",
-    iconEl: icon(t.icon, 24, t.locked ? "#C7CCBC" : "#fff"),
-    badgeStyle: {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      width: "50px",
-      height: "50px",
-      borderRadius: "16px",
-      flex: "none",
-      background: t.locked ? "#F0F2EA" : t.color,
-      boxShadow: t.current ? "0 0 0 4px #DDF4C9, 0 3px 0 #3E9000" : "none",
-    } as CSSProperties,
-  }));
+  // Current tier comes from the player's real total XP; everything below it is
+  // earned, everything above is locked.
+  const curIdx = leagueTierIndex(s.totalXp);
+  const tiers = LEAGUE_TIERS.map((t, i) => {
+    const current = i === curIdx;
+    const locked = i > curIdx;
+    return {
+      name: t.name,
+      labelColor: current ? "#58A700" : locked ? "#C2C7B6" : "#7C8470",
+      iconEl: icon(t.icon, 24, locked ? "#C7CCBC" : "#fff"),
+      badgeStyle: {
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "50px",
+        height: "50px",
+        borderRadius: "16px",
+        flex: "none",
+        background: locked ? "#F0F2EA" : t.color,
+        boxShadow: current ? "0 0 0 4px #DDF4C9, 0 3px 0 #3E9000" : "none",
+      } as CSSProperties,
+    };
+  });
   const rows = ranked.map((p) => ({
     rankLabel: String(p.rank),
     name: p.isYou ? "You" : p.name,
@@ -439,6 +464,7 @@ export function leaguesView(s: GameState): LeaguesView {
 }
 
 export interface QuestItemView {
+  questKey: string;
   iconEl: JSX.Element | null;
   iconWrap: CSSProperties;
   label: string;
@@ -446,66 +472,82 @@ export interface QuestItemView {
   countColor: string;
   barWidth: string;
   barColor: string;
-  done: boolean;
-  statusEl: JSX.Element | null;
-  statusLabel: string;
-  statusStyle: CSSProperties;
+  rewardLabel: string;
+  claimable: boolean;
+  claimed: boolean;
   cardBg: string;
   cardBorder: string;
+}
+
+export interface QuestWeeklyView {
+  questKey: string;
+  iconEl: JSX.Element | null;
+  label: string;
+  sub: string;
+  count: string;
+  goalLabel: string;
+  barWidth: string;
+  rewardLabel: string;
+  claimable: boolean;
+  claimed: boolean;
 }
 
 export interface QuestsView {
   clockEl: JSX.Element | null;
   refresh: string;
   daily: QuestItemView[];
-  weekly: { iconEl: JSX.Element | null; label: string; sub: string; count: string; goalLabel: string; barWidth: string };
+  weekly: QuestWeeklyView | null;
 }
 
-// Quests are honest progress trackers tied to things that genuinely happen as
-// you play (XP earned, verdicts matched, streak kept) — not a separate loot
-// economy. So each row shows a truthful "In progress / Done" status rather than
-// a "Claim" / chest / "+15" reward that nothing in the backend actually grants.
-// `refresh` is the real countdown to the next case (the daily reset).
-export function questsView(s: GameState, votesThisWeek = 0, refresh = ""): QuestsView {
+// Per-quest visual identity, keyed by the server's quest_key.
+const QUEST_ICONS: Record<string, { icon: string; color: string; bg: string; cardBg: string; cardBorder: string }> = {
+  daily_play:   { icon: "play",   color: "#1899D6", bg: "#E3F6FF", cardBg: "#F7FCFF", cardBorder: "#BEEAFD" },
+  daily_match:  { icon: "scale",  color: "#58A700", bg: "#E8FFD7", cardBg: "#F4FFEE", cardBorder: "#C4E89E" },
+  daily_goal:   { icon: "bolt",   color: "#E5A300", bg: "#FFF8E1", cardBg: "#FFFDF5", cardBorder: "#FFE9B8" },
+  weekly_judge: { icon: "trophy", color: "#1CB0F6", bg: "#E3F6FF", cardBg: "#F7FCFF", cardBorder: "#BEEAFD" },
+};
+
+// Quests now render from real server state (get_quest_state): live progress, the
+// XP reward, and whether each is claimable or already claimed this period. The
+// reward is genuine — claim_quest grants it into total_xp. `refresh` is the real
+// countdown to the next case (the daily reset).
+export function questsView(rows: QuestStateRow[], refresh = ""): QuestsView {
   const wrap = (bg: string): CSSProperties => ({ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "48px", height: "48px", borderRadius: "15px", flex: "none", background: bg });
-  const pill = (bg: string, col: string): CSSProperties => ({ display: "inline-flex", alignItems: "center", gap: "5px", padding: "8px 13px", borderRadius: "999px", flex: "none", background: bg, color: col, fontWeight: 800, fontSize: "12.5px" });
-  const mk = (
-    iconName: string,
-    iconColor: string,
-    iconBg: string,
-    label: string,
-    cur: number,
-    goal: number,
-    barColor: string,
-    cardBg: string,
-    cardBorder: string
-  ): QuestItemView => {
-    const done = cur >= goal;
-    const pct = Math.min(100, (cur / goal) * 100);
+  const mk = (row: QuestStateRow): QuestItemView => {
+    const m = QUEST_ICONS[row.quest_key] ?? QUEST_ICONS.daily_play;
+    const pct = Math.min(100, (row.progress / row.goal) * 100);
     return {
-      iconEl: icon(iconName, 24, iconColor),
-      iconWrap: wrap(iconBg),
-      label,
-      countLabel: done ? "Done!" : cur + " / " + goal,
-      countColor: done ? "#58A700" : "#9AA08C",
+      questKey: row.quest_key,
+      iconEl: icon(m.icon, 24, m.color),
+      iconWrap: wrap(m.bg),
+      label: row.label,
+      countLabel: row.claimed ? "Claimed" : row.done ? "Ready to claim" : `${row.progress} / ${row.goal}`,
+      countColor: row.done && !row.claimed ? "#58A700" : "#9AA08C",
       barWidth: pct + "%",
-      barColor: done ? "#58CC02" : barColor,
-      done,
-      statusEl: done ? icon("check", 15, "#fff", 2.6) : null,
-      statusLabel: done ? "Done" : "In progress",
-      statusStyle: done ? pill("#58CC02", "#fff") : pill("#F0F2EA", "#9AA08C"),
-      cardBg,
-      cardBorder,
+      barColor: row.claimed ? "#9EDF6A" : row.done ? "#58CC02" : m.color,
+      rewardLabel: `+${row.reward_xp} XP`,
+      claimable: row.done && !row.claimed,
+      claimed: row.claimed,
+      cardBg: m.cardBg,
+      cardBorder: m.cardBorder,
     };
   };
-  const daily = [
-    mk("bolt", "#E5A300", "#FFF8E1", "Earn 40 XP today", s.dailyXp, 40, "#FFC800", "#FFFDF5", "#FFE9B8"),
-    mk("scale", "#58A700", "#E8FFD7", "Match my verdict twice", s.questMatch, 2, "#58CC02", "#F4FFEE", "#C4E89E"),
-    mk("flame", "#FF9600", "#FFF3E0", "Keep your streak alive", s.scored ? 1 : 0, 1, "#FF9600", "#FFFDF5", "#FFE5B8"),
-  ];
-  const weeklyGoal = 25;
-  const weeklyDone = Math.min(votesThisWeek, weeklyGoal);
-  const weekly = { iconEl: icon("trophy", 32, "#fff"), label: "Judge 25 cases this week", sub: "Weigh in on 25 cases before the week resets", count: String(votesThisWeek), goalLabel: "/ " + weeklyGoal, barWidth: (weeklyDone / weeklyGoal) * 100 + "%" };
+  const daily = rows.filter((r) => r.qtype === "daily").map(mk);
+  const w = rows.find((r) => r.qtype === "weekly");
+  const weekly: QuestWeeklyView | null = w
+    ? {
+        questKey: w.quest_key,
+        iconEl: icon("trophy", 32, "#fff"),
+        label: w.label,
+        sub: "Weigh in on cases before the week resets",
+        count: String(w.progress),
+        goalLabel: "/ " + w.goal,
+        barWidth: Math.min(100, (w.progress / w.goal) * 100) + "%",
+        rewardLabel: `+${w.reward_xp} XP`,
+        claimable: w.done && !w.claimed,
+        claimed: w.claimed,
+      }
+    : null;
   return { clockEl: icon("clock", 15, "#FF9600"), refresh, daily, weekly };
 }
 
@@ -514,6 +556,7 @@ export interface ProfileView {
   achievements: { iconEl: JSX.Element | null; iconWrap: CSSProperties; bg: string; border: string; titleColor: string; title: string; desc: string; barWidth: string; barColor: string }[];
   figures: { iconEl: JSX.Element | null; iconWrap: CSSProperties; value: string; label: string }[];
   note: string;
+  tier: string;
   levelEl: JSX.Element | null;
   leagueEl: JSX.Element | null;
   shareEl: JSX.Element | null;
@@ -573,6 +616,7 @@ export function profileView(s: GameState, st: PlayerStats): ProfileView {
     achievements,
     figures,
     note,
+    tier: leagueTierName(s.totalXp),
     levelEl: icon("star", 15, "#CE82FF"),
     leagueEl: icon("trophy", 15, "#1CB0F6"),
     shareEl: icon("share", 16, "#1899D6"),

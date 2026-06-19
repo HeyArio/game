@@ -17,6 +17,7 @@ import { useClientCase } from "./hooks/useClientCase";
 import { useVote } from "./hooks/useVote";
 import { supabase } from "./lib/supabase";
 import { isClientLlmEnabled } from "./lib/providers";
+import { leagueTier } from "./state/viewHelpers";
 import type { CardId, Screen } from "./state/types";
 
 export default function App() {
@@ -212,13 +213,13 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, onRequireA
           onLockIn={lockIn} onAdvance={actions.advance} onReplay={actions.reset} />
       )}
       {state.screen === "leagues" && <LeaguesPage state={state} />}
-      {state.screen === "quests"  && <QuestsPage  state={state} countdownText={countdownText} />}
+      {state.screen === "quests"  && <QuestsPage  countdownText={countdownText} onClaimed={actions.grantBonusXp} />}
       {state.screen === "profile" && <ProfilePage state={state} />}
 
       {state.overlay === "streak" && (
         <StreakOverlay state={state} countdownText={countdownText} onClose={actions.closeOverlay} onEquip={actions.equipContinuance} />
       )}
-      {state.overlay === "promo" && <PromoOverlay onDismiss={actions.dismissPromo} />}
+      {state.overlay === "promo" && <PromoOverlay onDismiss={actions.dismissPromo} tierName={leagueTier(state.totalXp).name} tierColor={leagueTier(state.totalXp).color} />}
 
       {signInPrompt && <SignInOverlay onClose={() => setSignInPrompt(false)} />}
 

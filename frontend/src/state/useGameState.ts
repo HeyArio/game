@@ -505,6 +505,18 @@ export function useGameState(props: InitProps = {}) {
     setState((s) => ({ ...s, globalRank: rank }));
   }, []);
 
+  /** Apply a claimed quest reward: the server returns the authoritative new
+   *  total/level, so we just mirror it into state (and the "You" rail row). */
+  const grantBonusXp = useCallback((totalXp: number, level: number) => {
+    progressRef.current = { ...progressRef.current, totalXp };
+    setState((s) => {
+      const league = s.league
+        .map((p) => (p.isYou ? { ...p, xp: totalXp } : p))
+        .sort((a, b) => b.xp - a.xp);
+      return { ...s, totalXp, level, league };
+    });
+  }, []);
+
   return {
     state,
     countdownText,
@@ -528,6 +540,7 @@ export function useGameState(props: InitProps = {}) {
       initLeague,
       initStats,
       initRank,
+      grantBonusXp,
       applyVoteResult,
     },
   };

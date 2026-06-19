@@ -17,6 +17,9 @@ export function ProfilePage({ state }: ProfilePageProps) {
   const displayName = meta.full_name || meta.name || user?.email?.split("@")[0] || "You";
   const handle = user?.email ? "@" + user.email.split("@")[0] : "@you";
   const initial = (displayName[0] || "Y").toUpperCase();
+  const joined = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString(undefined, { month: "long", year: "numeric" })
+    : null;
 
   return (
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "26px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
@@ -42,13 +45,13 @@ export function ProfilePage({ state }: ProfilePageProps) {
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 26, color: "#3C3C46", lineHeight: 1.1 }}>{displayName}</div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: "#9AA08C" }}>{handle} · Joined March 2025</div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#9AA08C" }}>{handle}{joined ? ` · Joined ${joined}` : ""}</div>
           <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 10, background: "#F6ECFF", color: "#7A3FB0", fontWeight: 800, fontSize: 12 }}>
               {profile.levelEl}Level {state.level}
             </span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 10, background: "#E3F6FF", color: "#1899D6", fontWeight: 800, fontSize: 12 }}>
-              {profile.leagueEl}Emerald
+              {profile.leagueEl}{profile.tier}
             </span>
           </div>
         </div>

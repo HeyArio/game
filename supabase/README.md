@@ -16,7 +16,7 @@ the VPS. Nothing here runs on the VPS.
 ## 2. Apply the schema
 
 Open **SQL Editor** in the Supabase dashboard and run each migration in
-`migrations/` in order (`0001` → `0009`). (Or, with the Supabase CLI linked to
+`migrations/` in order (`0001` → `0011`). (Or, with the Supabase CLI linked to
 the project: `supabase db push`.)
 
 This creates: `profiles`, `user_progress`, `daily_cases`, `case_options`,
@@ -29,10 +29,14 @@ profile + progress row; and Row Level Security policies on every table.
 The frontend reads **real data** for the daily case, voting/scoring, XP, streak,
 level (derived from XP), the leaderboard (`global_leaderboard`, ranked by total
 XP, including labeled AI opponents), and the profile/achievement figures
-(`get_player_stats`, computed from real vote history). The daily quests reflect
-your live session progress and the weekly quest counts your real votes this
-week; quest *claiming/rewards* and tiered weekly **league** resets are the main
-remaining presentational pieces.
+(`get_player_stats`, computed from real vote history). **Quest rewards are real**
+(migration `0011`): `get_quest_state` returns each quest's live progress, and
+`claim_quest` grants the bonus XP into `total_xp` exactly once per period
+(idempotent, server-validated). The **league tier** (Bronze → Diamond) is derived
+from real `total_xp`, so the Profile badge, the Leagues ladder, and the top-bar
+chip all reflect actual standing. The only remaining presentational piece is the
+schema's optional tiered weekly **league** cohorts/resets (the all-time
+`global_leaderboard` stands in for now).
 
 ## 3. Enable Google login
 
@@ -151,6 +155,14 @@ select cron.schedule('tick-bot-xp', '10 0 * * *', $$ select public.tick_bot_xp()
   **confidence wager** (low/med/high) plus a **beat-the-crowd** bonus, recorded
   on the `votes` row. Redeploy `generate-daily-case` + `submit-vote` after
   applying `0009`.
-- **Still to wire (optional, currently presentational):** quest reward
-  claiming, and tiered **weekly league** assignment + reset (the all-time
-  `global_leaderboard` stands in for now). These need their own scheduled jobs.
+- **Quest rewards (0011).** `quest_claims` is the idempotent claims ledger;
+  `get_quest_state()` reports live progress and `claim_quest(quest_key)` grants
+  the bonus XP into `total_xp` exactly once per daily/weekly period, validating
+  completion server-side from the real vote history. No scheduled job needed —
+  quests roll over automatically via the date/ISO-week period key.
+- **League tier** is derived from real `total_xp` in the frontend
+  (`leagueTier`), so Profile / Leagues / top-bar stay in sync.
+- **Still to wire (optional, currently presentational):** the schema's tiered
+  **weekly league** cohort assignment + reset (`leagues` / `league_memberships`
+  / `league_standings`); the all-time `global_leaderboard` stands in for now.
+  That would need its own scheduled job.

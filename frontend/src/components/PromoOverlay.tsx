@@ -4,10 +4,28 @@ import { useFocusTrap } from "../hooks/useFocusTrap";
 
 export interface PromoOverlayProps {
   onDismiss: () => void;
+  /** The league tier the player is now in — themes the whole celebration. */
+  tierName?: string;
+  tierColor?: string;
 }
 
-export function PromoOverlay({ onDismiss }: PromoOverlayProps) {
+// Mix a hex toward white (amt>0) or black (amt<0) so we can theme the overlay
+// from a single tier colour without per-tier palettes.
+function shadeHex(hex: string, amt: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const target = amt < 0 ? 0 : 255, p = Math.abs(amt);
+  r = Math.round((target - r) * p + r);
+  g = Math.round((target - g) * p + g);
+  b = Math.round((target - b) * p + b);
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
+
+export function PromoOverlay({ onDismiss, tierName = "a new", tierColor = "#E23B3B" }: PromoOverlayProps) {
   const trapRef = useFocusTrap();
+  const light = shadeHex(tierColor, 0.32);
+  const dark = shadeHex(tierColor, -0.42);
+  const darker = shadeHex(tierColor, -0.58);
   return (
     <div
       ref={trapRef}
@@ -23,7 +41,7 @@ export function PromoOverlay({ onDismiss }: PromoOverlayProps) {
         alignItems: "center",
         justifyContent: "center",
         padding: 24,
-        background: "radial-gradient(120% 90% at 50% 8%, #FF7A7A 0%, #E23B3B 52%, #AE1B1B 100%)",
+        background: `radial-gradient(120% 90% at 50% 8%, ${light} 0%, ${tierColor} 52%, ${darker} 100%)`,
         animation: "qfade .25s ease both",
       }}
     >
@@ -48,11 +66,11 @@ export function PromoOverlay({ onDismiss }: PromoOverlayProps) {
           </span>
         </div>
         <div id="promo-dialog-title" style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 46, lineHeight: 1, marginTop: 16, textShadow: "0 3px 0 rgba(0,0,0,.18)" }}>
-          Ruby League
+          {tierName} League
         </div>
         <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 22, marginTop: 14 }}>You've been elevated</div>
         <div style={{ fontWeight: 700, fontSize: 15, opacity: 0.92, marginTop: 6, lineHeight: 1.5, maxWidth: 380, marginLeft: "auto", marginRight: "auto" }}>
-          Top five in Emerald — the Ruby docket is yours. Sharper cases, higher stakes, better rewards.
+          You've climbed into the {tierName} ranks. Sharper cases, higher stakes, better rewards.
         </div>
         <div
           style={{
@@ -72,7 +90,7 @@ export function PromoOverlay({ onDismiss }: PromoOverlayProps) {
           <div style={{ textAlign: "left" }}>
             <div style={{ fontWeight: 800, fontSize: 12, color: "#FFD9A0", marginBottom: 1 }}>Arbi</div>
             <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.5, maxWidth: 240 }}>
-              Knew you had it in you. Don't get comfortable — Ruby plays rough.
+              Knew you had it in you. Don't get comfortable — it only gets sharper from here.
             </div>
           </div>
         </div>
@@ -90,12 +108,12 @@ export function PromoOverlay({ onDismiss }: PromoOverlayProps) {
               fontSize: 16,
               letterSpacing: ".04em",
               textTransform: "uppercase",
-              color: "#C0271F",
+              color: dark,
               background: "#fff",
-              boxShadow: "0 5px 0 #E7B9B0",
+              boxShadow: "0 5px 0 rgba(0,0,0,.18)",
             }}
           >
-            Enter Ruby League
+            Enter {tierName} League
           </button>
         </div>
       </div>
