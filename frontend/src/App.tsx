@@ -223,6 +223,13 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, onRequireA
 
       {signInPrompt && <SignInOverlay onClose={() => setSignInPrompt(false)} />}
 
+      <footer style={{ textAlign: "center", padding: "28px 16px 6px", fontWeight: 700, fontSize: 12, color: "#9AA08C" }}>
+        Powered by{" "}
+        <a href="https://nazarbanai.com" target="_blank" rel="noopener noreferrer" style={{ color: "#5E6654", fontWeight: 800, textDecoration: "none" }}>
+          nazarbanai.com
+        </a>
+      </footer>
+
       <ConfettiCanvas setCanvas={setCanvas} />
     </div>
   );

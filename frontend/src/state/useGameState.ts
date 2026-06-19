@@ -125,6 +125,7 @@ function makeInitState(props: InitProps): GameState {
     crowdLeaderId: null,
     crowdCorrect: false,
     crowdBonus: 0,
+    voteError: null,
     // case data — overwritten via initCase() when DB data loads
     cards: baseCards(),
     judgeOptionId: null,
@@ -323,20 +324,32 @@ export function useGameState(props: InitProps = {}) {
     if (s.scored) return;
 
     const onVote = onSubmitVoteRef.current;
-    if (onVote && s.caseId && s.selected) {
-      // Find the option ID that matches the selected card letter
-      // The option id is stored on the card when we call initCase
-      const selectedCard = s.cards.find(c => c.id === s.selected);
+    if (onVote) {
+      // Production: the server is the single source of truth for the verdict.
+      // Never fabricate one locally — if the call fails, surface it and let the
+      // player lock in again. (The old code fell back to a hardcoded "judge = D"
+      // verdict on any failure, which could wrongly flash "We agree!" whenever
+      // card D was picked.)
+      const selectedCard = s.cards.find((c) => c.id === s.selected);
       const optionId = (selectedCard as any)?._optionId as string | undefined;
-      const crowdCard = s.crowdGuess ? s.cards.find(c => c.id === s.crowdGuess) : undefined;
+      const crowdCard = s.crowdGuess ? s.cards.find((c) => c.id === s.crowdGuess) : undefined;
       const crowdOptionId = (crowdCard as any)?._optionId as string | undefined;
-      if (optionId) {
-        const result = await onVote(s.caseId, optionId, s.confidence, crowdOptionId ?? null);
-        if (result) { applyVoteResult(result); return; }
-      }
+      const result = s.caseId && optionId
+        ? await onVote(s.caseId, optionId, s.confidence, crowdOptionId ?? null)
+        : null;
+      if (result) { applyVoteResult(result); return; }
+      setState((s2) => ({
+        ...s2,
+        phase: "unvoted",
+        scored: false,
+        reveal: { ids: false, bars: false, judge: false, verdict: false },
+        voteError: "Couldn't reach the scoring server — check your connection and lock in again.",
+      }));
+      return;
     }
 
-    // Fallback: local scoring (dev mode / no backend), mirroring the server math.
+    // No backend (client/dev test path only): score locally against the
+    // judgeCardId the client generator supplied.
     setState((s2) => {
       if (s2.scored) return s2;
       const win = s2.selected === (s2.judgeCardId ?? JUDGE_ID);
@@ -383,12 +396,12 @@ export function useGameState(props: InitProps = {}) {
     setState((s) => {
       if (s.phase !== "unvoted" || !s.selected) return s;
       t1.current = window.setTimeout(() => startReveal(), 850);
-      return { ...s, phase: "voting" };
+      return { ...s, phase: "voting", voteError: null };
     });
   }, [startReveal]);
 
   const selectCard = useCallback((id: CardId) => {
-    setState((s) => (s.phase === "unvoted" ? { ...s, selected: id } : s));
+    setState((s) => (s.phase === "unvoted" ? { ...s, selected: id, voteError: null } : s));
   }, []);
 
   const setConfidence = useCallback((c: Confidence) => {

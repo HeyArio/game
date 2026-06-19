@@ -75,43 +75,45 @@ export function QuestsPage({ countdownText = "", onClaimed }: QuestsPageProps) {
         </div>
       ))}
 
-      {view.weekly && (
+      {view.big.length > 0 && (
         <>
-          <div style={{ marginTop: 8, fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 18, color: "#3C3C46" }}>Weekly Challenge</div>
-          <div style={{ position: "relative", overflow: "hidden", padding: 22, borderRadius: 22, background: "linear-gradient(135deg,#1CB0F6,#1899D6)", color: "#fff", boxShadow: "0 6px 0 #137FB5" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 62, height: 62, borderRadius: 20, background: "rgba(255,255,255,.2)", flex: "none" }}>
-                {view.weekly.iconEl}
-              </span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 20, lineHeight: 1.1 }}>{view.weekly.label}</div>
-                <div style={{ opacity: 0.92, fontWeight: 700, fontSize: 14, margin: "3px 0 10px" }}>{view.weekly.sub}</div>
-                <div style={{ height: 13, borderRadius: 999, background: "rgba(255,255,255,.28)", overflow: "hidden" }}>
-                  <div style={{ height: "100%", borderRadius: 999, width: view.weekly.barWidth, background: "#fff" }} />
+          <div style={{ marginTop: 8, fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 18, color: "#3C3C46" }}>Weekly &amp; Monthly Challenges</div>
+          {view.big.map((b) => (
+            <div key={b.questKey} style={{ position: "relative", overflow: "hidden", padding: 22, borderRadius: 22, background: b.gradient, color: "#fff", boxShadow: b.shadow }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 62, height: 62, borderRadius: 20, background: "rgba(255,255,255,.2)", flex: "none" }}>
+                  {b.iconEl}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 20, lineHeight: 1.1 }}>{b.label}</div>
+                  <div style={{ opacity: 0.92, fontWeight: 700, fontSize: 14, margin: "3px 0 10px" }}>{b.sub}</div>
+                  <div style={{ height: 13, borderRadius: 999, background: "rgba(255,255,255,.28)", overflow: "hidden" }}>
+                    <div style={{ height: "100%", borderRadius: 999, width: b.barWidth, background: "#fff" }} />
+                  </div>
+                </div>
+                <div style={{ textAlign: "center", flex: "none" }}>
+                  <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 26, lineHeight: 1 }}>{b.count}</div>
+                  <div style={{ fontWeight: 800, fontSize: 12, opacity: 0.9 }}>{b.goalLabel}</div>
                 </div>
               </div>
-              <div style={{ textAlign: "center", flex: "none" }}>
-                <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 26, lineHeight: 1 }}>{view.weekly.count}</div>
-                <div style={{ fontWeight: 800, fontSize: 12, opacity: 0.9 }}>{view.weekly.goalLabel}</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 16 }}>
+                <span style={{ fontWeight: 800, fontSize: 13, opacity: 0.95 }}>Reward {b.rewardLabel}</span>
+                {b.claimed ? (
+                  <span style={pill("rgba(255,255,255,.25)", "#fff")}>{icon("check", 15, "#fff", 2.6)} Claimed</span>
+                ) : b.claimable ? (
+                  <PressButton
+                    onClick={() => onClaim(b.questKey)}
+                    disabled={claimingKey === b.questKey}
+                    style={{ background: "#fff", color: "#3C3C46", boxShadow: "0 3px 0 rgba(0,0,0,.18)" }}
+                  >
+                    {icon("bolt", 15, "#E5A300")} {claimingKey === b.questKey ? "Claiming…" : `Claim ${b.rewardLabel}`}
+                  </PressButton>
+                ) : (
+                  <span style={{ fontWeight: 800, fontSize: 12.5, opacity: 0.8 }}>Keep going</span>
+                )}
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 16 }}>
-              <span style={{ fontWeight: 800, fontSize: 13, opacity: 0.95 }}>Reward {view.weekly.rewardLabel}</span>
-              {view.weekly.claimed ? (
-                <span style={pill("rgba(255,255,255,.25)", "#fff")}>{icon("check", 15, "#fff", 2.6)} Claimed</span>
-              ) : view.weekly.claimable ? (
-                <PressButton
-                  onClick={() => onClaim(view.weekly!.questKey)}
-                  disabled={claimingKey === view.weekly.questKey}
-                  style={{ background: "#fff", color: "#1899D6", boxShadow: "0 3px 0 #137FB5" }}
-                >
-                  {icon("bolt", 15, "#1899D6")} {claimingKey === view.weekly.questKey ? "Claiming…" : `Claim ${view.weekly.rewardLabel}`}
-                </PressButton>
-              ) : (
-                <span style={{ fontWeight: 800, fontSize: 12.5, opacity: 0.8 }}>Keep going</span>
-              )}
-            </div>
-          </div>
+          ))}
         </>
       )}
 

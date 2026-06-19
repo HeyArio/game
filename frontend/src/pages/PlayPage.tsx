@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Mascot } from "../components/Mascot";
 import { AnswerCard } from "../components/AnswerCard";
 import { icon } from "../icons/Icon";
@@ -43,6 +43,26 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
   const weekDays = weekDaysView(state);
   const leagueRows = leagueRowsView(state);
   const badges = badgesView(state, state.stats);
+
+  // Keyboard shortcuts: 1–4 to pick an answer, Enter to lock in. A fast,
+  // low-friction way to play that suits the "snap judgment" loop.
+  useEffect(() => {
+    if (state.phase !== "unvoted") return;
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (e.key >= "1" && e.key <= "4") {
+        const id = (["a", "b", "c", "d"] as CardId[])[Number(e.key) - 1];
+        if (state.cards.some((c) => c.id === id)) { e.preventDefault(); onSelectCard(id); }
+      } else if (e.key === "Enter" && state.selected) {
+        e.preventDefault();
+        onLockIn();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [state.phase, state.selected, state.cards, onSelectCard, onLockIn]);
 
   // qspin: 24 spinner ticks fanned around a circle, opacity ramping with index — ported 1:1.
   const spinnerTicks = Array.from({ length: 24 }, (_, i) => ({
@@ -202,6 +222,16 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
             <>
               <WagerPanel state={state} onSetConfidence={onSetConfidence} onSetCrowdGuess={onSetCrowdGuess} />
               <LockButton state={state} onLockIn={onLockIn} />
+              {state.voteError && (
+                <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 12, background: "#FFF3E0", border: "2px solid #FFCC80", color: "#C2410C", fontWeight: 800, fontSize: 13, textAlign: "center" }}>
+                  {state.voteError}
+                </div>
+              )}
+              {!isMobile && !state.voteError && (
+                <div style={{ marginTop: 9, textAlign: "center", fontWeight: 700, fontSize: 12, color: "#9AA08C" }}>
+                  Tip: press <b>1–4</b> to pick · <b>Enter</b> to lock in
+                </div>
+              )}
             </>
           )}
 

@@ -202,11 +202,14 @@ export interface ViewCard extends BaseCard {
 
 export function viewCards(s: GameState): ViewCard[] {
   const jId = judgeId(s);
+  // The crowd favourite is whatever the server revealed (falls back to the
+  // seeded leader only in the offline/dev path) — never a hardcoded card.
+  const crowdLeader = s.crowdLeaderId ?? CROWD_LEADER;
   return baseCards(s).map((c) => {
     const isJ = c.id === jId;
     const sel = s.selected === c.id;
     const barColor =
-      s.reveal.judge && isJ ? "#58CC02" : s.reveal.judge && sel ? "#F57C00" : c.id === CROWD_LEADER ? "#1CB0F6" : "#BFC5B2";
+      s.reveal.judge && isJ ? "#58CC02" : s.reveal.judge && sel ? "#F57C00" : c.id === crowdLeader ? "#1CB0F6" : "#BFC5B2";
     return {
       ...c,
       modelLabel: "MODEL " + c.letter,
@@ -220,7 +223,7 @@ export function viewCards(s: GameState): ViewCard[] {
       showWrong: !!(s.reveal.judge && sel && !isJ),
       showBars: s.reveal.bars,
       barColor,
-      crowdTag: c.id === CROWD_LEADER ? " · TOP" : "",
+      crowdTag: c.id === crowdLeader ? " · TOP" : "",
       pctLabel: Math.round((s.displayPct as any)[c.id]) + "%",
       barWidth: (s.displayPct as any)[c.id] + "%",
     };
@@ -479,7 +482,7 @@ export interface QuestItemView {
   cardBorder: string;
 }
 
-export interface QuestWeeklyView {
+export interface QuestBigView {
   questKey: string;
   iconEl: JSX.Element | null;
   label: string;
@@ -490,13 +493,15 @@ export interface QuestWeeklyView {
   rewardLabel: string;
   claimable: boolean;
   claimed: boolean;
+  gradient: string;
+  shadow: string;
 }
 
 export interface QuestsView {
   clockEl: JSX.Element | null;
   refresh: string;
   daily: QuestItemView[];
-  weekly: QuestWeeklyView | null;
+  big: QuestBigView[];
 }
 
 // Per-quest visual identity, keyed by the server's quest_key.
@@ -533,23 +538,32 @@ export function questsView(rows: QuestStateRow[], refresh = ""): QuestsView {
     };
   };
   const daily = rows.filter((r) => r.qtype === "daily").map(mk);
-  const w = rows.find((r) => r.qtype === "weekly");
-  const weekly: QuestWeeklyView | null = w
-    ? {
-        questKey: w.quest_key,
-        iconEl: icon("trophy", 32, "#fff"),
-        label: w.label,
-        sub: "Weigh in on cases before the week resets",
-        count: String(w.progress),
-        goalLabel: "/ " + w.goal,
-        barWidth: Math.min(100, (w.progress / w.goal) * 100) + "%",
-        rewardLabel: `+${w.reward_xp} XP`,
-        claimable: w.done && !w.claimed,
-        claimed: w.claimed,
-      }
-    : null;
-  return { clockEl: icon("clock", 15, "#FF9600"), refresh, daily, weekly };
+  const big: QuestBigView[] = rows
+    .filter((r) => r.qtype !== "daily")
+    .map((r) => {
+      const th = BIG_THEME[r.qtype] ?? BIG_THEME.weekly;
+      return {
+        questKey: r.quest_key,
+        iconEl: icon(r.qtype === "monthly" ? "calendar" : "trophy", 32, "#fff"),
+        label: r.label,
+        sub: th.sub,
+        count: String(r.progress),
+        goalLabel: "/ " + r.goal,
+        barWidth: Math.min(100, (r.progress / r.goal) * 100) + "%",
+        rewardLabel: `+${r.reward_xp} XP`,
+        claimable: r.done && !r.claimed,
+        claimed: r.claimed,
+        gradient: th.gradient,
+        shadow: th.shadow,
+      };
+    });
+  return { clockEl: icon("clock", 15, "#FF9600"), refresh, daily, big };
 }
+
+const BIG_THEME: Record<string, { gradient: string; shadow: string; sub: string }> = {
+  weekly:  { gradient: "linear-gradient(135deg,#1CB0F6,#1899D6)", shadow: "0 6px 0 #137FB5", sub: "Weigh in on cases before the week resets" },
+  monthly: { gradient: "linear-gradient(135deg,#CE82FF,#A95FE0)", shadow: "0 6px 0 #8A4BC0", sub: "Keep showing up all month for the big reward" },
+};
 
 export interface ProfileView {
   stats: { iconEl: JSX.Element | null; iconWrap: CSSProperties; value: string; label: string }[];

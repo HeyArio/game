@@ -34,7 +34,7 @@ export interface PlayerStats {
 export interface QuestStateRow {
   quest_key: string;
   label: string;
-  qtype: "daily" | "weekly";
+  qtype: "daily" | "weekly" | "monthly";
   progress: number;
   goal: number;
   reward_xp: number;
@@ -92,6 +92,7 @@ export interface GameState {
   crowdLeaderId: CardId | null; // the actual crowd leader (revealed)
   crowdCorrect: boolean;        // did the crowd guess hit?
   crowdBonus: number;           // bonus XP from the crowd bet
+  voteError: string | null;     // set when server scoring fails (so we never fake a verdict)
 
   // Dynamic case data (replaces hardcoded baseCards / JUDGE_ID)
   cards: BaseCard[];
