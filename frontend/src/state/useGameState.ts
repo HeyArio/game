@@ -104,6 +104,7 @@ function makeInitState(props: InitProps): GameState {
     win: false,
     promoted: false,
     completed: false,
+    alreadyPlayed: false,
     overlay: null,
     contEquipped: false,
     streak: props.streak ?? 0,
@@ -166,6 +167,11 @@ export function useGameState(props: InitProps = {}) {
 
   const countdownRef = useRef<number>(STARTING_COUNTDOWN);
   const [countdownText, setCountdownText] = useState<string>(fmtClock(STARTING_COUNTDOWN));
+
+  // Tracks whether the player is reviewing a vote they already cast today. Kept
+  // as a ref (not just state) so `reset` can synchronously refuse to replay a
+  // recorded vote — there's exactly one vote per case per day.
+  const alreadyPlayedRef = useRef<boolean>(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -262,8 +268,24 @@ export function useGameState(props: InitProps = {}) {
     }, 16);
   }, []);
 
-  // Apply server vote result into game state (used by both live voting and alreadyVoted replay)
+  // Apply a server vote result into game state.
+  //
+  // Two distinct cases, and conflating them was the source of the "congratulated
+  // no matter what you pick" bug:
+  //
+  //  • A FRESH vote (result.alreadyVoted === false): the server just recorded the
+  //    vote and incremented progress server-side, so we mirror that locally —
+  //    add XP, bump the streak, animate the daily bar, fire confetti on a win.
+  //
+  //  • An ALREADY-CAST vote (result.alreadyVoted === true): the player is just
+  //    reviewing a case they already played (on load, or via a stale replay).
+  //    The server did NOT award anything again, so we must NOT re-add XP, bump
+  //    the streak, or re-fire the celebration — otherwise every revisit/replay
+  //    re-congratulates them and re-shows their old win against a new pick.
+  //    We snap straight to a locked reveal of THEIR original answer.
   const applyVoteResult = useCallback((result: VoteResult) => {
+    const review = result.alreadyVoted === true;
+    if (review) alreadyPlayedRef.current = true;
     setState((s) => {
       const win = result.wasCorrect;
       const earned = result.xpEarned;
@@ -271,17 +293,15 @@ export function useGameState(props: InitProps = {}) {
       const dp: any = { a: 0, b: 0, c: 0, d: 0 };
       result.options.forEach((o) => { dp[o.letter.toLowerCase()] = o.live_pct; });
       const judgeCardId = (result.judgeOptionLetter?.toLowerCase() ?? "d") as CardId;
-      const league = s.league
-        .map((p) => (p.isYou ? { ...p, xp: p.xp + earned } : p))
-        .sort((a, b) => b.xp - a.xp);
-      const youRank = league.findIndex((p) => p.isYou) + 1;
       // Update crowd values in cards
       const cards = s.cards.map((c) => {
         const opt = result.options.find((o) => o.letter.toLowerCase() === c.id);
         return opt ? { ...c, crowd: opt.live_pct } : c;
       });
       const crowdLeaderId = (result.crowdLeaderLetter?.toLowerCase() ?? null) as CardId | null;
-      return {
+
+      // Common reveal fields (the verdict, judge pick, crowd, live %).
+      const revealed = {
         ...s,
         cards,
         judgeCardId,
@@ -290,10 +310,35 @@ export function useGameState(props: InitProps = {}) {
         crowdLeaderId,
         crowdCorrect: result.crowdCorrect,
         crowdBonus: result.crowdBonus,
-        reveal: { ...s.reveal, verdict: true },
         scored: true,
         win,
         earned,
+        displayPct: dp,
+      };
+
+      if (review) {
+        // Reviewing an already-played case: lock it, show their real pick, and
+        // leave progress (XP / streak / league) exactly as loaded — no re-award.
+        const votedOpt = result.options.find((o) => o.id === result.votedOptionId);
+        const selected = (votedOpt?.letter.toLowerCase() ?? s.selected) as CardId | null;
+        return {
+          ...revealed,
+          selected,
+          phase: "revealed",
+          alreadyPlayed: true,
+          reveal: { ids: true, bars: true, judge: true, verdict: true },
+          displayDaily: s.dailyXp,
+        };
+      }
+
+      // Fresh vote: mirror the server-side progress increment locally.
+      const league = s.league
+        .map((p) => (p.isYou ? { ...p, xp: p.xp + earned } : p))
+        .sort((a, b) => b.xp - a.xp);
+      const youRank = league.findIndex((p) => p.isYou) + 1;
+      return {
+        ...revealed,
+        reveal: { ...s.reveal, verdict: true },
         totalXp: s.totalXp + earned,
         level: levelFromXp(s.totalXp + earned),
         streak: s.streak + 1,
@@ -301,14 +346,23 @@ export function useGameState(props: InitProps = {}) {
         dailyXp: Math.min(s.dailyGoal, s.dailyXp + earned),
         sharpEye: win ? Math.min(s.sharpEyeGoal, s.sharpEye + 1) : s.sharpEye,
         questMatch: win ? Math.min(2, s.questMatch + 1) : s.questMatch,
-        displayPct: dp,
         league,
         promoted: win && youRank <= 5,
       };
     });
-    if (result.wasCorrect) queueMicrotask(() => fireConfetti());
-    queueMicrotask(() => countDaily(result.xpEarned));
+    // Celebration + daily-bar animation only ever fire for a genuinely new vote.
+    if (!review) {
+      if (result.wasCorrect) queueMicrotask(() => fireConfetti());
+      queueMicrotask(() => countDaily(result.xpEarned));
+    }
   }, [countDaily, fireConfetti]);
+
+  // Load an existing vote the player already cast on today's case, so a returning
+  // player lands directly on their locked result instead of a fresh, votable
+  // board. The payload is the submit-vote "alreadyVoted" response.
+  const loadExistingVote = useCallback((result: VoteResult) => {
+    applyVoteResult({ ...result, alreadyVoted: true });
+  }, [applyVoteResult]);
 
   const score = useCallback(async () => {
     let currentState: GameState | null = null;
@@ -442,6 +496,9 @@ export function useGameState(props: InitProps = {}) {
   }, []);
 
   const reset = useCallback(() => {
+    // A recorded vote can't be replayed — one vote per case per day. (This path
+    // only exists for the no-backend dev/client flow, where nothing is stored.)
+    if (alreadyPlayedRef.current) return;
     clearAllTimers();
     // Preserve the player's real progress across a replay (defaults are now 0s).
     setState(() => makeInitState({ ...props, ...progressRef.current }));
@@ -555,6 +612,7 @@ export function useGameState(props: InitProps = {}) {
       initRank,
       grantBonusXp,
       applyVoteResult,
+      loadExistingVote,
     },
   };
 }

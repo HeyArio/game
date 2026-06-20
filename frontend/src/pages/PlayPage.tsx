@@ -28,6 +28,9 @@ export interface PlayPageProps {
   countdownText: string;
   caseLoading?: boolean;
   noCase?: boolean;
+  /** Whether replaying the case is allowed (dev/local path only — a real,
+   *  recorded vote can't be replayed). */
+  canReplay?: boolean;
   onSelectCard: (id: CardId) => void;
   onSetConfidence: (c: Confidence) => void;
   onSetCrowdGuess: (id: CardId) => void;
@@ -36,7 +39,7 @@ export interface PlayPageProps {
   onReplay: () => void;
 }
 
-export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCard, onSetConfidence, onSetCrowdGuess, onLockIn, onAdvance, onReplay }: PlayPageProps) {
+export function PlayPage({ state, countdownText, caseLoading, noCase, canReplay, onSelectCard, onSetConfidence, onSetCrowdGuess, onLockIn, onAdvance, onReplay }: PlayPageProps) {
   const isMobile = useIsMobile();
   const cards = viewCards(state);
   const your = yourCard(state);
@@ -162,9 +165,11 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
           <div style={{ display: "flex", justifyContent: "center" }}>
             <ShareBar state={state} align="center" />
           </div>
-          <button onClick={onReplay} style={{ display: "inline-block", marginTop: 14, fontWeight: 800, fontSize: 13, color: "#8E9582", cursor: "pointer", background: "none", border: "none", fontFamily: "'Nunito',sans-serif" }}>
-            Replay today's case
-          </button>
+          {canReplay && (
+            <button onClick={onReplay} style={{ display: "inline-block", marginTop: 14, fontWeight: 800, fontSize: 13, color: "#8E9582", cursor: "pointer", background: "none", border: "none", fontFamily: "'Nunito',sans-serif" }}>
+              Replay today's case
+            </button>
+          )}
         </div>
       </div>
     );
@@ -201,17 +206,31 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, onSelectCa
           {state.question}
         </h1>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16, padding: "13px 16px", background: "#FFFBF0", border: "2px solid #FFE9A0", borderRadius: 16 }}>
-          <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 52, height: 52, flex: "none", animation: "qbob 3s ease-in-out infinite" }}>
-            <Mascot size={52} mood="neutral" />
-          </span>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 800, fontSize: 15, color: "#3C3C46" }}>Hey — I'm Arbi, and I'm judging today's case.</div>
-            <div style={{ fontSize: 14, color: "#7A6540", fontWeight: 600 }}>
-              Four answers, one's the sharpest. Back the one you'd defend and see if we land in the same place.
+        {state.alreadyPlayed ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16, padding: "13px 16px", background: state.win ? "#F1FCE6" : "#F4F8EE", border: "2px solid " + (state.win ? "#C4E89E" : "#E4EAD8"), borderRadius: 16 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 52, height: 52, flex: "none" }}>
+              <Mascot size={52} mood={state.win ? "happy" : "soft"} />
+            </span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 800, fontSize: 15, color: "#3C3C46" }}>You've already played today's case.</div>
+              <div style={{ fontSize: 14, color: "#5E6553", fontWeight: 600 }}>
+                Here's how it went — your answer's locked in. The next case lands in {countdownText}.
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16, padding: "13px 16px", background: "#FFFBF0", border: "2px solid #FFE9A0", borderRadius: 16 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 52, height: 52, flex: "none", animation: "qbob 3s ease-in-out infinite" }}>
+              <Mascot size={52} mood="neutral" />
+            </span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 800, fontSize: 15, color: "#3C3C46" }}>Hey — I'm Arbi, and I'm judging today's case.</div>
+              <div style={{ fontSize: 14, color: "#7A6540", fontWeight: 600 }}>
+                Four answers, one's the sharpest. Back the one you'd defend and see if we land in the same place.
+              </div>
+            </div>
+          </div>
+        )}
 
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(auto-fit,minmax(220px,1fr))" : "1fr 1fr", gap: 16, marginTop: 20 }}>
           {cards.map((card) => (

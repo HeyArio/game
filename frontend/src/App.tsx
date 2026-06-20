@@ -61,6 +61,31 @@ function Game() {
     });
   }, [caseStatus, dailyCase]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // If the player already voted on today's case, drop them straight onto their
+  // locked result — no re-voting, no re-scoring, no replayed celebration. (One
+  // vote per case per day; the board is read-only afterwards.)
+  useEffect(() => {
+    if (caseStatus !== "active" || !dailyCase) return;
+    let cancelled = false;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+      const { data: existing } = await supabase
+        .from("votes")
+        .select("option_id")
+        .eq("user_id", user.id)
+        .eq("case_id", dailyCase.id)
+        .maybeSingle();
+      if (cancelled || !existing?.option_id) return;
+      // Re-derive the full stored verdict (judge pick, reasoning, crowd leader,
+      // live %) via the idempotent submit-vote "alreadyVoted" path. Because a
+      // vote already exists, this never records a new one.
+      const result = await submitVote(dailyCase.id, existing.option_id);
+      if (!cancelled && result?.alreadyVoted) game.actions.loadExistingVote(result);
+    })();
+    return () => { cancelled = true; };
+  }, [caseStatus, dailyCase]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return;
@@ -129,7 +154,9 @@ function ClientGame() {
     });
   }, [status, clientCase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <GameShell game={game} caseLoading={status === "loading"} noCase={false} error={status === "error" ? error : null} />;
+  // Dev path has no server vote to lock against, so replaying the locally-scored
+  // case is allowed (and useful for testing).
+  return <GameShell game={game} caseLoading={status === "loading"} noCase={false} error={status === "error" ? error : null} canReplay />;
 }
 
 // ---- Guest path: landing page first, then a read-only preview of today's case ----
@@ -175,12 +202,13 @@ function GuestGame() {
 }
 
 // ---- Shared shell ----
-function GameShell({ game, caseLoading, noCase, error, guest = false, onRequireAuth, onGoLanding }: {
+function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay = false, onRequireAuth, onGoLanding }: {
   game: ReturnType<typeof useGameState>;
   caseLoading: boolean;
   noCase: boolean;
   error: string | null;
   guest?: boolean;
+  canReplay?: boolean;
   onRequireAuth?: () => void;
   onGoLanding?: () => void;
 }) {
@@ -214,7 +242,7 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, onRequireA
       <TopBar state={state} onSelectScreen={selectScreen} onOpenStreak={openStreak} onHome={onHome} guest={guest} onSignIn={requireAuth} />
 
       {state.screen === "play" && (
-        <PlayPage state={state} countdownText={countdownText} caseLoading={caseLoading} noCase={noCase}
+        <PlayPage state={state} countdownText={countdownText} caseLoading={caseLoading} noCase={noCase} canReplay={canReplay}
           onSelectCard={actions.selectCard} onSetConfidence={actions.setConfidence} onSetCrowdGuess={actions.setCrowdGuess}
           onLockIn={lockIn} onAdvance={actions.advance} onReplay={actions.reset} />
       )}

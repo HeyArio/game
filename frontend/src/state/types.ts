@@ -68,6 +68,11 @@ export interface GameState {
   win: boolean;
   promoted: boolean;
   completed: boolean;
+  // True once we know the player has already voted on today's case (loaded from
+  // the server). The case is then read-only: no re-voting, no re-scoring, and
+  // none of the win/XP/streak celebration is replayed — they just review how it
+  // went. One vote per case per day (enforced by a DB unique constraint).
+  alreadyPlayed: boolean;
   overlay: OverlayKind;
   contEquipped: boolean;
 

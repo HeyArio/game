@@ -44,7 +44,10 @@ export function leagueTier(totalXp: number): { name: string; min: number; icon: 
 
 export function cardStyle(c: BaseCard, s: GameState): CSSProperties {
   const sel = s.selected === c.id;
-  const isJ = c.id === JUDGE_ID;
+  // The winner highlight must follow the *real* judge pick the server revealed
+  // (judgeCardId), not a hardcoded card — otherwise the green "Arbi's pick"
+  // styling lands on the wrong card whenever the judge didn't pick D.
+  const isJ = c.id === judgeId(s);
   let bg = "#fff";
   let border = "#E4EAD8";
   let lip = "#E4EAD8";
