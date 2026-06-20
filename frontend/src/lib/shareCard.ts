@@ -1,5 +1,4 @@
 import type { GameState } from "../state/types";
-import { buildShareText, SHARE_URL } from "./share";
 
 // Renders the finished case as a 1080×1080 image for sharing (stories, IG,
 // WhatsApp), so a result is a glanceable card rather than a block of text.
@@ -119,20 +118,39 @@ async function renderShareCard(s: GameState): Promise<Blob | null> {
   return await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), "image/png", 0.92));
 }
 
+export type SharePlatform = "whatsapp" | "telegram" | "instagram" | "email";
+
+// Where each platform button sends the user on desktop (where a generated image
+// can't be attached to a deep link), so they can attach the just-saved PNG.
+const PLATFORM_OPEN: Record<SharePlatform, string> = {
+  whatsapp:  "https://web.whatsapp.com/",
+  telegram:  "https://web.telegram.org/",
+  instagram: "https://www.instagram.com/",
+  email:     "mailto:?subject=" + encodeURIComponent("My Quorum result"),
+};
+
 /**
- * Share the result as an image: native share sheet with the file where
- * supported (mobile), otherwise download the PNG. Returns a status the UI can
- * surface.
+ * Share the result as an IMAGE ONLY — no caption text.
+ *
+ * Best path (mobile + modern desktop): the native share sheet with just the PNG
+ * attached, so the user can send it to WhatsApp / Instagram / Telegram / Mail
+ * and the image goes with it. The web platform can't attach a generated file to
+ * an app-specific deep link, so on desktop without file-sharing we save the PNG
+ * and (if a platform was requested) open that app so they can attach it.
  */
-export async function shareResultImage(s: GameState): Promise<"shared" | "downloaded" | "cancelled" | "error"> {
+export async function shareResultImage(
+  s: GameState,
+  platform?: SharePlatform,
+): Promise<"shared" | "downloaded" | "cancelled" | "error"> {
   try {
     const blob = await renderShareCard(s);
     if (!blob) return "error";
     const file = new File([blob], "quorum-result.png", { type: "image/png" });
     const nav = navigator as any;
-    if (nav.canShare && nav.canShare({ files: [file] })) {
+    if (nav.canShare && nav.canShare({ files: [file] }) && nav.share) {
       try {
-        await nav.share({ files: [file], title: "Quorum", text: buildShareText(s, false), url: SHARE_URL });
+        // Image only — no `text` / `url`, so nothing but the card is shared.
+        await nav.share({ files: [file], title: "Quorum" });
         return "shared";
       } catch (e: any) {
         if (e?.name === "AbortError") return "cancelled";
@@ -144,6 +162,7 @@ export async function shareResultImage(s: GameState): Promise<"shared" | "downlo
     a.href = url; a.download = "quorum-result.png";
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (platform) window.open(PLATFORM_OPEN[platform], "_blank", "noopener");
     return "downloaded";
   } catch {
     return "error";

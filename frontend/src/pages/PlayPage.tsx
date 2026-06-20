@@ -3,15 +3,13 @@ import { Mascot } from "../components/Mascot";
 import { AnswerCard } from "../components/AnswerCard";
 import { icon } from "../icons/Icon";
 import { useIsMobile } from "../hooks/useMediaQuery";
-import { shareResult, shareLinks, copyShareText } from "../lib/share";
-import { shareResultImage } from "../lib/shareCard";
+import { shareResultImage, type SharePlatform } from "../lib/shareCard";
 import type { GameState, CardId, Confidence } from "../state/types";
 import {
   badgesView,
   COLORS,
   continueActiveStyle,
   continueStyle,
-  doneView,
   jName,
   jPick,
   leagueRowsView,
@@ -58,7 +56,6 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
     countdownSeconds > 0 &&
     countdownSeconds <= STREAK_RISK_WINDOW;
   const resultAccent = state.win ? "#58A700" : "#F57C00";
-  const done = doneView(state);
   const weekDays = weekDaysView(state);
   const leagueRows = leagueRowsView(state);
   const badges = badgesView(state, state.stats);
@@ -117,74 +114,6 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
         <div style={{ display: "flex", justifyContent: "center", animation: "qbob 3s ease-in-out infinite" }}><Mascot size={72} mood="soft" /></div>
         <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 24, color: "#3C3C46", marginTop: 12 }}>No case today — yet</div>
         <div style={{ fontWeight: 600, fontSize: 14, color: "#8E9582", marginTop: 6 }}>The docket is empty. Check back soon.</div>
-      </div>
-    );
-  }
-
-  if (state.completed) {
-    return (
-      <div style={{ maxWidth: 1160, margin: "0 auto", padding: "26px 24px" }}>
-        <div
-          style={{
-            position: "relative",
-            overflow: "hidden",
-            padding: "32px 28px",
-            background: "#fff",
-            border: "2px solid #E4EAD8",
-            borderBottomWidth: "4px",
-            borderRadius: 24,
-            textAlign: "center",
-            animation: "qrise .45s ease both",
-            maxWidth: 700,
-            margin: "0 auto",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "center", animation: "qbob 3s ease-in-out infinite" }}>
-            <Mascot size={72} mood={done.arbiMood} />
-          </div>
-          <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 29, color: "#3C3C46", letterSpacing: "-.01em", marginTop: 8 }}>
-            Today's case is closed
-          </div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: "#8E9582", marginTop: 5 }}>The next case enters the docket in</div>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              marginTop: 14,
-              padding: "11px 22px",
-              borderRadius: 16,
-              background: "#E8FFD7",
-              border: "2px solid #9EDF6A",
-              fontFamily: "'Baloo 2',cursive",
-              fontWeight: 800,
-              fontSize: 31,
-              color: "#58A700",
-              letterSpacing: ".05em",
-              fontVariantNumeric: "tabular-nums",
-            }}
-          >
-            {countdownText}
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 9, marginTop: 20 }}>
-            {done.chips.map((chip, i) => (
-              <span key={i} style={chip.style}>
-                {chip.iconEl}
-                {chip.label}
-              </span>
-            ))}
-          </div>
-          <div style={{ maxWidth: 430, margin: "18px auto 0", paddingTop: 18, borderTop: "2px dashed #ECEFE4", fontSize: 15, fontWeight: 600, color: "#5E6553", lineHeight: 1.6 }}>
-            {done.note}
-          </div>
-          <div style={{ display: "flex", justifyContent: "center" }}>
-            <ShareBar state={state} align="center" />
-          </div>
-          {canReplay && (
-            <button onClick={onReplay} style={{ display: "inline-block", marginTop: 14, fontWeight: 800, fontSize: 13, color: "#8E9582", cursor: "pointer", background: "none", border: "none", fontFamily: "'Nunito',sans-serif" }}>
-              Replay today's case
-            </button>
-          )}
-        </div>
       </div>
     );
   }
@@ -333,7 +262,12 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
                     </div>
                     <div style={{ fontWeight: 800, fontSize: 10, letterSpacing: ".1em", color: "#9AA08C" }}>{state.alreadyPlayed ? "XP EARNED" : "XP"}</div>
                   </div>
-                  <ContinueButton state={state} onAdvance={onAdvance} />
+                  {/* CONTINUE only exists to surface the promotion overlay; the
+                      result itself now stays on this page, so a played case is
+                      never a dead-end. */}
+                  {state.promoted && !state.completed && !state.alreadyPlayed && (
+                    <ContinueButton state={state} onAdvance={onAdvance} />
+                  )}
                 </div>
               </div>
               <VerdictBoard state={state} />
@@ -364,6 +298,18 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
               )}
 
               <ShareBar state={state} />
+
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: "2px dashed rgba(0,0,0,.08)", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: "#5E6553" }}>
+                  You're all done for today. Next case in{" "}
+                  <b style={{ color: "#58A700", fontVariantNumeric: "tabular-nums" }}>{countdownText}</b>.
+                </div>
+                {canReplay && (
+                  <button onClick={onReplay} style={{ fontWeight: 800, fontSize: 13, color: "#8E9582", cursor: "pointer", background: "none", border: "none", fontFamily: "'Nunito',sans-serif" }}>
+                    Replay today's case
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -579,72 +525,74 @@ function WagerPanel({ state, onSetConfidence, onSetCrowdGuess }: {
   );
 }
 
+// Sharing is image-only: every entry point sends the rendered result card (no
+// caption text). On mobile the native share sheet attaches the PNG and the user
+// picks the app; on desktop the PNG is saved and the chosen app is opened so
+// they can attach it.
+const SHARE_TARGETS: { platform: SharePlatform; label: string; color: string; iconName: string }[] = [
+  { platform: "whatsapp",  label: "WhatsApp",  color: "#25D366", iconName: "whatsapp" },
+  { platform: "telegram",  label: "Telegram",  color: "#229ED9", iconName: "telegram" },
+  { platform: "instagram", label: "Instagram", color: "#E1306C", iconName: "instagram" },
+  { platform: "email",     label: "Email",     color: "#7A8270", iconName: "mail" },
+];
+
 function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" | "center" }) {
-  const [label, setLabel] = useState("Share result");
   const [imgLabel, setImgLabel] = useState("Share image");
   const [toast, setToast] = useState<string | null>(null);
-  const links = shareLinks(state);
+  const [busy, setBusy] = useState(false);
 
-  function flash(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2000); }
-
-  async function onShare() {
-    const r = await shareResult(state);
-    if (r === "copied") { setLabel("Copied!"); setTimeout(() => setLabel("Share result"), 1800); }
-    else if (r === "error") { setLabel("Couldn't share"); setTimeout(() => setLabel("Share result"), 1800); }
-  }
+  function flash(msg: string) { setToast(msg); setTimeout(() => setToast((t) => (t === msg ? null : t)), 2400); }
 
   async function onShareImage() {
+    if (busy) return;
+    setBusy(true);
     setImgLabel("Creating…");
     const r = await shareResultImage(state);
     setImgLabel(r === "shared" ? "Shared!" : r === "downloaded" ? "Image saved" : r === "error" ? "Couldn't create" : "Share image");
-    if (r !== "cancelled") setTimeout(() => setImgLabel("Share image"), 2200);
-    else setImgLabel("Share image");
+    setTimeout(() => setImgLabel("Share image"), 2200);
+    setBusy(false);
   }
 
-  async function onInstagram() {
-    // Instagram has no web share URL for text, so copy the caption and open it.
-    const ok = await copyShareText(state);
-    flash(ok ? "Caption copied — paste it into Instagram" : "Couldn't copy caption");
-    window.open("https://www.instagram.com/", "_blank", "noopener");
+  async function onPlatform(p: SharePlatform, label: string) {
+    if (busy) return;
+    setBusy(true);
+    setToast("Creating image…");
+    const r = await shareResultImage(state, p);
+    setBusy(false);
+    if (r === "shared") flash("Shared!");
+    else if (r === "downloaded") flash(`Image saved — attach it in ${label}`);
+    else if (r === "error") flash("Couldn't create the image");
+    else setToast(null); // cancelled
   }
 
   const round = (bg: string): CSSProperties => ({
     display: "inline-flex", alignItems: "center", justifyContent: "center",
     width: 42, height: 42, borderRadius: 12, background: bg, border: "none",
-    borderBottom: "3px solid rgba(0,0,0,.18)", cursor: "pointer", textDecoration: "none",
+    borderBottom: "3px solid rgba(0,0,0,.18)", cursor: busy ? "default" : "pointer",
+    opacity: busy ? 0.6 : 1,
   });
 
   return (
     <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 11, alignItems: align === "center" ? "center" : "flex-start" }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", justifyContent: align === "center" ? "center" : "flex-start" }}>
-        <button onClick={onShareImage}
-          style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer",
-            border: "2px solid #A5ED6E", borderBottomWidth: 4, background: "#58CC02", color: "#fff",
+        <button onClick={onShareImage} disabled={busy}
+          style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: busy ? "default" : "pointer",
+            border: "2px solid #A5ED6E", borderBottomWidth: 4, background: "#58CC02", color: "#fff", opacity: busy ? 0.7 : 1,
             padding: "11px 20px", borderRadius: 14, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 14 }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="3" y="5" width="18" height="14" rx="3" /><circle cx="9" cy="11" r="2" /><path d="M21 16l-4.5-4.5L7 21" />
           </svg>
           {imgLabel}
         </button>
-        <button onClick={onShare}
-          style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer",
-            border: "2px solid #BEEAFD", borderBottomWidth: 4, background: "#E3F6FF", color: "#1899D6",
-            padding: "11px 20px", borderRadius: 14, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 14 }}>
-          {icon("share", 17, "#1899D6")}
-          {label}
-        </button>
-        <a href={links.whatsapp} target="_blank" rel="noopener noreferrer" title="Share on WhatsApp" aria-label="Share on WhatsApp" style={round("#25D366")}>
-          {icon("whatsapp", 20, "#fff")}
-        </a>
-        <a href={links.telegram} target="_blank" rel="noopener noreferrer" title="Share on Telegram" aria-label="Share on Telegram" style={round("#229ED9")}>
-          {icon("telegram", 20, "#fff")}
-        </a>
-        <button onClick={onInstagram} title="Share on Instagram" aria-label="Share on Instagram" style={round("#E1306C")}>
-          {icon("instagram", 20, "#fff")}
-        </button>
-        <a href={links.email} title="Share via email" aria-label="Share via email" style={round("#7A8270")}>
-          {icon("mail", 20, "#fff")}
-        </a>
+        {SHARE_TARGETS.map((t) => (
+          <button key={t.platform} onClick={() => onPlatform(t.platform, t.label)} disabled={busy}
+            title={`Share image to ${t.label}`} aria-label={`Share image to ${t.label}`} style={round(t.color)}>
+            {icon(t.iconName, 20, "#fff")}
+          </button>
+        ))}
+      </div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#9AA08C" }}>
+        Shares the result card as an image — no caption text.
       </div>
       {toast && <div style={{ fontSize: 12.5, fontWeight: 800, color: "#1899D6" }}>{toast}</div>}
     </div>
