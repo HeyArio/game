@@ -212,7 +212,7 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
   onRequireAuth?: () => void;
   onGoLanding?: () => void;
 }) {
-  const { state, countdownText, setCanvas, actions } = game;
+  const { state, countdownText, countdownSeconds, setCanvas, actions } = game;
   const screenLabel = { play: "Daily Case", leagues: "Leagues", quests: "Quests", profile: "Profile" }[state.screen];
   // When a guest tries to lock in, prompt them to sign in via a modal popup.
   const [signInPrompt, setSignInPrompt] = useState(false);
@@ -242,7 +242,7 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
       <TopBar state={state} onSelectScreen={selectScreen} onOpenStreak={openStreak} onHome={onHome} guest={guest} onSignIn={requireAuth} />
 
       {state.screen === "play" && (
-        <PlayPage state={state} countdownText={countdownText} caseLoading={caseLoading} noCase={noCase} canReplay={canReplay}
+        <PlayPage state={state} countdownText={countdownText} countdownSeconds={countdownSeconds} caseLoading={caseLoading} noCase={noCase} canReplay={canReplay}
           onSelectCard={actions.selectCard} onSetConfidence={actions.setConfidence} onSetCrowdGuess={actions.setCrowdGuess}
           onLockIn={lockIn} onAdvance={actions.advance} onReplay={actions.reset} />
       )}

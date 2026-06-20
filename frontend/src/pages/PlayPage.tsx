@@ -26,6 +26,8 @@ import {
 export interface PlayPageProps {
   state: GameState;
   countdownText: string;
+  /** Seconds left until the case closes — drives the streak-at-risk nudge. */
+  countdownSeconds?: number;
   caseLoading?: boolean;
   noCase?: boolean;
   /** Whether replaying the case is allowed (dev/local path only — a real,
@@ -39,10 +41,22 @@ export interface PlayPageProps {
   onReplay: () => void;
 }
 
-export function PlayPage({ state, countdownText, caseLoading, noCase, canReplay, onSelectCard, onSetConfidence, onSetCrowdGuess, onLockIn, onAdvance, onReplay }: PlayPageProps) {
+export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, noCase, canReplay, onSelectCard, onSetConfidence, onSetCrowdGuess, onLockIn, onAdvance, onReplay }: PlayPageProps) {
   const isMobile = useIsMobile();
   const cards = viewCards(state);
   const your = yourCard(state);
+  // Streak safety net: once a player has a streak going, warn them while there's
+  // still time to play today's case but the deadline is close (< 3h). Only while
+  // the case is still open to them (unvoted, not already played).
+  const STREAK_RISK_WINDOW = 3 * 3600;
+  const streakAtRisk =
+    state.phase === "unvoted" &&
+    !state.alreadyPlayed &&
+    !state.scored &&
+    state.streak > 0 &&
+    countdownSeconds != null &&
+    countdownSeconds > 0 &&
+    countdownSeconds <= STREAK_RISK_WINDOW;
   const resultAccent = state.win ? "#58A700" : "#F57C00";
   const done = doneView(state);
   const weekDays = weekDaysView(state);
@@ -189,6 +203,21 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, canReplay,
     >
       {/* MAIN COLUMN */}
       <main>
+        {streakAtRisk && (
+          <div role="status" style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, padding: "12px 16px", background: "#FFF3E0", border: "2px solid #FFCC80", borderBottom: "4px solid #FF9600", borderRadius: 16 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 12, background: "#FFE0B2", flex: "none" }}>
+              {icon("flame", 24, "#FF9600")}
+            </span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 800, fontSize: 15, color: "#C2410C" }}>
+                Your {state.streak}-day streak is on the line.
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#8A5A2B" }}>
+                Lock in today's case before the clock runs out — <b style={{ fontVariantNumeric: "tabular-nums" }}>{countdownText}</b> left.
+              </div>
+            </div>
+          </div>
+        )}
         <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap", marginBottom: 14 }}>
           <span style={{ padding: "7px 13px", borderRadius: 11, background: "#58CC02", color: "#fff", fontWeight: 800, fontSize: 12, letterSpacing: ".04em" }}>
             DAILY CASE {state.caseNo ? `#${state.caseNo}` : ""}
@@ -302,7 +331,7 @@ export function PlayPage({ state, countdownText, caseLoading, noCase, canReplay,
                     <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 24, color: resultAccent }}>
                       +{state.earned}
                     </div>
-                    <div style={{ fontWeight: 800, fontSize: 10, letterSpacing: ".1em", color: "#9AA08C" }}>XP</div>
+                    <div style={{ fontWeight: 800, fontSize: 10, letterSpacing: ".1em", color: "#9AA08C" }}>{state.alreadyPlayed ? "XP EARNED" : "XP"}</div>
                   </div>
                   <ContinueButton state={state} onAdvance={onAdvance} />
                 </div>

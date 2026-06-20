@@ -41,6 +41,7 @@ export function AnswerCard({ card, onSelect }: AnswerCardProps) {
     <div
       role={interactive ? "button" : undefined}
       tabIndex={interactive ? 0 : undefined}
+      aria-pressed={interactive ? card.selected : undefined}
       aria-label={interactive ? `Select answer ${card.letter}` : undefined}
       onClick={onSelect}
       onKeyDown={interactive ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(); } } : undefined}

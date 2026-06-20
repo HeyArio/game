@@ -189,6 +189,7 @@ export function navView(screen: string): NavItemView[] {
 export interface ViewCard extends BaseCard {
   modelLabel: string;
   accent: string;
+  selected: boolean;
   style: CSSProperties;
   badgeStyle: CSSProperties;
   showId: boolean;
@@ -217,6 +218,7 @@ export function viewCards(s: GameState): ViewCard[] {
       ...c,
       modelLabel: "MODEL " + c.letter,
       accent: COLORS[c.letter],
+      selected: sel,
       style: cardStyle(c, s),
       badgeStyle: badgeStyle(c),
       showId: s.reveal.ids,

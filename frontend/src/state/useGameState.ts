@@ -167,6 +167,9 @@ export function useGameState(props: InitProps = {}) {
 
   const countdownRef = useRef<number>(STARTING_COUNTDOWN);
   const [countdownText, setCountdownText] = useState<string>(fmtClock(STARTING_COUNTDOWN));
+  // Seconds remaining until the case closes — exposed so the UI can warn when a
+  // streak is about to lapse (the formatted text alone is awkward to threshold).
+  const [countdownSeconds, setCountdownSeconds] = useState<number>(STARTING_COUNTDOWN);
 
   // Tracks whether the player is reviewing a vote they already cast today. Kept
   // as a ref (not just state) so `reset` can synchronously refuse to replay a
@@ -223,6 +226,9 @@ export function useGameState(props: InitProps = {}) {
   }, []);
 
   const fireConfetti = useCallback(() => {
+    // Honor reduced-motion: the CSS keyframes are neutralised under the media
+    // query, but the confetti is canvas-drawn so we have to opt out in JS.
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
     const c = canvasRef.current;
     if (!c) return;
     const W = (c.width = c.offsetWidth);
@@ -516,6 +522,7 @@ export function useGameState(props: InitProps = {}) {
     countdownInterval.current = window.setInterval(() => {
       countdownRef.current = Math.max(0, countdownRef.current - 1);
       setCountdownText(fmtClock(countdownRef.current));
+      setCountdownSeconds(countdownRef.current);
     }, 1000);
     return () => {
       clearAllTimers();
@@ -530,6 +537,7 @@ export function useGameState(props: InitProps = {}) {
     const secondsLeft = Math.max(0, Math.floor((new Date(data.closesAt).getTime() - Date.now()) / 1000));
     countdownRef.current = secondsLeft;
     setCountdownText(fmtClock(secondsLeft));
+    setCountdownSeconds(secondsLeft);
     setState((s) => ({
       ...s,
       caseId: data.caseId,
@@ -590,6 +598,7 @@ export function useGameState(props: InitProps = {}) {
   return {
     state,
     countdownText,
+    countdownSeconds,
     setCanvas,
     actions: {
       selectCard,
