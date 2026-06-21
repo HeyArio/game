@@ -40,6 +40,7 @@ drop policy if exists "cast own vote" on public.votes;
 
 -- ---------- 2. user_progress: read-only for clients ---------------------------
 drop policy if exists "own progress" on public.user_progress;
+drop policy if exists "read own progress" on public.user_progress;  -- re-runnable
 create policy "read own progress"
   on public.user_progress for select to authenticated
   using (auth.uid() = user_id);
@@ -113,12 +114,24 @@ revoke all on function public.update_user_progress_after_vote(uuid, int, boolean
 grant execute on function public.update_user_progress_after_vote(uuid, int, boolean)
   to service_role;
 
-revoke all on function public.check_streak(uuid) from public, anon, authenticated;
--- check_streak is unused by the app (update_user_progress_after_vote owns streak
--- logic); leave it grant-less so nothing but the owner can run it.
+-- check_streak (0002) and tick_bot_xp (0006) come from earlier migrations. Guard
+-- each with to_regprocedure so this hardening migration still applies cleanly if
+-- the live DB has drifted from the committed history and one of them is absent:
+-- a missing function has nothing to lock down, so skipping is the correct no-op.
+-- (A bare REVOKE on a non-existent function raises 42883 and aborts the script.)
+do $$
+begin
+  -- check_streak is unused by the app (update_user_progress_after_vote owns the
+  -- streak logic); leave it grant-less so nothing but the owner can run it.
+  if to_regprocedure('public.check_streak(uuid)') is not null then
+    execute 'revoke all on function public.check_streak(uuid) from public, anon, authenticated';
+  end if;
 
-revoke all on function public.tick_bot_xp() from public, anon, authenticated;
-grant execute on function public.tick_bot_xp() to service_role;  -- daily cron
+  if to_regprocedure('public.tick_bot_xp()') is not null then
+    execute 'revoke all on function public.tick_bot_xp() from public, anon, authenticated';
+    execute 'grant execute on function public.tick_bot_xp() to service_role';  -- daily cron
+  end if;
+end $$;
 
 -- ---------- 4. atomic vote write ---------------------------------------------
 create or replace function public.record_vote(
