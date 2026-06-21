@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties, type ReactNode } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import { Mascot } from "../components/Mascot";
 import { useAuth } from "../auth/AuthProvider";
 import { isSupabaseConfigured } from "../lib/supabase";
@@ -144,25 +144,9 @@ const FAQ = [
 export function LandingPage({ onPlay }: { onPlay: () => void }) {
   const { signInWithGoogle } = useAuth();
 
-  // Inject FAQPage structured data for answer engines, kept in sync with the
-  // visible FAQ above. Removed on unmount so it never lingers on other screens.
-  useEffect(() => {
-    const data = {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      mainEntity: FAQ.map((f) => ({
-        "@type": "Question",
-        name: f.q,
-        acceptedAnswer: { "@type": "Answer", text: f.a },
-      })),
-    };
-    const el = document.createElement("script");
-    el.type = "application/ld+json";
-    el.id = "faq-jsonld";
-    el.textContent = JSON.stringify(data);
-    document.head.appendChild(el);
-    return () => { el.remove(); };
-  }, []);
+  // NOTE: the FAQPage structured data now lives statically in index.html (in the
+  // ld+json @graph) so non-JS crawlers and answer engines can read it without
+  // executing the app. Keep the two FAQ lists in sync when editing either.
 
   const PlayCTA = ({ wide = false }: { wide?: boolean }) => (
     <button

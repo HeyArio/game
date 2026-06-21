@@ -25,8 +25,13 @@ export function QuestsPage({ countdownText = "", onClaimed }: QuestsPageProps) {
     if (r?.ok && !r.already && r.reward_xp) {
       onClaimed?.(r.total_xp ?? 0, r.level ?? 1);
       setToast(`+${r.reward_xp} XP claimed`);
-      setTimeout(() => setToast(null), 2200);
+    } else if (!r || !r.ok) {
+      // Null = network/RPC error; ok:false = server says not yet completable.
+      setToast("Couldn't claim that — please try again.");
+    } else {
+      return; // already claimed / nothing to grant — the refreshed list shows it
     }
+    setTimeout(() => setToast(null), 2200);
   }
 
   if (loading) {
@@ -50,7 +55,7 @@ export function QuestsPage({ countdownText = "", onClaimed }: QuestsPageProps) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 2 }}>
-        <span style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 18, color: "#3C3C46" }}>Daily Quests</span>
+        <h2 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 18, color: "#3C3C46" }}>Daily Quests</h2>
         {view.refresh && (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 11, background: "#FFF3E0", border: "2px solid #FFE0B2", color: "#FF9600", fontWeight: 800, fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
             {view.clockEl}
@@ -77,7 +82,7 @@ export function QuestsPage({ countdownText = "", onClaimed }: QuestsPageProps) {
 
       {view.big.length > 0 && (
         <>
-          <div style={{ marginTop: 8, fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 18, color: "#3C3C46" }}>Weekly &amp; Monthly Challenges</div>
+          <h2 style={{ marginTop: 8, fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 18, color: "#3C3C46" }}>Weekly &amp; Monthly Challenges</h2>
           {view.big.map((b) => (
             <div key={b.questKey} style={{ position: "relative", overflow: "hidden", padding: 22, borderRadius: 22, background: b.gradient, color: "#fff", boxShadow: b.shadow }}>
               <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -118,7 +123,7 @@ export function QuestsPage({ countdownText = "", onClaimed }: QuestsPageProps) {
       )}
 
       {toast && (
-        <div style={{ position: "fixed", left: "50%", bottom: 28, transform: "translateX(-50%)", zIndex: 50, padding: "11px 18px", borderRadius: 14, background: "#3C3C46", color: "#fff", fontWeight: 800, fontSize: 14, boxShadow: "0 6px 20px rgba(0,0,0,.18)", animation: "qrise .35s ease both" }}>
+        <div role="status" style={{ position: "fixed", left: "50%", bottom: 28, transform: "translateX(-50%)", zIndex: 50, padding: "11px 18px", borderRadius: 14, background: "#3C3C46", color: "#fff", fontWeight: 800, fontSize: 14, boxShadow: "0 6px 20px rgba(0,0,0,.18)", animation: "qrise .35s ease both" }}>
           {toast}
         </div>
       )}

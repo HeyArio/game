@@ -56,4 +56,13 @@ header [aria-label*="streak"]:hover { background: #FFE8C8 !important; }
   @keyframes qpop  { 0%, 100% { transform: scale(1); opacity: 1; } }
   @keyframes qspin { to { transform: rotate(0deg); } }
   .faq-chev { transition: none !important; }
+  /* Belt-and-suspenders: also neutralise the many inline `transition`/`animation`
+     styles set in JSX (XP/percent bar widths, button transforms) that the named
+     keyframes above don't cover. */
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

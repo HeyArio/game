@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useAuth } from "./auth/AuthProvider";
 import { ConfettiCanvas } from "./components/ConfettiCanvas";
 import { PromoOverlay } from "./components/PromoOverlay";
@@ -7,12 +7,16 @@ import { TopBar } from "./components/TopBar";
 import { SignInOverlay } from "./components/SignInOverlay";
 import { OnboardingOverlay } from "./components/OnboardingOverlay";
 import { Mascot } from "./components/Mascot";
-import { LeaguesPage } from "./pages/LeaguesPage";
-import { PlayPage } from "./pages/PlayPage";
-import { ProfilePage } from "./pages/ProfilePage";
-import { QuestsPage } from "./pages/QuestsPage";
-import { LandingPage } from "./pages/LandingPage";
 import { useGameState } from "./state/useGameState";
+
+// Route-level code splitting: a guest hitting the landing page shouldn't have to
+// download PlayPage (+ its share-card/canvas code) and vice-versa. Each screen
+// is its own chunk, loaded on demand behind a Suspense boundary.
+const LeaguesPage = lazy(() => import("./pages/LeaguesPage").then((m) => ({ default: m.LeaguesPage })));
+const PlayPage = lazy(() => import("./pages/PlayPage").then((m) => ({ default: m.PlayPage })));
+const ProfilePage = lazy(() => import("./pages/ProfilePage").then((m) => ({ default: m.ProfilePage })));
+const QuestsPage = lazy(() => import("./pages/QuestsPage").then((m) => ({ default: m.QuestsPage })));
+const LandingPage = lazy(() => import("./pages/LandingPage").then((m) => ({ default: m.LandingPage })));
 import { useDailyCase } from "./hooks/useDailyCase";
 import { useIncomingChallenge } from "./lib/challenge";
 import { useClientCase } from "./hooks/useClientCase";
@@ -36,8 +40,18 @@ export default function App() {
 
 function SplashScreen() {
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(140% 80% at 50% -20%, #EAF7DD 0%, #F4F8EE 48%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div role="status" aria-label="Loading Quorum" style={{ minHeight: "100vh", background: "radial-gradient(140% 80% at 50% -20%, #EAF7DD 0%, #F4F8EE 48%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <span style={{ animation: "qbob 3s ease-in-out infinite" }}><Mascot size={72} mood="neutral" /></span>
+    </div>
+  );
+}
+
+// Suspense fallback while a lazily-loaded screen chunk arrives. Reserves vertical
+// space so switching screens doesn't collapse the layout.
+function PageFallback() {
+  return (
+    <div role="status" aria-label="Loading" style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <span style={{ animation: "qbob 3s ease-in-out infinite" }}><Mascot size={56} mood="neutral" /></span>
     </div>
   );
 }
@@ -59,7 +73,7 @@ function Game() {
     }));
     game.actions.initCase({
       caseId: dailyCase.id, question: dailyCase.question, category: dailyCase.category,
-      caseNo: dailyCase.case_no, cards: cards as any, closesAt: dailyCase.closes_at,
+      caseNo: dailyCase.case_no, cards, closesAt: dailyCase.closes_at,
     });
   }, [caseStatus, dailyCase]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -70,20 +84,26 @@ function Game() {
     if (caseStatus !== "active" || !dailyCase) return;
     let cancelled = false;
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || cancelled) return;
-      const { data: existing } = await supabase
-        .from("votes")
-        .select("option_id")
-        .eq("user_id", user.id)
-        .eq("case_id", dailyCase.id)
-        .maybeSingle();
-      if (cancelled || !existing?.option_id) return;
-      // Re-derive the full stored verdict (judge pick, reasoning, crowd leader,
-      // live %) via the idempotent submit-vote "alreadyVoted" path. Because a
-      // vote already exists, this never records a new one.
-      const result = await submitVote(dailyCase.id, existing.option_id);
-      if (!cancelled && result?.alreadyVoted) game.actions.loadExistingVote(result);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || cancelled) return;
+        const { data: existing } = await supabase
+          .from("votes")
+          .select("option_id")
+          .eq("user_id", user.id)
+          .eq("case_id", dailyCase.id)
+          .maybeSingle();
+        if (cancelled || !existing?.option_id) return;
+        // Re-derive the full stored verdict (judge pick, reasoning, crowd leader,
+        // live %) via the idempotent submit-vote "alreadyVoted" path. Because a
+        // vote already exists, this never records a new one.
+        const result = await submitVote(dailyCase.id, existing.option_id);
+        if (!cancelled && result?.alreadyVoted) game.actions.loadExistingVote(result);
+      } catch (e) {
+        // Non-fatal: the player just sees a fresh (re-votable) board; the server
+        // still rejects a duplicate vote, so progress can't be corrupted.
+        if (!cancelled) console.error("[Game] existing-vote load failed:", e);
+      }
     })();
     return () => { cancelled = true; };
   }, [caseStatus, dailyCase]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -136,6 +156,10 @@ function Game() {
         .eq("user_id", user.id)
         .maybeSingle();
       game.actions.initRank((meRow as any)?.rank ?? null);
+    }).catch((e) => {
+      // Non-fatal: the UI keeps its honest defaults (zeros + placeholder bots)
+      // rather than crashing on a transient load failure.
+      console.error("[Game] progress/leaderboard load failed:", e);
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -188,11 +212,15 @@ function GuestGame() {
     }));
     game.actions.initCase({
       caseId: dailyCase.id, question: dailyCase.question, category: dailyCase.category,
-      caseNo: dailyCase.case_no, cards: cards as any, closesAt: dailyCase.closes_at,
+      caseNo: dailyCase.case_no, cards, closesAt: dailyCase.closes_at,
     });
   }, [caseStatus, dailyCase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (view === "landing") return <LandingPage onPlay={() => { setView("game"); window.scrollTo(0, 0); }} />;
+  if (view === "landing") return (
+    <Suspense fallback={<SplashScreen />}>
+      <LandingPage onPlay={() => { setView("game"); window.scrollTo(0, 0); }} />
+    </Suspense>
+  );
 
   return (
     <GameShell
@@ -251,14 +279,16 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
     <div data-screen-label={screenLabel} style={{ minHeight: "100vh", background: "radial-gradient(140% 80% at 50% -20%, #EAF7DD 0%, #F4F8EE 48%)", color: "#3C3C46", padding: "0 0 60px" }}>
       <TopBar state={state} onSelectScreen={selectScreen} onOpenStreak={openStreak} onHome={onHome} guest={guest} onSignIn={requireAuth} />
 
-      {state.screen === "play" && (
-        <PlayPage state={state} countdownText={countdownText} countdownSeconds={countdownSeconds} caseLoading={caseLoading} noCase={noCase} canReplay={canReplay} challenge={challenge}
-          onSelectCard={actions.selectCard} onSetConfidence={actions.setConfidence} onSetCrowdGuess={actions.setCrowdGuess}
-          onLockIn={lockIn} onAdvance={actions.advance} onReplay={actions.reset} />
-      )}
-      {state.screen === "leagues" && <LeaguesPage state={state} />}
-      {state.screen === "quests"  && <QuestsPage  countdownText={countdownText} onClaimed={actions.grantBonusXp} />}
-      {state.screen === "profile" && <ProfilePage state={state} />}
+      <Suspense fallback={<PageFallback />}>
+        {state.screen === "play" && (
+          <PlayPage state={state} countdownText={countdownText} countdownSeconds={countdownSeconds} caseLoading={caseLoading} noCase={noCase} canReplay={canReplay} challenge={challenge}
+            onSelectCard={actions.selectCard} onSetConfidence={actions.setConfidence} onSetCrowdGuess={actions.setCrowdGuess}
+            onLockIn={lockIn} onAdvance={actions.advance} onReplay={actions.reset} />
+        )}
+        {state.screen === "leagues" && <LeaguesPage state={state} />}
+        {state.screen === "quests"  && <QuestsPage  countdownText={countdownText} onClaimed={actions.grantBonusXp} />}
+        {state.screen === "profile" && <ProfilePage state={state} />}
+      </Suspense>
 
       {state.overlay === "streak" && (
         <StreakOverlay state={state} countdownText={countdownText} onClose={actions.closeOverlay} onEquip={actions.equipContinuance} />
@@ -284,7 +314,7 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
 
 function ErrorScreen({ message }: { message: string }) {
   return (
-    <div style={{ padding: "60px 24px", textAlign: "center", color: "#8E9582", fontWeight: 700 }}>
+    <div role="alert" style={{ padding: "60px 24px", textAlign: "center", color: "#5E6654", fontWeight: 700 }}>
       <Mascot size={64} mood="soft" />
       <div style={{ marginTop: 16, fontSize: 15 }}>{message}</div>
     </div>

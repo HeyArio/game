@@ -78,6 +78,7 @@ export interface CaseData {
 
 interface InitProps {
   streak?: number;
+  bestStreak?: number;
   totalXp?: number;
   dailyXp?: number;
   contLeft?: number;
@@ -108,7 +109,7 @@ function makeInitState(props: InitProps): GameState {
     overlay: null,
     contEquipped: false,
     streak: props.streak ?? 0,
-    bestStreak: props.streak ?? 0,
+    bestStreak: props.bestStreak ?? props.streak ?? 0,
     level: levelFromXp(props.totalXp ?? 0),
     totalXp: props.totalXp ?? 0,
     dailyXp: props.dailyXp ?? 0,
@@ -135,7 +136,6 @@ function makeInitState(props: InitProps): GameState {
     question: "Loading today's case…",
     category: "",
     caseNo: 0,
-    timeLeft: "—",
   };
 }
 
@@ -148,11 +148,13 @@ function makeInitState(props: InitProps): GameState {
 export function useGameState(props: InitProps = {}) {
   const [state, setState] = useState<GameState>(() => makeInitState(props));
   const onSubmitVoteRef = useRef(props.onSubmitVote);
+  // Keep the latest callback so score() never calls a stale closure.
+  useEffect(() => { onSubmitVoteRef.current = props.onSubmitVote; }, [props.onSubmitVote]);
 
   // Last real progress loaded from the DB. Now that the initial state defaults to
   // honest zeros, replaying today's case (reset) restores the player's true
   // streak / XP from here instead of showing 0s.
-  const progressRef = useRef<Partial<Pick<GameState, "streak" | "totalXp" | "dailyXp" | "contLeft">>>({});
+  const progressRef = useRef<Partial<Pick<GameState, "streak" | "bestStreak" | "totalXp" | "dailyXp" | "contLeft">>>({});
 
   // Mutable refs mirroring the original instance fields (timers, countdown, DOM-bound clocks).
   const t1 = useRef<number | null>(null);
@@ -166,6 +168,10 @@ export function useGameState(props: InitProps = {}) {
   const countdownInterval = useRef<number | null>(null);
 
   const countdownRef = useRef<number>(STARTING_COUNTDOWN);
+  // Absolute close time (ms epoch). The countdown is derived from this on every
+  // tick so it can't drift with setInterval jitter or background-tab throttling —
+  // it self-corrects to wall-clock. initCase sets it to the real closes_at.
+  const countdownTargetRef = useRef<number>(Date.now() + STARTING_COUNTDOWN * 1000);
   const [countdownText, setCountdownText] = useState<string>(fmtClock(STARTING_COUNTDOWN));
   // Seconds remaining until the case closes — exposed so the UI can warn when a
   // streak is about to lapse (the formatted text alone is awkward to threshold).
@@ -184,6 +190,7 @@ export function useGameState(props: InitProps = {}) {
     });
     if (pctInterval.current != null) clearInterval(pctInterval.current);
     if (dailyInterval.current != null) clearInterval(dailyInterval.current);
+    if (confettiInterval.current != null) clearInterval(confettiInterval.current);
   }, []);
 
   const countPct = useCallback((cards?: BaseCard[]) => {
@@ -205,10 +212,15 @@ export function useGameState(props: InitProps = {}) {
     }, 16);
   }, []);
 
-  const countDaily = useCallback((earned: number) => {
+  // Animate the daily-goal bar from whatever is currently shown (displayDaily) up
+  // to the authoritative dailyXp. Callers update dailyXp first, then invoke this —
+  // reading the target from state (rather than an `earned` delta) is what makes
+  // the bar count up smoothly instead of jumping to the end value.
+  const countDaily = useCallback(() => {
     setState((s) => {
-      const base = s.dailyXp;
-      const target = Math.min(s.dailyGoal, base + earned);
+      const base = s.displayDaily;
+      const target = Math.min(s.dailyGoal, s.dailyXp);
+      if (target <= base) return { ...s, displayDaily: target };
       const dur = 700;
       const t0 = Date.now();
       if (dailyInterval.current != null) clearInterval(dailyInterval.current);
@@ -359,7 +371,7 @@ export function useGameState(props: InitProps = {}) {
     // Celebration + daily-bar animation only ever fire for a genuinely new vote.
     if (!review) {
       if (result.wasCorrect) queueMicrotask(() => fireConfetti());
-      queueMicrotask(() => countDaily(result.xpEarned));
+      queueMicrotask(() => countDaily());
     }
   }, [countDaily, fireConfetti]);
 
@@ -391,9 +403,9 @@ export function useGameState(props: InitProps = {}) {
       // verdict on any failure, which could wrongly flash "We agree!" whenever
       // card D was picked.)
       const selectedCard = s.cards.find((c) => c.id === s.selected);
-      const optionId = (selectedCard as any)?._optionId as string | undefined;
+      const optionId = selectedCard?._optionId;
       const crowdCard = s.crowdGuess ? s.cards.find((c) => c.id === s.crowdGuess) : undefined;
-      const crowdOptionId = (crowdCard as any)?._optionId as string | undefined;
+      const crowdOptionId = crowdCard?._optionId;
       const result = s.caseId && optionId
         ? await onVote(s.caseId, optionId, s.confidence, crowdOptionId ?? null)
         : null;
@@ -423,7 +435,7 @@ export function useGameState(props: InitProps = {}) {
         .map((p) => (p.isYou ? { ...p, xp: p.xp + earned } : p))
         .sort((a, b) => b.xp - a.xp);
       const youRank = league.findIndex((p) => p.isYou) + 1;
-      queueMicrotask(() => { countDaily(earned); if (win) fireConfetti(); });
+      queueMicrotask(() => { countDaily(); if (win) fireConfetti(); });
       return { ...s2, reveal: { ...s2.reveal, verdict: true }, scored: true, win, earned,
         judgeReasoning: s2.judgeReasoning, crowdLeaderId, crowdCorrect, crowdBonus,
         totalXp: s2.totalXp + earned, level: levelFromXp(s2.totalXp + earned),
@@ -519,11 +531,14 @@ export function useGameState(props: InitProps = {}) {
   // (it pushed text directly into subscribed elements). Here we expose it as React
   // state (`countdownText`) consumed by components, which is the natural React analog.
   useEffect(() => {
-    countdownInterval.current = window.setInterval(() => {
-      countdownRef.current = Math.max(0, countdownRef.current - 1);
-      setCountdownText(fmtClock(countdownRef.current));
-      setCountdownSeconds(countdownRef.current);
-    }, 1000);
+    const tick = () => {
+      const secs = Math.max(0, Math.round((countdownTargetRef.current - Date.now()) / 1000));
+      countdownRef.current = secs;
+      setCountdownText(fmtClock(secs));
+      setCountdownSeconds(secs);
+    };
+    tick(); // sync immediately on mount / refocus instead of waiting 1s
+    countdownInterval.current = window.setInterval(tick, 1000);
     return () => {
       clearAllTimers();
       if (confettiInterval.current != null) clearInterval(confettiInterval.current);
@@ -534,7 +549,8 @@ export function useGameState(props: InitProps = {}) {
 
   /** Load real case data from DB into game state */
   const initCase = useCallback((data: CaseData & { judgeCardId?: CardId | null }) => {
-    const secondsLeft = Math.max(0, Math.floor((new Date(data.closesAt).getTime() - Date.now()) / 1000));
+    countdownTargetRef.current = new Date(data.closesAt).getTime();
+    const secondsLeft = Math.max(0, Math.floor((countdownTargetRef.current - Date.now()) / 1000));
     countdownRef.current = secondsLeft;
     setCountdownText(fmtClock(secondsLeft));
     setCountdownSeconds(secondsLeft);
@@ -555,14 +571,18 @@ export function useGameState(props: InitProps = {}) {
 
   /** Load user progress from DB into game state */
   const initProgress = useCallback((p: { streak: number; totalXp: number; dailyXp: number; contLeft: number; bestStreak: number }) => {
-    progressRef.current = { streak: p.streak, totalXp: p.totalXp, dailyXp: p.dailyXp, contLeft: p.contLeft };
+    const bestStreak = Math.max(p.bestStreak, p.streak);
+    progressRef.current = { streak: p.streak, bestStreak, totalXp: p.totalXp, dailyXp: p.dailyXp, contLeft: p.contLeft };
     setState((s) => ({
       ...s,
       streak: p.streak,
-      bestStreak: Math.max(p.bestStreak, p.streak),
+      bestStreak,
       level: levelFromXp(p.totalXp),
       totalXp: p.totalXp,
       dailyXp: p.dailyXp,
+      // Seed the goal bar from real daily XP so a returning player who hasn't
+      // voted yet sees their actual progress instead of 0 / goal.
+      displayDaily: Math.min(s.dailyGoal, p.dailyXp),
       contLeft: p.contLeft,
     }));
   }, []);

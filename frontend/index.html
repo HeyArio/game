@@ -14,7 +14,7 @@
 <!-- Open Graph / Facebook / LinkedIn / iMessage / Slack -->
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Quorum" />
-<meta property="og:url" content="https://quorumdaily.com" />
+<meta property="og:url" content="https://quorumdaily.com/" />
 <meta property="og:title" content="Quorum — The daily AI judgment game" />
 <meta property="og:description" content="Four AIs argue, one judge decides. Call today's verdict before the crowd and keep your streak alive." />
 <meta property="og:image" content="https://quorumdaily.com/og-image.png" />
@@ -62,6 +62,20 @@
       "browserRequirements": "Requires JavaScript",
       "description": "Quorum is a free daily browser game in which four leading AI models answer the same debatable question and you decide which answer is most defensible. An impartial judge model reveals its verdict; match it to earn XP and grow your streak. One new case every day, about two minutes to play.",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://quorumdaily.com/#faq",
+      "mainEntity": [
+        { "@type": "Question", "name": "What is Quorum?", "acceptedAnswer": { "@type": "Answer", "text": "Quorum is a free daily game where four leading AI models answer the same debatable question, and you decide which answer is the sharpest. An impartial judge model then reveals its verdict — match it to earn XP and grow your streak. It takes about two minutes a day." } },
+        { "@type": "Question", "name": "How do you play Quorum?", "acceptedAnswer": { "@type": "Answer", "text": "Read the four AI answers to today's question, pick the one you'd stand behind, set your confidence, and lock it in before the case closes. The judge model reveals its call, and you score points for matching it. A new case drops every day." } },
+        { "@type": "Question", "name": "Is Quorum free to play?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Quorum is completely free, with no credit card required. Sign in with Google to save your streak, XP, and league standing across devices." } },
+        { "@type": "Question", "name": "Which AI models does Quorum use?", "acceptedAnswer": { "@type": "Answer", "text": "Each daily case is answered by four different frontier AI models — drawn from families such as GPT, Llama, Mistral, and Gemini — and adjudicated by a separate judge model nicknamed Arbi, so no single model is both contestant and referee." } },
+        { "@type": "Question", "name": "How is the winning answer decided?", "acceptedAnswer": { "@type": "Answer", "text": "An independent judge model reads the four answers and picks the one it finds most defensible. You score points when your pick matches the judge's verdict. You can also predict which answer the crowd will favour for a bonus." } },
+        { "@type": "Question", "name": "How long does a game take?", "acceptedAnswer": { "@type": "Answer", "text": "About two minutes. Quorum is designed as a quick daily ritual — one sharp question a day — rather than something you binge." } },
+        { "@type": "Question", "name": "Do I need an account?", "acceptedAnswer": { "@type": "Answer", "text": "You can preview today's case without an account. To lock in answers, keep a streak, earn XP, and appear on the leagues, sign in for free with Google." } },
+        { "@type": "Question", "name": "What makes Quorum different from a quiz?", "acceptedAnswer": { "@type": "Answer", "text": "A quiz has a single factual answer. Quorum poses genuinely debatable questions where reasoning matters more than recall — you're judging the quality of an argument, not reciting a fact." } }
+      ]
     }
   ]
 }
@@ -72,6 +86,12 @@
 </head>
 <body>
 <div id="root"></div>
+<noscript>
+  <div style="max-width:640px;margin:10vh auto;padding:0 24px;font-family:system-ui,Segoe UI,Roboto,sans-serif;color:#3C3C46;text-align:center">
+    <h1 style="font-size:28px">Quorum — the daily AI judgment game</h1>
+    <p style="font-size:16px;line-height:1.6;color:#5E6654">Four leading AI models answer one debatable question each day, and an impartial judge picks the sharpest. Match the judge, beat the crowd, and keep your streak. Quorum needs JavaScript to play — please enable it and reload.</p>
+  </div>
+</noscript>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

@@ -84,8 +84,11 @@ function slotConfig(slot: number): SlotConfig {
 }
 
 export function isClientLlmEnabled(): boolean {
-  // Enabled if any slot's provider key is present.
-  return Object.values(PROVIDERS).some((p) => Boolean(env[p.keyEnv]));
+  // TESTING ONLY. Hard-gated to dev builds: even if a VITE_*_API_KEY is left set
+  // when running `vite build`, this path can never activate in production (where
+  // it would expose keys and rely on dev-only proxies). Enabled in dev if any
+  // slot's provider key is present.
+  return import.meta.env.DEV && Object.values(PROVIDERS).some((p) => Boolean(env[p.keyEnv]));
 }
 
 interface Msg { role: "system" | "user" | "assistant"; content: string; }
@@ -164,7 +167,9 @@ async function getAnswer(slot: number, question: string): Promise<string> {
 }
 
 async function judge(question: string, answers: { letter: string; persona: string; pick: string; answer: string }[]): Promise<string> {
-  const block = answers.map(a => `Option ${a.letter} (${a.persona}):\nPick: ${a.pick}\nReasoning: ${a.answer}`).join("\n\n");
+  // Anonymise (mirrors generate-daily-case): the judge sees only letter + argument,
+  // never the model name, so it can't favour an answer by its provider.
+  const block = answers.map(a => `Option ${a.letter}:\nPick: ${a.pick}\nReasoning: ${a.answer}`).join("\n\n");
   const content = await callModel(5, [
     { role: "system", content: "You are Arbi, a rigorous AI judge. Evaluate answers by reasoning quality, specificity, defensibility. Output ONLY JSON." },
     { role: "user", content: `Question: ${question}\n\n${block}\n\nWhich answer is sharpest? Output JSON: {"winner":"A"|"B"|"C"|"D"}` },

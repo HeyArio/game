@@ -17,7 +17,7 @@ export function LeaguesPage({ state }: LeaguesPageProps) {
             {leagues.bigTrophyEl}
           </span>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 28, lineHeight: 1.05 }}>Global Leaderboard</div>
+            <h1 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 28, lineHeight: 1.05 }}>Global Leaderboard</h1>
             <div style={{ fontWeight: 700, fontSize: 14, opacity: 0.92 }}>Every player, ranked by total XP</div>
           </div>
           <div style={{ marginLeft: "auto", textAlign: "center", flex: "none" }}>
@@ -38,7 +38,7 @@ export function LeaguesPage({ state }: LeaguesPageProps) {
       </div>
 
       <div style={{ background: "#fff", border: "2px solid #E4EAD8", borderRadius: 20, padding: "16px 20px" }}>
-        <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 14, color: "#7C8470", marginBottom: 14 }}>Your progression</div>
+        <h2 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 14, color: "#7C8470", marginBottom: 14 }}>Your progression</h2>
         <div style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", paddingBottom: 4 }}>
           {leagues.tiers.map((t, i) => (
             <div key={t.name} style={{ display: "flex", alignItems: "flex-start", minWidth: 0 }}>
@@ -65,7 +65,7 @@ export function LeaguesPage({ state }: LeaguesPageProps) {
             </span>
             <span style={{ flex: 1, minWidth: 0, fontWeight: 800, fontSize: 15, color: "#3C3C46", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {row.name}
-              {row.isBot && <span title="AI opponent" style={{ marginLeft: 5 }}>🤖</span>}
+              {row.isBot && <span role="img" aria-label="AI opponent" title="AI opponent" style={{ marginLeft: 5 }}>🤖</span>}
             </span>
             <span style={{ fontWeight: 800, fontSize: 14, color: "#8E9582", flex: "none" }}>{row.xp}</span>
           </div>

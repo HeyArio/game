@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Mascot } from "../components/Mascot";
 import { AnswerCard } from "../components/AnswerCard";
 import { icon } from "../icons/Icon";
@@ -61,6 +61,12 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
     countdownSeconds > 0 &&
     countdownSeconds <= STREAK_RISK_WINDOW;
   const resultAccent = state.win ? "#58A700" : "#F57C00";
+  // Move keyboard focus to the verdict when it reveals, so screen-reader and
+  // keyboard users aren't stranded on the now-removed Lock button.
+  const verdictHeadingRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (state.reveal.verdict) verdictHeadingRef.current?.focus();
+  }, [state.reveal.verdict]);
   const weekDays = weekDaysView(state);
   const leagueRows = leagueRowsView(state);
   const badges = badgesView(state, state.stats);
@@ -223,8 +229,8 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
           )}
 
           {state.phase === "voting" && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, padding: 18, background: "#fff", border: "2px solid #E4EAD8", borderRadius: 18 }}>
-              <span style={{ position: "relative", display: "inline-block", width: 30, height: 30, animation: "qspin .8s linear infinite" }}>
+            <div role="status" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, padding: 18, background: "#fff", border: "2px solid #E4EAD8", borderRadius: 18 }}>
+              <span aria-hidden="true" style={{ position: "relative", display: "inline-block", width: 30, height: 30, animation: "qspin .8s linear infinite" }}>
                 {spinnerTicks.map((tick, i) => (
                   <span key={i} style={tick.style} />
                 ))}
@@ -235,6 +241,8 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
 
           {state.reveal.verdict && (
             <div
+              role="status"
+              aria-live="polite"
               style={{
                 padding: "18px 20px",
                 borderRadius: 20,
@@ -249,7 +257,7 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
                   <Mascot size={50} mood={state.win ? "happy" : "soft"} />
                 </span>
                 <div style={{ flex: "1 1 200px", minWidth: 0 }}>
-                  <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 23, color: resultAccent }}>
+                  <div ref={verdictHeadingRef} tabIndex={-1} style={{ outline: "none", fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 23, color: resultAccent }}>
                     {state.win ? "We agree!" : "Not this time"}
                   </div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: "#5E6553" }}>
@@ -356,9 +364,9 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
 
         <section style={{ background: "#fff", border: "2px solid #E4EAD8", borderRadius: 20, padding: 18 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16, color: "#3C3C46" }}>
+            <h2 style={{ display: "inline-flex", alignItems: "center", gap: 7, fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16, color: "#3C3C46" }}>
               {icon("target", 20, "#58CC02")}Daily Goal
-            </span>
+            </h2>
             <span style={{ fontWeight: 800, fontSize: 13, color: state.dailyXp >= state.dailyGoal ? "#58A700" : "#9AA08C" }}>
               {Math.round(state.displayDaily)} / {state.dailyGoal} XP
             </span>
@@ -384,9 +392,9 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
 
         <section style={{ background: "#fff", border: "2px solid #E4EAD8", borderRadius: 20, padding: 18 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16, color: "#3C3C46" }}>
+            <h2 style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16, color: "#3C3C46" }}>
               {icon("trophy", 22, "#1CB0F6")}Leaderboard
-            </span>
+            </h2>
             {state.globalRank != null && <span style={{ fontWeight: 800, fontSize: 12, color: "#1899D6" }}>You're #{state.globalRank.toLocaleString()}</span>}
           </div>
           <div style={{ fontWeight: 700, fontSize: 12, color: "#8E9582", marginBottom: 8 }}>Top players by total XP</div>
@@ -407,7 +415,7 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
                   </span>
                   <span style={{ fontWeight: 800, fontSize: 14, color: "#3C3C46", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {row.name}
-                    {row.isBot && <span title="AI opponent" style={{ marginLeft: 5 }}>🤖</span>}
+                    {row.isBot && <span role="img" aria-label="AI opponent" title="AI opponent" style={{ marginLeft: 5 }}>🤖</span>}
                   </span>
                   <span style={{ fontWeight: 800, fontSize: 13, color: "#8E9582" }}>{row.xp}</span>
                 </div>
@@ -418,7 +426,7 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
 
         <section style={{ background: "#fff", border: "2px solid #E4EAD8", borderRadius: 20, padding: 18 }}>
           <div style={{ marginBottom: 14 }}>
-            <span style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16, color: "#3C3C46" }}>Achievements</span>
+            <h2 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16, color: "#3C3C46" }}>Achievements</h2>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
             {badges.map((b, i) => (
@@ -502,7 +510,8 @@ function WagerPanel({ state, onSetConfidence, onSetCrowdGuess }: {
           const on = state.confidence === o.id;
           const hov = hoverConf === o.id && !on;
           return (
-            <button key={o.id} onClick={() => onSetConfidence(o.id)}
+            <button key={o.id} onClick={() => onSetConfidence(o.id)} aria-pressed={on}
+              aria-label={`Confidence: ${o.label} (${o.hint} correct / wrong)`}
               onMouseEnter={() => setHoverConf(o.id)}
               onMouseLeave={() => setHoverConf(null)}
               style={{ cursor: "pointer", padding: "10px 6px", borderRadius: 13, textAlign: "center",
@@ -525,7 +534,8 @@ function WagerPanel({ state, onSetConfidence, onSetCrowdGuess }: {
           const on = state.crowdGuess === c.id;
           const hov = hoverCrowd === c.id && !on;
           return (
-            <button key={c.id} onClick={() => onSetCrowdGuess(c.id)}
+            <button key={c.id} onClick={() => onSetCrowdGuess(c.id)} aria-pressed={on}
+              aria-label={`Crowd will back ${c.letter}`}
               onMouseEnter={() => setHoverCrowd(c.id)}
               onMouseLeave={() => setHoverCrowd(null)}
               style={{ cursor: "pointer", padding: "10px 6px", borderRadius: 13, fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 16,

@@ -5,11 +5,15 @@ export type MascotMood = "neutral" | "happy" | "soft";
 export interface MascotProps {
   size: number;
   mood?: MascotMood;
+  /** Accessible label. Provide when the mascot carries meaning on its own (e.g.
+   *  a standalone splash/error illustration); omit to mark it decorative, so
+   *  screen readers skip it instead of announcing a meaningless "image". */
+  label?: string;
 }
 
 const DK = "#2E6B00";
 
-export function Mascot({ size, mood = "neutral" }: MascotProps): JSX.Element {
+export function Mascot({ size, mood = "neutral", label }: MascotProps): JSX.Element {
   const face: JSX.Element[] = [];
 
   if (mood === "happy") {
@@ -39,7 +43,9 @@ export function Mascot({ size, mood = "neutral" }: MascotProps): JSX.Element {
   }
 
   return (
-    <svg viewBox="0 0 64 64" width={size} height={size} style={{ display: "block", flex: "none", overflow: "visible" }}>
+    <svg viewBox="0 0 64 64" width={size} height={size} style={{ display: "block", flex: "none", overflow: "visible" }}
+      role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+      {label ? <title>{label}</title> : null}
       <line x1={32} y1={13} x2={32} y2={6} stroke="#46A302" strokeWidth={3} strokeLinecap="round" />
       <circle cx={32} cy={4.5} r={5} fill="#7BE021" opacity={0.4} />
       <circle cx={32} cy={4.5} r={3} fill="#58CC02" />

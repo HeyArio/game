@@ -11,6 +11,9 @@ export interface BaseCard {
   pick: string;
   crowd: number;
   answer: string;
+  /** The DB case_options.id for this card, used to submit the vote. Absent on
+   *  the placeholder/seed cards and the client-test path. */
+  _optionId?: string;
 }
 
 export interface LeaguePlayer {
@@ -107,5 +110,4 @@ export interface GameState {
   question: string;
   category: string;
   caseNo: number;
-  timeLeft: string;
 }
