@@ -3,7 +3,7 @@ import type { GameState } from "../state/types";
 // Renders the finished case as a 1080×1080 image for sharing (stories, IG,
 // WhatsApp), so a result is a glanceable card rather than a block of text.
 
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+export function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r);
@@ -14,7 +14,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 }
 
 // Word-wrap fillText; returns the y just below the last line drawn.
-function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, lineH: number, maxLines = 4): number {
+export function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, lineH: number, maxLines = 4): number {
   const words = text.split(/\s+/);
   let line = "";
   let lines = 0;

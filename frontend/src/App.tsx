@@ -14,6 +14,7 @@ import { QuestsPage } from "./pages/QuestsPage";
 import { LandingPage } from "./pages/LandingPage";
 import { useGameState } from "./state/useGameState";
 import { useDailyCase } from "./hooks/useDailyCase";
+import { useIncomingChallenge } from "./lib/challenge";
 import { useClientCase } from "./hooks/useClientCase";
 import { useVote } from "./hooks/useVote";
 import { supabase } from "./lib/supabase";
@@ -163,8 +164,13 @@ function ClientGame() {
 function GuestGame() {
   // Logged-out visitors land on the marketing page (the front door). "Play
   // today's case" drops them into the read-only game preview; the top-left logo
-  // takes them back to the landing page.
-  const [view, setView] = useState<"landing" | "game">("landing");
+  // takes them back to the landing page. Exception: someone arriving on a
+  // challenge link (?c=<id>) is dropped straight onto the case so they see the
+  // "X challenged you" intro instead of a marketing wall.
+  const [view, setView] = useState<"landing" | "game">(() => {
+    try { return new URLSearchParams(window.location.search).has("c") ? "game" : "landing"; }
+    catch { return "landing"; }
+  });
   const { status: caseStatus, dailyCase, error: caseError } = useDailyCase();
   const game = useGameState(); // no onSubmitVote — guests can't score or save
 
@@ -213,6 +219,9 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
   onGoLanding?: () => void;
 }) {
   const { state, countdownText, countdownSeconds, setCanvas, actions } = game;
+  // A recipient who arrived via a challenge link (?c=<id>) — drives the intro
+  // banner and the You-vs-them-vs-Arbi reveal line.
+  const challenge = useIncomingChallenge();
   const screenLabel = { play: "Daily Case", leagues: "Leagues", quests: "Quests", profile: "Profile" }[state.screen];
   // When a guest tries to lock in, prompt them to sign in via a modal popup.
   const [signInPrompt, setSignInPrompt] = useState(false);
@@ -242,7 +251,7 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
       <TopBar state={state} onSelectScreen={selectScreen} onOpenStreak={openStreak} onHome={onHome} guest={guest} onSignIn={requireAuth} />
 
       {state.screen === "play" && (
-        <PlayPage state={state} countdownText={countdownText} countdownSeconds={countdownSeconds} caseLoading={caseLoading} noCase={noCase} canReplay={canReplay}
+        <PlayPage state={state} countdownText={countdownText} countdownSeconds={countdownSeconds} caseLoading={caseLoading} noCase={noCase} canReplay={canReplay} challenge={challenge}
           onSelectCard={actions.selectCard} onSetConfidence={actions.setConfidence} onSetCrowdGuess={actions.setCrowdGuess}
           onLockIn={lockIn} onAdvance={actions.advance} onReplay={actions.reset} />
       )}

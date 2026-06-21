@@ -140,6 +140,62 @@ cold start **honestly** — no fake human accounts. Their XP drifts daily via
 select cron.schedule('tick-bot-xp', '10 0 * * *', $$ select public.tick_bot_xp(); $$);
 ```
 
+## 6. Challenge links (the invite loop)
+
+Migration `0013` adds the **invite system**: when a player finishes a case they
+can mint a "challenge" link. The recipient lands on today's case with an
+"X challenged you" intro and, after voting, a You-vs-them-vs-Arbi reveal.
+
+It's built around the static-host + Supabase split:
+
+- **`challenges` table + `challenge-cards` Storage bucket** (migration `0013`).
+  The table is **spoiler-free by design** — it stores the challenger's *pick*
+  (an opinion) and the question, but **never** the verdict, so a shared link
+  can't reveal the answer to someone who hasn't played. The challenger's browser
+  renders a 1200×630 preview card and uploads it to the public bucket.
+- **`challenge` Edge Function** serves the per-link Open Graph preview. This is
+  required because quorumdaily.com is a static SPA: social crawlers (WhatsApp,
+  iMessage, Slack, X, Facebook, LinkedIn) read the HTML *without* running the
+  app's JS, so they'd otherwise only ever see the one static card in
+  `index.html`. The function returns dynamic `<meta>` tags for crawlers and
+  redirects real visitors into the app at `…/?c=<id>`.
+
+**Apply + deploy:**
+
+```bash
+# 1. Apply migration 0013 in the SQL editor (or: supabase db push).
+#    It creates the table, the public Storage bucket, and the RLS policies.
+
+# 2. Deploy the function PUBLIC (no JWT) so crawlers can fetch the preview:
+supabase functions deploy challenge --no-verify-jwt
+```
+
+> The function only does a read-only lookup of a (non-secret) challenge row, so
+> running it without a JWT is safe. `--no-verify-jwt` is required — crawlers
+> can't send an auth header. Optionally set `QUORUM_SITE_URL` (defaults to
+> `https://quorumdaily.com`) via `supabase secrets set`.
+
+**Link styles** — controlled by `VITE_CHALLENGE_LINK_BASE` in `frontend/.env`:
+
+- **Default (leave it blank): zero web-server config.** Links point straight at
+  the function: `https://YOUR-ref.supabase.co/functions/v1/challenge/<id>`.
+  Works the moment the function is deployed.
+- **Pretty `quorumdaily.com/c/<id>`:** add one `location` block to the nginx
+  site, then set `VITE_CHALLENGE_LINK_BASE=https://quorumdaily.com/c` and
+  rebuild the frontend:
+
+  ```nginx
+  # In /etc/nginx/sites-enabled/quorumdaily, alongside the existing SPA root.
+  # Proxies pretty challenge links to the Supabase `challenge` function.
+  location ~ ^/c/(?<cid>[A-Za-z0-9_-]+)/?$ {
+      resolver 1.1.1.1 ipv6=off;                       # needed for the variable host below
+      set $quorum_fn "YOUR-ref.supabase.co";
+      proxy_pass https://$quorum_fn/functions/v1/challenge/$cid;
+      proxy_ssl_server_name on;
+      proxy_set_header Host $quorum_fn;
+  }
+  ```
+
 ## Notes / next steps
 
 - **Hiding the verdict before close — done.** Migration `0005` restricts direct

@@ -1,0 +1,228 @@
+import { useEffect, useState } from "react";
+import { supabase, isSupabaseConfigured } from "./supabase";
+import { roundRect, wrapText } from "./shareCard";
+import type { GameState } from "../state/types";
+
+// Challenge links — "nobody gets a link, everybody gets a challenge."
+//
+// A finished player mints a challenge: we render a 1200x630 preview card, upload
+// it to public Storage, insert a (spoiler-free) `challenges` row, and hand back
+// a shareable URL. The recipient lands on today's case with an intro and, after
+// voting, a You-vs-them-vs-Arbi reveal.
+
+export interface Challenge {
+  id: string;
+  case_no: number | null;
+  question: string;
+  challenger_name: string;
+  challenger_pick: string | null; // a/b/c/d — an opinion, shown only AFTER the recipient votes
+}
+
+// Public, spoiler-free shape we read for the recipient intro.
+const CHALLENGE_FIELDS = "id, case_no, question, challenger_name, challenger_pick";
+
+const SITE = "https://quorumdaily.com";
+
+/** A short, url-safe slug. ~62^12 space → collisions are negligible. */
+function makeId(len = 12): string {
+  const alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const bytes = new Uint8Array(len);
+  crypto.getRandomValues(bytes);
+  let s = "";
+  for (let i = 0; i < len; i++) s += alphabet[bytes[i] % alphabet.length];
+  return s;
+}
+
+/**
+ * Where challenge links point. Default: the Supabase `challenge` edge function,
+ * which works with zero web-server config. Set VITE_CHALLENGE_LINK_BASE to
+ * "https://quorumdaily.com/c" for pretty links once nginx proxies /c/ to the
+ * function (see supabase/README.md).
+ */
+export function challengeLinkBase(): string {
+  const explicit = (import.meta.env.VITE_CHALLENGE_LINK_BASE as string | undefined)?.replace(/\/+$/, "");
+  if (explicit) return explicit;
+  const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/+$/, "");
+  return url ? `${url}/functions/v1/challenge` : "";
+}
+
+export function challengeUrl(id: string): string {
+  const base = challengeLinkBase();
+  // Fallback (no Supabase URL configured): a plain app link still works — the
+  // app reads `?c=`, it just won't get a personalised crawler preview.
+  return base ? `${base}/${id}` : `${SITE}/?c=${id}`;
+}
+
+// Renders the challenge as a 1200x630 image (Open Graph aspect) for the link
+// preview. Deliberately spoiler-free — it never shows the verdict.
+async function renderChallengeCard(s: GameState, name: string): Promise<Blob | null> {
+  const W = 1200, H = 630;
+  const canvas = document.createElement("canvas");
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  try {
+    const f = (document as any).fonts;
+    if (f?.load) { await Promise.all([f.load("800 56px 'Baloo 2'"), f.load("800 30px Nunito")]); await f.ready; }
+  } catch { /* fall back to system fonts */ }
+
+  const green = "#58CC02", greenDark = "#46A302", ink = "#3C3C46", muted = "#7C8470";
+
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#EAF7DD"); bg.addColorStop(1, "#F4F8EE");
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  const pad = 44;
+  roundRect(ctx, pad, pad, W - 2 * pad, H - 2 * pad, 40);
+  ctx.fillStyle = "#fff"; ctx.fill();
+  ctx.lineWidth = 4; ctx.strokeStyle = "#E4EAD8"; ctx.stroke();
+
+  const innerX = pad + 52;
+  const innerW = W - 2 * (pad + 52);
+  let y = pad + 70;
+
+  // Wordmark: rounded "Q" badge + "Quorum"; case tag on the right.
+  const badge = 66;
+  roundRect(ctx, innerX, y - badge / 2, badge, badge, 22);
+  ctx.fillStyle = green; ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.font = "800 40px 'Baloo 2', sans-serif";
+  ctx.fillText("Q", innerX + badge / 2, y + 2);
+  ctx.fillStyle = "#4A9600"; ctx.textAlign = "left"; ctx.font = "800 38px 'Baloo 2', sans-serif";
+  ctx.fillText("Quorum", innerX + badge + 18, y + 2);
+  ctx.fillStyle = muted; ctx.textAlign = "right"; ctx.font = "800 24px Nunito, sans-serif";
+  ctx.fillText(s.caseNo ? `Daily Case #${s.caseNo}` : "Daily Case", innerX + innerW, y + 2);
+
+  y += 84;
+
+  // "X challenges you"
+  ctx.textAlign = "left"; ctx.textBaseline = "top";
+  ctx.fillStyle = greenDark; ctx.font = "800 52px 'Baloo 2', sans-serif";
+  const headline = `${name} challenges you`;
+  y = wrapText(ctx, headline, innerX, y, innerW, 60, 2) + 14;
+
+  // The question
+  ctx.fillStyle = ink; ctx.font = "800 38px 'Baloo 2', sans-serif";
+  y = wrapText(ctx, s.question, innerX, y, innerW, 48, 3) + 22;
+
+  // Spoiler-free prompt pill
+  const pillH = 70;
+  roundRect(ctx, innerX, y, innerW, pillH, 20);
+  ctx.fillStyle = "#E8FFD7"; ctx.fill();
+  ctx.lineWidth = 3; ctx.strokeStyle = "#A5ED6E"; ctx.stroke();
+  ctx.fillStyle = greenDark; ctx.font = "800 28px Nunito, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("They've made their call. Can you out-judge Arbi?", innerX + innerW / 2, y + pillH / 2 + 1);
+
+  // Footer CTA pinned near the bottom
+  ctx.fillStyle = green; ctx.font = "800 28px Nunito, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  ctx.fillText("Play today's case → quorumdaily.com", W / 2, H - pad - 34);
+
+  return await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), "image/png", 0.92));
+}
+
+async function challengerName(): Promise<string> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return "A Quorum player";
+    const { data } = await supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle();
+    const name = (data?.display_name ?? "").trim();
+    return name && name.toLowerCase() !== "you" ? name : "A Quorum player";
+  } catch {
+    return "A Quorum player";
+  }
+}
+
+/**
+ * Mint a challenge for the just-finished case and return its shareable URL.
+ * Returns null when the backend isn't available (e.g. the local dev LLM path),
+ * so callers can fall back to a plain invite link.
+ */
+export async function createChallenge(s: GameState): Promise<string | null> {
+  if (!isSupabaseConfigured || !s.caseId) return null;
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const id = makeId();
+    const name = await challengerName();
+
+    // Render + upload the preview card (best-effort: a missing card just falls
+    // back to the static og-image, the link still works).
+    let card_url: string | null = null;
+    try {
+      const blob = await renderChallengeCard(s, name);
+      if (blob) {
+        const path = `${id}.png`;
+        const { error: upErr } = await supabase.storage
+          .from("challenge-cards")
+          .upload(path, blob, { contentType: "image/png", upsert: false });
+        if (!upErr) {
+          card_url = supabase.storage.from("challenge-cards").getPublicUrl(path).data.publicUrl;
+        }
+      }
+    } catch { /* card is optional */ }
+
+    const { error } = await supabase.from("challenges").insert({
+      id,
+      case_id: s.caseId,
+      case_no: s.caseNo || null,
+      question: s.question,
+      category: s.category || null,
+      challenger_name: name,
+      challenger_pick: s.selected,           // letter only — spoiler-free
+      confidence: s.confidence,
+      card_url,
+    });
+    if (error) return null;
+
+    return challengeUrl(id);
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchChallenge(id: string): Promise<Challenge | null> {
+  if (!isSupabaseConfigured || !id) return null;
+  try {
+    const { data } = await supabase.from("challenges").select(CHALLENGE_FIELDS).eq("id", id).maybeSingle();
+    return (data as Challenge) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Share a challenge LINK (text + url are allowed here, unlike the image-only
+ * result share). Falls back to copying the link when there's no share sheet.
+ */
+export async function shareChallengeLink(link: string): Promise<"shared" | "copied" | "cancelled" | "error"> {
+  const text = "I just played today's Quorum case — think you can out-judge Arbi?";
+  try {
+    const nav = navigator as any;
+    if (nav.share) {
+      try { await nav.share({ title: "Quorum", text, url: link }); return "shared"; }
+      catch (e: any) { if (e?.name === "AbortError") return "cancelled"; /* else fall through */ }
+    }
+    await navigator.clipboard.writeText(link);
+    return "copied";
+  } catch {
+    return "error";
+  }
+}
+
+/** Reads `?c=<id>` from the URL once and resolves the incoming challenge. */
+export function useIncomingChallenge(): Challenge | null {
+  const [challenge, setChallenge] = useState<Challenge | null>(null);
+  useEffect(() => {
+    let id = "";
+    try { id = new URLSearchParams(window.location.search).get("c") ?? ""; } catch { /* ignore */ }
+    if (!id) return;
+    let cancelled = false;
+    fetchChallenge(id).then((c) => { if (!cancelled) setChallenge(c); });
+    return () => { cancelled = true; };
+  }, []);
+  return challenge;
+}

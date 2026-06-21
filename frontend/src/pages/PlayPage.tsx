@@ -4,6 +4,8 @@ import { AnswerCard } from "../components/AnswerCard";
 import { icon } from "../icons/Icon";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { shareResultImage, type SharePlatform } from "../lib/shareCard";
+import { createChallenge, shareChallengeLink, type Challenge } from "../lib/challenge";
+import { ChallengeBanner, ChallengeOutcome } from "../components/ChallengeBanner";
 import type { GameState, CardId, Confidence } from "../state/types";
 import {
   badgesView,
@@ -31,6 +33,8 @@ export interface PlayPageProps {
   /** Whether replaying the case is allowed (dev/local path only — a real,
    *  recorded vote can't be replayed). */
   canReplay?: boolean;
+  /** Set when the visitor arrived via a challenge link (?c=<id>). */
+  challenge?: Challenge | null;
   onSelectCard: (id: CardId) => void;
   onSetConfidence: (c: Confidence) => void;
   onSetCrowdGuess: (id: CardId) => void;
@@ -39,7 +43,7 @@ export interface PlayPageProps {
   onReplay: () => void;
 }
 
-export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, noCase, canReplay, onSelectCard, onSetConfidence, onSetCrowdGuess, onLockIn, onAdvance, onReplay }: PlayPageProps) {
+export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, noCase, canReplay, challenge, onSelectCard, onSetConfidence, onSetCrowdGuess, onLockIn, onAdvance, onReplay }: PlayPageProps) {
   const isMobile = useIsMobile();
   const cards = viewCards(state);
   const your = yourCard(state);
@@ -132,6 +136,9 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
     >
       {/* MAIN COLUMN */}
       <main>
+        {challenge && !state.reveal.verdict && (
+          <ChallengeBanner challenge={challenge} todayCaseNo={state.caseNo} />
+        )}
         {streakAtRisk && (
           <div role="status" style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, padding: "12px 16px", background: "#FFF3E0", border: "2px solid #FFCC80", borderBottom: "4px solid #FF9600", borderRadius: 16 }}>
             <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 12, background: "#FFE0B2", flex: "none" }}>
@@ -271,6 +278,13 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
                 </div>
               </div>
               <VerdictBoard state={state} />
+              {challenge && challenge.case_no === state.caseNo && (
+                <ChallengeOutcome
+                  challenge={challenge}
+                  yourLetter={your?.letter ?? null}
+                  judgeLetter={state.cards.find((c) => c.id === state.judgeCardId)?.letter ?? null}
+                />
+              )}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 9, marginTop: 14, paddingTop: 14, borderTop: "2px dashed rgba(0,0,0,.08)" }}>
                 {rewardChipsView(state).map((chip, i) => (
                   <span key={i} style={chip.style}>
@@ -543,6 +557,38 @@ function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" 
 
   function flash(msg: string) { setToast(msg); setTimeout(() => setToast((t) => (t === msg ? null : t)), 2400); }
 
+  // "Challenge a friend" — mint a shareable link whose preview is personalised
+  // by the `challenge` edge function. This is a LINK share (text + url), unlike
+  // the image-only result share below.
+  const [chLink, setChLink] = useState<string | null>(null);
+  const [chBusy, setChBusy] = useState(false);
+  const [chCopied, setChCopied] = useState(false);
+
+  async function onChallenge() {
+    if (chBusy) return;
+    if (chLink) {
+      const r = await shareChallengeLink(chLink);
+      if (r === "shared") flash("Challenge sent!");
+      else if (r === "copied") { setChCopied(true); setTimeout(() => setChCopied(false), 1800); }
+      return;
+    }
+    setChBusy(true);
+    setToast("Creating challenge…");
+    const link = await createChallenge(state);
+    setChBusy(false);
+    setToast(null);
+    if (!link) { flash("Couldn't create the challenge link"); return; }
+    setChLink(link);
+    const r = await shareChallengeLink(link);
+    if (r === "shared") flash("Challenge sent!");
+    else if (r === "copied") flash("Link copied — send it to a friend");
+  }
+
+  async function onCopyChallenge() {
+    if (!chLink) return;
+    try { await navigator.clipboard.writeText(chLink); setChCopied(true); setTimeout(() => setChCopied(false), 1800); } catch { /* ignore */ }
+  }
+
   async function onShareImage() {
     if (busy) return;
     setBusy(true);
@@ -573,7 +619,38 @@ function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" 
   });
 
   return (
-    <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 11, alignItems: align === "center" ? "center" : "flex-start" }}>
+    <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 16, alignItems: align === "center" ? "center" : "flex-start" }}>
+      {/* Challenge a friend — the viral loop */}
+      <div style={{ width: "100%", maxWidth: 540, padding: "14px 16px", background: "#F5FFF0", border: "2px solid #C4E89E", borderRadius: 16, boxSizing: "border-box" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800, fontSize: 14, color: "#3C3C46" }}>
+          <span aria-hidden="true">⚔️</span> Challenge a friend
+        </div>
+        <div style={{ fontWeight: 700, fontSize: 12.5, color: "#7C8470", marginTop: 4, marginBottom: 11 }}>
+          Send a link — they get this case and a shot at out-judging Arbi.
+        </div>
+        {!chLink ? (
+          <button onClick={onChallenge} disabled={chBusy}
+            style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: chBusy ? "default" : "pointer",
+              border: "2px solid #A5ED6E", borderBottomWidth: 4, background: "#58CC02", color: "#fff", opacity: chBusy ? 0.7 : 1,
+              padding: "11px 20px", borderRadius: 14, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 14 }}>
+            {chBusy ? "Creating…" : "Create challenge link"}
+          </button>
+        ) : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            <input readOnly value={chLink} onFocus={(e) => e.currentTarget.select()} aria-label="Challenge link"
+              style={{ flex: "1 1 220px", minWidth: 0, padding: "10px 12px", borderRadius: 12, border: "2px solid #E4EAD8", background: "#fff", color: "#5E6553", fontWeight: 700, fontSize: 13, fontFamily: "'Nunito',sans-serif" }} />
+            <button onClick={onCopyChallenge}
+              style={{ cursor: "pointer", border: "2px solid #E4EAD8", borderBottomWidth: 4, background: "#fff", color: "#46A302", padding: "10px 16px", borderRadius: 12, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 13 }}>
+              {chCopied ? "Copied!" : "Copy"}
+            </button>
+            <button onClick={onChallenge}
+              style={{ cursor: "pointer", border: "2px solid #A5ED6E", borderBottomWidth: 4, background: "#58CC02", color: "#fff", padding: "10px 16px", borderRadius: 12, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 13 }}>
+              Share
+            </button>
+          </div>
+        )}
+      </div>
+
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", justifyContent: align === "center" ? "center" : "flex-start" }}>
         <button onClick={onShareImage} disabled={busy}
           style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: busy ? "default" : "pointer",
