@@ -2,6 +2,7 @@ import { useEffect, type CSSProperties, type ReactNode } from "react";
 import { Mascot } from "../components/Mascot";
 import { useAuth } from "../auth/AuthProvider";
 import { isSupabaseConfigured } from "../lib/supabase";
+import { nazarbanUrl } from "../lib/nazarban";
 import { icon } from "../icons/Icon";
 
 // Google "G" mark — official 4-colour glyph, inline so we ship no extra asset.
@@ -534,9 +535,8 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
             <a href="#faq" style={navLink}>FAQ</a>
           </nav>
           <div style={{ fontWeight: 700, fontSize: 13, color: "#5E6654" }}>
-            Powered by{" "}
-            <a href="https://nazarbanai.com" target="_blank" rel="noopener noreferrer" style={{ color: "#3E7200", fontWeight: 800, textDecoration: "none" }}>
-              nazarbanai.com
+            <a href={nazarbanUrl("landing_footer")} target="_blank" rel="noopener noreferrer" style={{ color: "#3E7200", fontWeight: 800, textDecoration: "none" }}>
+              Built by Nazarban — see what else we make →
             </a>
           </div>
           <div style={{ fontWeight: 700, fontSize: 13, color: "#6E7563", flexBasis: "100%" }}>© {new Date().getFullYear()} Quorum · The daily AI judgment game</div>

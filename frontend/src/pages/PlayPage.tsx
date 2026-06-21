@@ -5,6 +5,7 @@ import { icon } from "../icons/Icon";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { shareResultImage, type SharePlatform } from "../lib/shareCard";
 import { createChallenge, shareChallengeLink, type Challenge } from "../lib/challenge";
+import { nazarbanUrl } from "../lib/nazarban";
 import { ChallengeBanner, ChallengeOutcome } from "../components/ChallengeBanner";
 import type { GameState, CardId, Confidence } from "../state/types";
 import {
@@ -324,6 +325,8 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
                   </button>
                 )}
               </div>
+
+              <NazarbanCard />
             </div>
           )}
         </div>
@@ -561,25 +564,27 @@ function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" 
   // by the `challenge` edge function. This is a LINK share (text + url), unlike
   // the image-only result share below.
   const [chLink, setChLink] = useState<string | null>(null);
+  const [chBlob, setChBlob] = useState<Blob | null>(null);
   const [chBusy, setChBusy] = useState(false);
   const [chCopied, setChCopied] = useState(false);
 
   async function onChallenge() {
     if (chBusy) return;
     if (chLink) {
-      const r = await shareChallengeLink(chLink);
+      const r = await shareChallengeLink(chLink, chBlob);
       if (r === "shared") flash("Challenge sent!");
       else if (r === "copied") { setChCopied(true); setTimeout(() => setChCopied(false), 1800); }
       return;
     }
     setChBusy(true);
     setToast("Creating challenge…");
-    const link = await createChallenge(state);
+    const minted = await createChallenge(state);
     setChBusy(false);
     setToast(null);
-    if (!link) { flash("Couldn't create the challenge link"); return; }
-    setChLink(link);
-    const r = await shareChallengeLink(link);
+    if (!minted) { flash("Couldn't create the challenge link"); return; }
+    setChLink(minted.url);
+    setChBlob(minted.cardBlob);
+    const r = await shareChallengeLink(minted.url, minted.cardBlob);
     if (r === "shared") flash("Challenge sent!");
     else if (r === "copied") flash("Link copied — send it to a friend");
   }
@@ -626,7 +631,7 @@ function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" 
           <span aria-hidden="true">⚔️</span> Challenge a friend
         </div>
         <div style={{ fontWeight: 700, fontSize: 12.5, color: "#7C8470", marginTop: 4, marginBottom: 11 }}>
-          Send a link — they get this case and a shot at out-judging Arbi.
+          Sends Arbi and the case as an image — with a link to out-judge the judge.
         </div>
         {!chLink ? (
           <button onClick={onChallenge} disabled={chBusy}
@@ -723,5 +728,31 @@ function ContinueButton({ state, onAdvance }: { state: GameState; onAdvance: () 
     >
       CONTINUE
     </button>
+  );
+}
+
+// Soft, brand-first bridge to the parent studio, shown only once the case is
+// done (the daily ritual is over, so it never competes with the case). Arbi
+// introduces Nazarban so the trust the game earns carries across — awareness,
+// not a hard sell.
+function NazarbanCard() {
+  return (
+    <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 13, padding: "14px 16px", background: "#F5FFF0", border: "2px solid #D4F0B0", borderRadius: 16 }}>
+      <span style={{ flex: "none" }}><Mascot size={44} mood="happy" /></span>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontWeight: 800, fontSize: 14, color: "#3C3C46" }}>Made by Nazarban</div>
+        <div style={{ fontWeight: 700, fontSize: 13, color: "#6E7563", lineHeight: 1.45 }}>
+          Quorum is one of the things we build. Come see what else.
+        </div>
+      </div>
+      <a
+        href={nazarbanUrl("postgame_card")}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ flex: "none", display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 12, background: "#fff", border: "2px solid #C4E89E", borderBottomWidth: 3, color: "#46A302", fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 13, textDecoration: "none" }}
+      >
+        Explore →
+      </a>
+    </div>
   );
 }

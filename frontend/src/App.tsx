@@ -18,6 +18,7 @@ import { useIncomingChallenge } from "./lib/challenge";
 import { useClientCase } from "./hooks/useClientCase";
 import { useVote } from "./hooks/useVote";
 import { supabase } from "./lib/supabase";
+import { nazarbanUrl } from "./lib/nazarban";
 import { isClientLlmEnabled } from "./lib/providers";
 import { leagueTier } from "./state/viewHelpers";
 import type { CardId, Screen } from "./state/types";
@@ -271,9 +272,8 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
       )}
 
       <footer style={{ textAlign: "center", padding: "28px 16px 6px", fontWeight: 700, fontSize: 12, color: "#9AA08C" }}>
-        Powered by{" "}
-        <a href="https://nazarbanai.com" target="_blank" rel="noopener noreferrer" style={{ color: "#5E6654", fontWeight: 800, textDecoration: "none" }}>
-          nazarbanai.com
+        <a href={nazarbanUrl("app_footer")} target="_blank" rel="noopener noreferrer" style={{ color: "#5E6654", fontWeight: 800, textDecoration: "none" }}>
+          From the team behind Quorum — see what else we build →
         </a>
       </footer>
 

@@ -39,6 +39,76 @@ export function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number,
   return y;
 }
 
+// Draws Arbi — the AI judge mascot — onto a canvas, centred at (cx, cy) and
+// scaled to `size`. A 1:1 canvas port of components/Mascot.tsx (a 64-unit
+// viewBox), so the shared image carries the same character players see in-app
+// rather than just the word "Arbi".
+export function drawMascot(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  size: number,
+  mood: "neutral" | "happy" | "soft" = "neutral",
+) {
+  const s = size / 64;
+  const ox = cx - size / 2;
+  const oy = cy - size / 2;
+  const X = (u: number) => ox + u * s;
+  const Y = (v: number) => oy + v * s;
+  const S = (n: number) => n * s;
+  const DK = "#2E6B00";
+  const dot = (u: number, v: number, r: number, fill: string) => {
+    ctx.beginPath();
+    ctx.arc(X(u), Y(v), S(r), 0, Math.PI * 2);
+    ctx.fillStyle = fill;
+    ctx.fill();
+  };
+  const stroke = (w: number, color: string, draw: () => void) => {
+    ctx.beginPath();
+    ctx.lineWidth = S(w);
+    ctx.strokeStyle = color;
+    ctx.lineCap = "round";
+    draw();
+    ctx.stroke();
+  };
+
+  // Antenna
+  stroke(3, "#46A302", () => { ctx.moveTo(X(32), Y(13)); ctx.lineTo(X(32), Y(6)); });
+  dot(32, 4.5, 5, "rgba(123,224,33,0.4)");
+  dot(32, 4.5, 3, "#58CC02");
+  // Ears
+  dot(10.5, 33, 3, "#46A302");
+  dot(53.5, 33, 3, "#46A302");
+  // Head, jaw, face screen
+  roundRect(ctx, X(12), Y(12), S(40), S(40), S(15)); ctx.fillStyle = "#58CC02"; ctx.fill();
+  roundRect(ctx, X(12), Y(38), S(40), S(14), S(7)); ctx.fillStyle = "#4FBE00"; ctx.fill();
+  roundRect(ctx, X(17), Y(19), S(30), S(26), S(11)); ctx.fillStyle = "#ECFCDD"; ctx.fill();
+
+  if (mood === "happy") {
+    stroke(2.8, DK, () => { ctx.moveTo(X(21), Y(31)); ctx.quadraticCurveTo(X(25), Y(26), X(29), Y(31)); });
+    stroke(2.8, DK, () => { ctx.moveTo(X(35), Y(31)); ctx.quadraticCurveTo(X(39), Y(26), X(43), Y(31)); });
+    ctx.beginPath();
+    ctx.moveTo(X(25), Y(36));
+    ctx.quadraticCurveTo(X(32), Y(44), X(39), Y(36));
+    ctx.closePath();
+    ctx.fillStyle = DK; ctx.fill();
+    dot(20.5, 35, 2, "rgba(255,143,163,0.85)");
+    dot(43.5, 35, 2, "rgba(255,143,163,0.85)");
+  } else if (mood === "soft") {
+    dot(25, 31, 3.3, DK);
+    dot(39, 31, 3.3, DK);
+    stroke(2, DK, () => { ctx.moveTo(X(21), Y(25.5)); ctx.lineTo(X(28), Y(24.5)); });
+    stroke(2, DK, () => { ctx.moveTo(X(36), Y(24.5)); ctx.lineTo(X(43), Y(25.5)); });
+    stroke(2.6, DK, () => { ctx.moveTo(X(27), Y(38.5)); ctx.quadraticCurveTo(X(32), Y(40.5), X(37), Y(38.5)); });
+  } else {
+    dot(25, 30, 3.6, DK);
+    dot(39, 30, 3.6, DK);
+    dot(26.2, 28.8, 1.1, "#fff");
+    dot(40.2, 28.8, 1.1, "#fff");
+    stroke(2.6, DK, () => { ctx.moveTo(X(26), Y(37)); ctx.quadraticCurveTo(X(32), Y(41), X(38), Y(37)); });
+  }
+}
+
 async function renderShareCard(s: GameState): Promise<Blob | null> {
   const W = 1080, H = 1080;
   const canvas = document.createElement("canvas");
@@ -90,15 +160,23 @@ async function renderShareCard(s: GameState): Promise<Blob | null> {
   ctx.font = "800 52px 'Baloo 2', sans-serif";
   y = wrapText(ctx, s.question, innerX, y, innerW, 64, 4) + 24;
 
-  // Result banner
-  const banH = 124;
+  // Result banner — Arbi (in the matching mood) sits on the left, so the card
+  // is unmistakably "ours" the moment it lands in a chat.
+  const banH = 150;
   roundRect(ctx, innerX, y, innerW, banH, 28);
   ctx.fillStyle = win ? "#E8FFD7" : "#FFF3E0"; ctx.fill();
   ctx.lineWidth = 4; ctx.strokeStyle = win ? "#A5ED6E" : "#FFCC80"; ctx.stroke();
+  // White disc + Arbi
+  const discR = banH / 2 - 16;
+  const discCx = innerX + 20 + discR;
+  const discCy = y + banH / 2;
+  ctx.beginPath(); ctx.arc(discCx, discCy, discR, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill();
+  drawMascot(ctx, discCx, discCy, discR * 1.7, win ? "happy" : "soft");
+  // Verdict text to the right of Arbi
   ctx.fillStyle = win ? greenDark : "#E07F00";
-  ctx.font = "800 54px 'Baloo 2', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(win ? "✓  We agree!" : "✕  Not this time", cx, y + banH / 2 + 2);
-  y += banH + 44;
+  ctx.font = "800 52px 'Baloo 2', sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  ctx.fillText(win ? "We agree!" : "Not this time", discCx + discR + 28, discCy + 2);
+  y += banH + 40;
 
   // You vs Arbi
   const your = s.cards.find((c) => c.id === s.selected);
@@ -111,9 +189,12 @@ async function renderShareCard(s: GameState): Promise<Blob | null> {
   ctx.font = "800 40px Nunito, sans-serif"; ctx.fillStyle = ink;
   ctx.fillText(`🔥 ${s.streak} day streak       +${s.earned} XP`, cx, y);
 
-  // Footer CTA pinned near the bottom
+  // Footer CTA pinned near the bottom, with a soft Nazarban brand line beneath
+  // it (secondary to the Quorum CTA — awareness, not a second ask).
   ctx.fillStyle = green; ctx.font = "800 36px Nunito, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
-  ctx.fillText("Play today's case → quorumdaily.com", cx, cardY + cardH - 54);
+  ctx.fillText("Play today's case → quorumdaily.com", cx, cardY + cardH - 66);
+  ctx.fillStyle = muted; ctx.font = "800 24px Nunito, sans-serif";
+  ctx.fillText("Built by Nazarban · nazarbanai.com", cx, cardY + cardH - 30);
 
   return await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), "image/png", 0.92));
 }

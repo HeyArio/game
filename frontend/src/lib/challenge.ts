@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase, isSupabaseConfigured } from "./supabase";
-import { roundRect, wrapText } from "./shareCard";
+import { roundRect, wrapText, drawMascot } from "./shareCard";
 import type { GameState } from "../state/types";
 
 // Challenge links — "nobody gets a link, everybody gets a challenge."
@@ -80,6 +80,10 @@ async function renderChallengeCard(s: GameState, name: string): Promise<Blob | n
 
   const innerX = pad + 52;
   const innerW = W - 2 * (pad + 52);
+  // Reserve a right-hand gutter for Arbi so the headline/question never run
+  // under the mascot.
+  const arbiSize = 172;
+  const textW = innerW - arbiSize - 10;
   let y = pad + 70;
 
   // Wordmark: rounded "Q" badge + "Quorum"; case tag on the right.
@@ -94,17 +98,20 @@ async function renderChallengeCard(s: GameState, name: string): Promise<Blob | n
   ctx.fillStyle = muted; ctx.textAlign = "right"; ctx.font = "800 24px Nunito, sans-serif";
   ctx.fillText(s.caseNo ? `Daily Case #${s.caseNo}` : "Daily Case", innerX + innerW, y + 2);
 
+  // Arbi, peeking from the right — the face you're being challenged to out-judge.
+  drawMascot(ctx, innerX + innerW - arbiSize / 2, pad + 70 + 168, arbiSize, "neutral");
+
   y += 84;
 
   // "X challenges you"
   ctx.textAlign = "left"; ctx.textBaseline = "top";
   ctx.fillStyle = greenDark; ctx.font = "800 52px 'Baloo 2', sans-serif";
   const headline = `${name} challenges you`;
-  y = wrapText(ctx, headline, innerX, y, innerW, 60, 2) + 14;
+  y = wrapText(ctx, headline, innerX, y, textW, 60, 2) + 14;
 
   // The question
   ctx.fillStyle = ink; ctx.font = "800 38px 'Baloo 2', sans-serif";
-  y = wrapText(ctx, s.question, innerX, y, innerW, 48, 3) + 22;
+  y = wrapText(ctx, s.question, innerX, y, textW, 48, 3) + 22;
 
   // Spoiler-free prompt pill
   const pillH = 70;
@@ -135,12 +142,19 @@ async function challengerName(): Promise<string> {
   }
 }
 
+/** Result of minting a challenge: the shareable URL plus the rendered card
+ *  image, so the share sheet can attach the picture (not just the link). */
+export interface MintedChallenge {
+  url: string;
+  cardBlob: Blob | null;
+}
+
 /**
- * Mint a challenge for the just-finished case and return its shareable URL.
- * Returns null when the backend isn't available (e.g. the local dev LLM path),
- * so callers can fall back to a plain invite link.
+ * Mint a challenge for the just-finished case and return its shareable URL plus
+ * the rendered card image. Returns null when the backend isn't available (e.g.
+ * the local dev LLM path), so callers can fall back to a plain invite link.
  */
-export async function createChallenge(s: GameState): Promise<string | null> {
+export async function createChallenge(s: GameState): Promise<MintedChallenge | null> {
   if (!isSupabaseConfigured || !s.caseId) return null;
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -149,16 +163,18 @@ export async function createChallenge(s: GameState): Promise<string | null> {
     const id = makeId();
     const name = await challengerName();
 
-    // Render + upload the preview card (best-effort: a missing card just falls
-    // back to the static og-image, the link still works).
+    // Render the preview card once: we both upload it (best-effort, for the
+    // link's crawler preview) and hand it back so the share sheet can attach it
+    // as an actual image.
+    let cardBlob: Blob | null = null;
     let card_url: string | null = null;
     try {
-      const blob = await renderChallengeCard(s, name);
-      if (blob) {
+      cardBlob = await renderChallengeCard(s, name);
+      if (cardBlob) {
         const path = `${id}.png`;
         const { error: upErr } = await supabase.storage
           .from("challenge-cards")
-          .upload(path, blob, { contentType: "image/png", upsert: false });
+          .upload(path, cardBlob, { contentType: "image/png", upsert: false });
         if (!upErr) {
           card_url = supabase.storage.from("challenge-cards").getPublicUrl(path).data.publicUrl;
         }
@@ -178,7 +194,7 @@ export async function createChallenge(s: GameState): Promise<string | null> {
     });
     if (error) return null;
 
-    return challengeUrl(id);
+    return { url: challengeUrl(id), cardBlob };
   } catch {
     return null;
   }
@@ -195,17 +211,35 @@ export async function fetchChallenge(id: string): Promise<Challenge | null> {
 }
 
 /**
- * Share a challenge LINK (text + url are allowed here, unlike the image-only
- * result share). Falls back to copying the link when there's no share sheet.
+ * Share a challenge. Preferred path: send the rendered card IMAGE (Arbi + the
+ * case, in our palette) with the link in the caption, so the recipient gets a
+ * picture they can act on — not just a bare URL. Falls back to a text+url share,
+ * then to copying the link, when image sharing isn't available.
  */
-export async function shareChallengeLink(link: string): Promise<"shared" | "copied" | "cancelled" | "error"> {
+export async function shareChallengeLink(
+  link: string,
+  cardBlob?: Blob | null,
+): Promise<"shared" | "copied" | "cancelled" | "error"> {
   const text = "I just played today's Quorum case — think you can out-judge Arbi?";
   try {
     const nav = navigator as any;
+
+    // Best: image + link caption.
+    if (cardBlob && nav.canShare && nav.share) {
+      const file = new File([cardBlob], "quorum-challenge.png", { type: "image/png" });
+      if (nav.canShare({ files: [file] })) {
+        try { await nav.share({ files: [file], text: `${text} ${link}` }); return "shared"; }
+        catch (e: any) { if (e?.name === "AbortError") return "cancelled"; /* else fall through */ }
+      }
+    }
+
+    // Next best: text + url (no image attachment support).
     if (nav.share) {
       try { await nav.share({ title: "Quorum", text, url: link }); return "shared"; }
       catch (e: any) { if (e?.name === "AbortError") return "cancelled"; /* else fall through */ }
     }
+
+    // Last resort: copy the link.
     await navigator.clipboard.writeText(link);
     return "copied";
   } catch {
