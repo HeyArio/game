@@ -35,6 +35,16 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const PERSONA_NAMES = ["GPT-OSS 120B", "Llama 3.3 70B", "Mistral Small", "Gemini Flash"];
 const LETTERS = ["A", "B", "C", "D"];
 
+/** Unbiased Fisher–Yates shuffle (returns a new array). */
+function shuffle<T>(arr: readonly T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 type ProviderId = "openrouter" | "groq" | "mistral" | "gemini";
 
 interface ProviderDef {
@@ -327,10 +337,18 @@ Deno.serve(async (req) => {
       )
     );
 
-    const answers = rawAnswers.map((raw, i) => {
-      const { pick, rationale } = splitAnswer(raw);
-      return { letter: LETTERS[i], persona: PERSONA_NAMES[i], pick, answer: rationale };
-    });
+    // Randomise the model→letter mapping per case so no model sits in the same
+    // slot every day (kills positional "tells" — play stays about the argument,
+    // not the seat). Cards still read A–D on screen because the today_case view
+    // orders options by letter; only the model behind each letter rotates. All
+    // downstream logic is keyed by letter, so judge/crowd/vote mapping is intact.
+    const assignedLetters = shuffle(LETTERS);
+    const answers = rawAnswers
+      .map((raw, i) => {
+        const { pick, rationale } = splitAnswer(raw);
+        return { letter: assignedLetters[i], persona: PERSONA_NAMES[i], pick, answer: rationale };
+      })
+      .sort((a, b) => a.letter.localeCompare(b.letter));
 
     // Need at least two real answers for the case to be worth judging.
     const realAnswers = answers.filter((a) => a.pick !== "No response");

@@ -24,6 +24,16 @@ import type { BaseCard, CardId } from "../state/types";
 const PERSONA_NAMES = ["GPT-OSS 120B", "Llama 3.3 70B", "Mistral Small", "Gemini Flash"];
 const LETTERS = ["A", "B", "C", "D"] as const;
 
+/** Unbiased Fisher–Yates shuffle (returns a new array). */
+function shuffle<T>(arr: readonly T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 type ProviderId = "openrouter" | "groq" | "mistral" | "gemini";
 
 interface ProviderDef {
@@ -210,9 +220,12 @@ export async function generateClientCase(): Promise<ClientCase> {
   const rawAnswers = await Promise.all(
     [1, 2, 3, 4].map((slot) => getAnswer(slot, question))
   );
+  // Randomise the model→letter mapping per case (mirrors generate-daily-case),
+  // so the same model never sits in the same slot two runs running.
+  const assignedLetters = shuffle(LETTERS);
   const answers = rawAnswers.map((raw, i) => {
     const { pick, rationale } = splitAnswer(raw);
-    return { letter: LETTERS[i], persona: PERSONA_NAMES[i], pick, answer: rationale };
+    return { letter: assignedLetters[i], persona: PERSONA_NAMES[i], pick, answer: rationale };
   });
 
   const winner = await judge(question, answers);
@@ -229,14 +242,18 @@ export async function generateClientCase(): Promise<ClientCase> {
     remaining -= crowd[a.letter];
   });
 
-  const cards: BaseCard[] = answers.map((a) => ({
-    id: a.letter.toLowerCase() as CardId,
-    letter: a.letter,
-    name: a.persona,
-    pick: a.pick,
-    crowd: crowd[a.letter] ?? 25,
-    answer: a.answer,
-  }));
+  // Sort by letter so cards render A–D (production gets this ordering from the
+  // today_case view; the client path has no view, so do it here).
+  const cards: BaseCard[] = answers
+    .map((a) => ({
+      id: a.letter.toLowerCase() as CardId,
+      letter: a.letter,
+      name: a.persona,
+      pick: a.pick,
+      crowd: crowd[a.letter] ?? 25,
+      answer: a.answer,
+    }))
+    .sort((a, b) => a.letter.localeCompare(b.letter));
 
   return {
     caseId: "client-test",
