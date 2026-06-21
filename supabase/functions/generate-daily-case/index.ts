@@ -198,8 +198,11 @@ async function judgeAnswers(
   question: string,
   answers: { letter: string; persona: string; pick: string; answer: string }[]
 ): Promise<JudgeResult> {
+  // Anonymise: the judge sees only the letter + the argument, never which model
+  // produced it. Otherwise a judge that shares a provider with a contestant
+  // (e.g. Gemini judging "Gemini Flash") can show self-preference bias.
   const answerBlock = answers
-    .map(a => `Option ${a.letter} (${a.persona}):\nPick: ${a.pick}\nReasoning: ${a.answer}`)
+    .map(a => `Option ${a.letter}:\nPick: ${a.pick}\nReasoning: ${a.answer}`)
     .join("\n\n");
 
   // Only the letters that actually have a real answer are eligible to win.
@@ -280,15 +283,48 @@ function splitAnswer(raw: string): { pick: string; rationale: string } {
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
+
+/** Decode a JWT payload (no signature check — the Supabase gateway already
+ * verifies the signature when verify_jwt is on). Returns {} on any failure. */
+function jwtPayload(token: string): Record<string, unknown> {
+  try {
+    const part = token.split(".")[1] ?? "";
+    const b64 = part.replace(/-/g, "+").replace(/_/g, "/")
+      .padEnd(Math.ceil(part.length / 4) * 4, "=");
+    return JSON.parse(atob(b64));
+  } catch {
+    return {};
+  }
+}
+
+/** Only the daily cron (or an operator) may (re)generate a case. The public
+ * anon key is itself a valid project JWT, so `verify_jwt` alone is NOT enough —
+ * it would let any visitor replace today's case and burn LLM credits. Require
+ * the service role, or a shared CRON_SECRET header. */
+function isAuthorized(req: Request): boolean {
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  if (cronSecret && req.headers.get("x-cron-secret") === cronSecret) return true;
+
+  const auth = req.headers.get("Authorization") ?? "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!token) return false;
+  if (token === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) return true;  // documented cron
+  return jwtPayload(token).role === "service_role";
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   // Allow both cron invocations (no body) and manual POST with { question, category }
   if (req.method !== "POST" && req.method !== "GET") {
     return new Response("Method not allowed", { status: 405, headers: CORS });
+  }
+  if (!isAuthorized(req)) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { "Content-Type": "application/json", ...CORS },
+    });
   }
 
   const supabase = createClient(

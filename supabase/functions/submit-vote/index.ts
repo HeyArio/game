@@ -120,25 +120,41 @@ Deno.serve(async (req) => {
   const crowdCorrect = !!crowdGuessOptionId && crowdGuessOptionId === ctx.crowdLeaderOptionId;
   const xpEarned = baseXp(wasCorrect, confidence) + (crowdCorrect ? CROWD_BONUS : 0);
 
-  // --- Insert the vote ---
-  const { error: voteErr } = await adminClient.from("votes").insert({
-    user_id:               user.id,
-    case_id:               caseId,
-    option_id:             optionId,
-    was_correct:           wasCorrect,
-    xp_earned:             xpEarned,
-    confidence:            confidence,
-    crowd_guess_option_id: crowdGuessOptionId,
-    crowd_correct:         crowdCorrect,
+  // --- Record the vote + update progress atomically (single transaction) ---
+  // record_vote returns false if a row already existed (incl. a concurrent
+  // double-submit), in which case nothing was written — fall through to the
+  // stored-result path instead of returning a constraint error.
+  const { data: inserted, error: voteErr } = await adminClient.rpc("record_vote", {
+    p_user_id:               user.id,
+    p_case_id:               caseId,
+    p_option_id:             optionId,
+    p_was_correct:           wasCorrect,
+    p_xp_earned:             xpEarned,
+    p_confidence:            confidence,
+    p_crowd_guess_option_id: crowdGuessOptionId,
+    p_crowd_correct:         crowdCorrect,
   });
   if (voteErr) return json({ error: voteErr.message }, 500);
 
-  // --- Update user_progress ---
-  await adminClient.rpc("update_user_progress_after_vote", {
-    p_user_id:     user.id,
-    p_xp_earned:   xpEarned,
-    p_was_correct: wasCorrect,
-  });
+  if (inserted === false) {
+    const { data: ev } = await adminClient
+      .from("votes")
+      .select("option_id, was_correct, xp_earned, confidence, crowd_guess_option_id, crowd_correct")
+      .eq("user_id", user.id)
+      .eq("case_id", caseId)
+      .maybeSingle();
+    return json({
+      ...buildPayload(ctx, {
+        votedOptionId:      ev?.option_id ?? optionId,
+        wasCorrect:         ev?.was_correct ?? false,
+        xpEarned:           ev?.xp_earned ?? 0,
+        confidence:         (ev?.confidence as Confidence) ?? "med",
+        crowdGuessOptionId: ev?.crowd_guess_option_id ?? null,
+        crowdCorrect:       ev?.crowd_correct ?? false,
+      }),
+      alreadyVoted: true,
+    });
+  }
 
   return json({
     ...buildPayload(ctx, {

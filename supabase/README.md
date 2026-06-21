@@ -108,9 +108,21 @@ supabase functions deploy generate-daily-case
 supabase functions deploy submit-vote
 ```
 
-**Generate the first case manually:**
+**Authorization.** This function is privileged — it spends LLM credits and
+replaces today's case — so it rejects ordinary callers. The public anon key is a
+valid project JWT, so `verify_jwt` alone wouldn't stop a random visitor; the
+function additionally requires **either** the service-role key **or** a shared
+`x-cron-secret`. The scheduled cron below already sends the service-role key, so
+it works unchanged. (Optional: `supabase secrets set CRON_SECRET=<random>` and
+send it as the `x-cron-secret` header instead of the service-role key.) Do **not**
+deploy this function with `--no-verify-jwt`.
+
+**Generate the first case manually** (send the service-role key — a plain
+`supabase functions invoke` uses the anon key and is now correctly rejected):
 ```bash
-supabase functions invoke generate-daily-case
+curl -X POST 'https://YOUR-PROJECT-ref.supabase.co/functions/v1/generate-daily-case' \
+  -H "Authorization: Bearer YOUR-SERVICE-ROLE-KEY" \
+  -H "Content-Type: application/json"
 ```
 
 **Schedule it daily** (Supabase SQL editor — needs pg_cron + pg_net enabled,
@@ -218,6 +230,14 @@ like a phishing link and kills the share. The two supported styles:
   quests roll over automatically via the date/ISO-week period key.
 - **League tier** is derived from real `total_xp` in the frontend
   (`leagueTier`), so Profile / Leagues / top-bar stay in sync.
+- **Integrity hardening (0014).** Closes client-writable side doors so scoring
+  stays server-authoritative: `votes` has no direct client INSERT and
+  `user_progress` is read-only for clients (writes go through the edge function
+  + SECURITY DEFINER RPCs, which bypass RLS). The privileged definer functions
+  (`update_user_progress_after_vote`, `check_streak`, `tick_bot_xp`) are no
+  longer executable by `public`. Voting now goes through `record_vote()`, which
+  inserts the vote and updates progress in one transaction (and keeps `level`
+  in sync on every vote, not just on quest claims).
 - **Still to wire (optional, currently presentational):** the schema's tiered
   **weekly league** cohort assignment + reset (`leagues` / `league_memberships`
   / `league_standings`); the all-time `global_leaderboard` stands in for now.
