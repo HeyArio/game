@@ -36,3 +36,5 @@ Voice is confident and direct — a publication that plays games, not a game tha
 ## Accessibility & Inclusion
 
 WCAG AA as the baseline: 4.5:1 contrast ratio for body text, 3:1 for large text, keyboard navigation, and screen reader semantics. Reduced motion should degrade gracefully; no content should be gated behind a CSS transition.
+
+**Documented exception:** the primary call-to-action buttons use the brand green (`#58CC02`) with white text, which is ~2.1:1 and does not meet the AA text-contrast bar. This is a deliberate brand choice (the bright green is core to Quorum's identity); these buttons are large, bold, and carry an icon, and the rest of the interface — body text, secondary controls, focus indicators, semantics, and reduced-motion handling — is held to AA.
