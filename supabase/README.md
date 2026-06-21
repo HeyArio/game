@@ -175,25 +175,25 @@ supabase functions deploy challenge --no-verify-jwt
 > can't send an auth header. Optionally set `QUORUM_SITE_URL` (defaults to
 > `https://quorumdaily.com`) via `supabase secrets set`.
 
-**Link styles** — controlled by `VITE_CHALLENGE_LINK_BASE` in `frontend/.env`:
+**Link styles** — controlled by `VITE_CHALLENGE_LINK_BASE` in `frontend/.env`.
+We never expose the raw `…supabase.co/functions/v1/challenge/<id>` URL — it reads
+like a phishing link and kills the share. The two supported styles:
 
-- **Default (leave it blank): zero web-server config.** Links point straight at
-  the function: `https://YOUR-ref.supabase.co/functions/v1/challenge/<id>`.
-  Works the moment the function is deployed.
-- **Pretty `quorumdaily.com/c/<id>`:** add one `location` block to the nginx
-  site, then set `VITE_CHALLENGE_LINK_BASE=https://quorumdaily.com/c` and
-  rebuild the frontend:
+- **Default (leave it blank): a clean app link on your own domain** —
+  `https://quorumdaily.com/?c=<id>`. Zero web-server config; the app opens it to
+  the "X challenged you" intro. The trade-off: social crawlers fall back to the
+  site's generic Open Graph card (no personalised preview).
+- **Recommended — pretty `quorumdaily.com/c/<id>` *with* a personalised
+  preview:** proxy `/c/` to the `challenge` function so you keep the clean URL
+  and the per-challenge "X challenges you" card. A ready-to-use config lives at
+  [`deploy/nginx-challenge.conf`](../deploy/nginx-challenge.conf) (project ref
+  pre-filled):
 
-  ```nginx
-  # In /etc/nginx/sites-enabled/quorumdaily, alongside the existing SPA root.
-  # Proxies pretty challenge links to the Supabase `challenge` function.
-  location ~ ^/c/(?<cid>[A-Za-z0-9_-]+)/?$ {
-      resolver 1.1.1.1 ipv6=off;                       # needed for the variable host below
-      set $quorum_fn "YOUR-ref.supabase.co";
-      proxy_pass https://$quorum_fn/functions/v1/challenge/$cid;
-      proxy_ssl_server_name on;
-      proxy_set_header Host $quorum_fn;
-  }
+  ```bash
+  # 1. Add the block to /etc/nginx/sites-enabled/quorumdaily (inside server { }),
+  #    then:  nginx -t && systemctl reload nginx
+  # 2. Set VITE_CHALLENGE_LINK_BASE=https://quorumdaily.com/c in frontend/.env
+  # 3. Rebuild:  bash deploy.sh
   ```
 
 ## Notes / next steps

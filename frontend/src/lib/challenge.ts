@@ -34,22 +34,27 @@ function makeId(len = 12): string {
 }
 
 /**
- * Where challenge links point. Default: the Supabase `challenge` edge function,
- * which works with zero web-server config. Set VITE_CHALLENGE_LINK_BASE to
- * "https://quorumdaily.com/c" for pretty links once nginx proxies /c/ to the
- * function (see supabase/README.md).
+ * Where challenge links point.
+ *
+ * Default (nothing to configure): an empty base, so links become a clean,
+ * on-brand `quorumdaily.com/?c=<id>` app link (see challengeUrl). We deliberately
+ * do NOT default to the raw `…supabase.co/functions/v1/challenge/<id>` URL —
+ * that reads like a phishing link and kills the share.
+ *
+ * Upgrade: set VITE_CHALLENGE_LINK_BASE to "https://quorumdaily.com/c" once nginx
+ * proxies /c/ to the `challenge` function (see deploy/nginx-challenge.conf). That
+ * keeps the link on your own domain AND restores the personalised crawler
+ * preview (the "X challenges you" card).
  */
 export function challengeLinkBase(): string {
-  const explicit = (import.meta.env.VITE_CHALLENGE_LINK_BASE as string | undefined)?.replace(/\/+$/, "");
-  if (explicit) return explicit;
-  const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/+$/, "");
-  return url ? `${url}/functions/v1/challenge` : "";
+  return (import.meta.env.VITE_CHALLENGE_LINK_BASE as string | undefined)?.replace(/\/+$/, "") ?? "";
 }
 
 export function challengeUrl(id: string): string {
   const base = challengeLinkBase();
-  // Fallback (no Supabase URL configured): a plain app link still works — the
-  // app reads `?c=`, it just won't get a personalised crawler preview.
+  // No pretty base configured → a clean app link on our own domain. The
+  // recipient's browser reads `?c=`; crawlers fall back to the site's generic
+  // OG card. Configure the base + nginx proxy for a per-challenge preview.
   return base ? `${base}/${id}` : `${SITE}/?c=${id}`;
 }
 
