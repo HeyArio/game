@@ -113,6 +113,10 @@ export function lockStyle(s: GameState): CSSProperties {
     letterSpacing: ".04em",
     textTransform: "uppercase",
     color: r ? "#fff" : "#AFB4A4",
+    // Subtle shadow lifts the white label off the brand green for legibility.
+    // (The bright-green CTA is a documented brand choice; this softens the
+    // contrast without abandoning it — see PRODUCT.md.)
+    textShadow: r ? "0 1px 1px rgba(0,0,0,.22)" : "none",
     background: r ? "#58CC02" : "#E4EAD8",
     boxShadow: r ? "0 4px 0 #46A302" : "0 4px 0 #D2D8C6",
     transition: "transform .05s, box-shadow .05s",
@@ -268,7 +272,6 @@ export interface LeagueRowView {
   xp: string;
   isYou?: boolean;
   isBot?: boolean;
-  promoLineBefore: boolean;
   rankColor: string;
   style: CSSProperties;
 }
@@ -283,7 +286,6 @@ export function leagueRowsView(s: GameState): LeagueRowView[] {
     xp: p.xp.toLocaleString(),
     isYou: p.isYou,
     isBot: p.isBot,
-    promoLineBefore: false,
     rankColor: p.rank <= 5 ? "#58A700" : "#B2B7A6",
     style: {
       display: "flex",
@@ -396,7 +398,7 @@ export function doneView(s: GameState): DoneView {
 }
 
 export interface LeaguesView {
-  tiers: { name: string; labelColor: string; iconEl: JSX.Element | null; badgeStyle: CSSProperties }[];
+  tiers: { name: string; min: number; current: boolean; labelColor: string; iconEl: JSX.Element | null; badgeStyle: CSSProperties }[];
   rows: {
     rankLabel: string;
     name: string;
@@ -406,14 +408,13 @@ export interface LeaguesView {
     isYou?: boolean;
     isBot?: boolean;
     rankColor: string;
-    promoLineBefore: boolean;
-    demoLineBefore: boolean;
     style: CSSProperties;
   }[];
   youRank: number;
+  /** Progress from the current tier toward the next, or null at the top tier. */
+  progress: { nextName: string; xpToNext: number; pct: number } | null;
   note: string;
   bigTrophyEl: JSX.Element | null;
-  promoIconEl: JSX.Element | null;
 }
 
 export function leaguesView(s: GameState): LeaguesView {
@@ -428,6 +429,8 @@ export function leaguesView(s: GameState): LeaguesView {
     const locked = i > curIdx;
     return {
       name: t.name,
+      min: t.min,
+      current,
       labelColor: current ? "#58A700" : locked ? "#C2C7B6" : "#7C8470",
       iconEl: icon(t.icon, 24, locked ? "#C7CCBC" : "#fff"),
       badgeStyle: {
@@ -452,8 +455,6 @@ export function leaguesView(s: GameState): LeaguesView {
     isYou: p.isYou,
     isBot: p.isBot,
     rankColor: p.rank === 1 ? "#E6A700" : p.rank <= 3 ? "#58A700" : "#B2B7A6",
-    promoLineBefore: false,
-    demoLineBefore: false,
     style: {
       display: "flex",
       alignItems: "center",
@@ -464,11 +465,22 @@ export function leaguesView(s: GameState): LeaguesView {
       outline: p.isYou ? "2px solid #A5ED6E" : "none",
     } as CSSProperties,
   }));
+  // How far the player is from the next tier (null once they top the ladder),
+  // so the progression rail reads as a goal, not just decoration.
+  const curTier = LEAGUE_TIERS[curIdx];
+  const nextTier = LEAGUE_TIERS[curIdx + 1];
+  const progress = nextTier
+    ? {
+        nextName: nextTier.name,
+        xpToNext: Math.max(0, nextTier.min - s.totalXp),
+        pct: Math.min(100, Math.max(0, ((s.totalXp - curTier.min) / (nextTier.min - curTier.min)) * 100)),
+      }
+    : null;
   const note =
     youRank <= 10
       ? "Top " + youRank + " across every player — sharp work. Judge a case every day and you'll hold it."
       : "You're ranked #" + youRank.toLocaleString() + " overall. Win a few more cases with me and you'll climb fast.";
-  return { tiers, rows, youRank, note, bigTrophyEl: icon("trophy", 34, "#fff"), promoIconEl: icon("trendUp", 13, "#58A700") };
+  return { tiers, rows, youRank, progress, note, bigTrophyEl: icon("trophy", 34, "#fff") };
 }
 
 export interface QuestItemView {

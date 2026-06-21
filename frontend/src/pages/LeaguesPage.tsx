@@ -40,18 +40,41 @@ export function LeaguesPage({ state }: LeaguesPageProps) {
       <div style={{ background: "#fff", border: "2px solid #E4EAD8", borderRadius: 20, padding: "16px 20px" }}>
         <h2 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 14, color: "#7C8470", marginBottom: 14 }}>Your progression</h2>
         <div style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", paddingBottom: 4 }}>
-          {leagues.tiers.map((t, i) => (
-            <div key={t.name} style={{ display: "flex", alignItems: "flex-start", minWidth: 0 }}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: "none" }}>
-                <span style={t.badgeStyle}>{t.iconEl}</span>
-                <span style={{ fontWeight: 800, fontSize: 11, color: t.labelColor, whiteSpace: "nowrap" }}>{t.name}</span>
+          {leagues.tiers.map((t, i) => {
+            const threshold = t.min === 0 ? "Start" : t.min >= 1000 ? `${t.min / 1000}k` : String(t.min);
+            return (
+              <div key={t.name} style={{ display: "flex", alignItems: "flex-start", minWidth: 0 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: "none" }}>
+                  <span style={t.badgeStyle}>{t.iconEl}</span>
+                  <span style={{ fontWeight: 800, fontSize: 11, color: t.labelColor, whiteSpace: "nowrap" }}>{t.name}</span>
+                  <span style={{ fontWeight: 700, fontSize: 9.5, letterSpacing: ".02em", color: t.current ? "#58A700" : "#B2B7A6", whiteSpace: "nowrap" }}>
+                    {threshold}{t.min === 0 ? "" : " XP"}
+                  </span>
+                </div>
+                {i < leagues.tiers.length - 1 && (
+                  <div style={{ width: 20, height: 2, background: "#E4EAD8", flex: "none", marginTop: 25 }} />
+                )}
               </div>
-              {i < leagues.tiers.length - 1 && (
-                <div style={{ width: 20, height: 2, background: "#E4EAD8", flex: "none", marginTop: 25 }} />
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
+        {leagues.progress ? (
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "2px solid #F0F2EA" }}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontWeight: 800, fontSize: 12.5, color: "#5E6654" }}>Next: {leagues.progress.nextName}</span>
+              <span style={{ fontWeight: 800, fontSize: 12.5, color: "#58A700", fontVariantNumeric: "tabular-nums" }}>
+                {leagues.progress.xpToNext.toLocaleString()} XP to go
+              </span>
+            </div>
+            <div style={{ height: 10, borderRadius: 999, background: "#EEF1E6", overflow: "hidden" }}>
+              <div style={{ height: "100%", borderRadius: 999, width: leagues.progress.pct + "%", background: "linear-gradient(90deg,#58CC02,#46A302)", transition: "width .3s ease" }} />
+            </div>
+          </div>
+        ) : (
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "2px solid #F0F2EA", textAlign: "center", fontWeight: 800, fontSize: 12.5, color: "#58A700" }}>
+            Top tier reached — you've maxed the ladder.
+          </div>
+        )}
       </div>
 
       <div style={{ background: "#fff", border: "2px solid #E4EAD8", borderRadius: 20, padding: 10 }}>

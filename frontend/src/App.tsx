@@ -3,7 +3,7 @@ import { useAuth } from "./auth/AuthProvider";
 import { ConfettiCanvas } from "./components/ConfettiCanvas";
 import { PromoOverlay } from "./components/PromoOverlay";
 import { StreakOverlay } from "./components/StreakOverlay";
-import { TopBar } from "./components/TopBar";
+import { TopBar, BottomNav } from "./components/TopBar";
 import { SignInOverlay } from "./components/SignInOverlay";
 import { OnboardingOverlay } from "./components/OnboardingOverlay";
 import { Mascot } from "./components/Mascot";
@@ -21,6 +21,7 @@ import { useDailyCase } from "./hooks/useDailyCase";
 import { useIncomingChallenge } from "./lib/challenge";
 import { useClientCase } from "./hooks/useClientCase";
 import { useVote } from "./hooks/useVote";
+import { useIsMobile } from "./hooks/useMediaQuery";
 import { supabase } from "./lib/supabase";
 import { nazarbanUrl } from "./lib/nazarban";
 import { isClientLlmEnabled } from "./lib/providers";
@@ -251,6 +252,7 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
   // A recipient who arrived via a challenge link (?c=<id>) — drives the intro
   // banner and the You-vs-them-vs-Arbi reveal line.
   const challenge = useIncomingChallenge();
+  const isMobile = useIsMobile();
   const screenLabel = { play: "Daily Case", leagues: "Leagues", quests: "Quests", profile: "Profile" }[state.screen];
   // When a guest tries to lock in, prompt them to sign in via a modal popup.
   const [signInPrompt, setSignInPrompt] = useState(false);
@@ -274,9 +276,12 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
   // Logo target: guests go back to the landing page; signed-in players go home
   // (to the daily case). TopBar also scrolls to top for visible feedback.
   const onHome = guest && onGoLanding ? onGoLanding : () => actions.setScreen("play");
+  // On phones, signed-in players navigate via a fixed bottom tab bar; reserve
+  // space at the bottom so it never covers the footer or the last card.
+  const showBottomNav = !guest && isMobile;
 
   return (
-    <div data-screen-label={screenLabel} style={{ minHeight: "100vh", background: "radial-gradient(140% 80% at 50% -20%, #EAF7DD 0%, #F4F8EE 48%)", color: "#3C3C46", padding: "0 0 60px" }}>
+    <div data-screen-label={screenLabel} style={{ minHeight: "100vh", background: "radial-gradient(140% 80% at 50% -20%, #EAF7DD 0%, #F4F8EE 48%)", color: "#3C3C46", padding: showBottomNav ? "0 0 96px" : "0 0 60px" }}>
       <TopBar state={state} onSelectScreen={selectScreen} onOpenStreak={openStreak} onHome={onHome} guest={guest} onSignIn={requireAuth} />
 
       <Suspense fallback={<PageFallback />}>
@@ -306,6 +311,8 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
           From the team behind Quorum — see what else we build →
         </a>
       </footer>
+
+      {showBottomNav && <BottomNav screen={state.screen} onSelectScreen={selectScreen} />}
 
       <ConfettiCanvas setCanvas={setCanvas} />
     </div>

@@ -33,6 +33,11 @@ summary:focus-visible,
   border-radius: 4px;
 }
 
+/* Brand-green primary CTA: a subtle shadow lifts the white label off the green
+   for legibility. The bright-green CTA is a documented brand choice (PRODUCT.md);
+   this softens the contrast without darkening the brand colour. */
+.lp-btn-play { text-shadow: 0 1px 1px rgba(0,0,0,.22); }
+
 /* Landing-page button hover states */
 .lp-btn-play:hover { background: #66D80A !important; }
 .lp-btn-play-white:hover { background: #F0FFEB !important; }

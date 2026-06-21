@@ -310,6 +310,11 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
                 )}
               </div>
 
+              {/* The viral surface (Challenge a friend / share) sits at the
+                  emotional peak — right after the verdict and rewards, before
+                  the longer judge reasoning — so players act on it. */}
+              <ShareBar state={state} />
+
               {state.judgeReasoning && (
                 <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 14, background: "rgba(255,255,255,.7)", border: "1.5px solid rgba(60,60,70,.08)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 800, fontSize: 11, letterSpacing: ".08em", color: "#58A700", marginBottom: 5 }}>
@@ -319,8 +324,6 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
                   <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.6, color: "#5E6553" }}>{state.judgeReasoning}</div>
                 </div>
               )}
-
-              <ShareBar state={state} />
 
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: "2px dashed rgba(0,0,0,.08)", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                 <div style={{ fontWeight: 700, fontSize: 13, color: "#5E6553" }}>
@@ -400,25 +403,16 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
           <div style={{ fontWeight: 700, fontSize: 12, color: "#8E9582", marginBottom: 8 }}>Top players by total XP</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {leagueRows.map((row, i) => (
-              <div key={i}>
-                {row.promoLineBefore && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "6px 0" }}>
-                    <div style={{ flex: 1, height: 2, background: "repeating-linear-gradient(90deg,#A5ED6E 0 7px,transparent 7px 13px)" }} />
-                    <span style={{ fontWeight: 800, fontSize: 9.5, letterSpacing: ".1em", color: "#58A700" }}>PROMOTION</span>
-                    <div style={{ flex: 1, height: 2, background: "repeating-linear-gradient(90deg,#A5ED6E 0 7px,transparent 7px 13px)" }} />
-                  </div>
-                )}
-                <div style={row.style}>
-                  <span style={{ width: 20, fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 14, color: row.rankColor, textAlign: "center" }}>{row.rank}</span>
-                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: "50%", background: row.color, color: "#fff", fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 13, flex: "none" }}>
-                    {row.initial}
-                  </span>
-                  <span style={{ fontWeight: 800, fontSize: 14, color: "#3C3C46", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {row.name}
-                    {row.isBot && <span role="img" aria-label="AI opponent" title="AI opponent" style={{ marginLeft: 5 }}>🤖</span>}
-                  </span>
-                  <span style={{ fontWeight: 800, fontSize: 13, color: "#8E9582" }}>{row.xp}</span>
-                </div>
+              <div key={i} style={row.style}>
+                <span style={{ width: 20, fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 14, color: row.rankColor, textAlign: "center" }}>{row.rank}</span>
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: "50%", background: row.color, color: "#fff", fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 13, flex: "none" }}>
+                  {row.initial}
+                </span>
+                <span style={{ fontWeight: 800, fontSize: 14, color: "#3C3C46", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {row.name}
+                  {row.isBot && <span role="img" aria-label="AI opponent" title="AI opponent" style={{ marginLeft: 5 }}>🤖</span>}
+                </span>
+                <span style={{ fontWeight: 800, fontSize: 13, color: "#8E9582" }}>{row.xp}</span>
               </div>
             ))}
           </div>

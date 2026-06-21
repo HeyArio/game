@@ -1,3 +1,4 @@
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { Mascot } from "../components/Mascot";
 import type { GameState } from "../state/types";
 import { profileView } from "../state/viewHelpers";
@@ -20,6 +21,9 @@ export function ProfilePage({ state }: ProfilePageProps) {
   const joined = user?.created_at
     ? new Date(user.created_at).toLocaleDateString(undefined, { month: "long", year: "numeric" })
     : null;
+  const shareSummary =
+    `I'm on a ${state.streak}-day streak on Quorum — Level ${state.level}, ${profile.tier} league, ` +
+    `${state.stats.agreementPct}% agreement with the judge. Come test your judgment:`;
 
   return (
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "26px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
@@ -55,26 +59,7 @@ export function ProfilePage({ state }: ProfilePageProps) {
             </span>
           </div>
         </div>
-        <button
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            border: "2px solid #BEEAFD",
-            borderBottomWidth: "4px",
-            background: "#E3F6FF",
-            color: "#1899D6",
-            padding: "11px 16px",
-            borderRadius: 14,
-            fontFamily: "'Nunito',sans-serif",
-            fontWeight: 800,
-            fontSize: 13,
-            cursor: "pointer",
-            flex: "none",
-          }}
-        >
-          {profile.shareEl}Share
-        </button>
+        <ProfileShareButton shareEl={profile.shareEl} summary={shareSummary} />
         <button
           onClick={signOut}
           style={{
@@ -148,5 +133,43 @@ export function ProfilePage({ state }: ProfilePageProps) {
         ))}
       </div>
     </div>
+  );
+}
+
+// Share the player's profile — native share sheet where available, else copy a
+// summary + link to the clipboard. Gives the (previously inert) Share button a
+// real, on-brand action with inline feedback.
+function ProfileShareButton({ shareEl, summary }: { shareEl: ReactNode; summary: string }) {
+  const [label, setLabel] = useState("Share");
+  const style: CSSProperties = {
+    display: "inline-flex", alignItems: "center", gap: 6,
+    border: "2px solid #BEEAFD", borderBottomWidth: "4px",
+    background: "#E3F6FF", color: "#1899D6",
+    padding: "11px 16px", borderRadius: 14,
+    fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 13,
+    cursor: "pointer", flex: "none",
+  };
+  async function onShare() {
+    const url = "https://quorumdaily.com/";
+    try {
+      const nav = navigator as unknown as { share?: (d: unknown) => Promise<void> };
+      if (nav.share) {
+        await nav.share({ title: "Quorum", text: summary, url });
+        setLabel("Shared!");
+      } else {
+        await navigator.clipboard.writeText(`${summary} ${url}`);
+        setLabel("Copied!");
+      }
+    } catch (e) {
+      if ((e as { name?: string })?.name === "AbortError") return; // sheet dismissed
+      try { await navigator.clipboard.writeText(`${summary} ${url}`); setLabel("Copied!"); }
+      catch { setLabel("Couldn't share"); }
+    }
+    setTimeout(() => setLabel("Share"), 1900);
+  }
+  return (
+    <button onClick={onShare} aria-label="Share your Quorum profile" style={style}>
+      {shareEl}{label}
+    </button>
   );
 }
