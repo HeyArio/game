@@ -3,7 +3,7 @@ import { Mascot } from "../components/Mascot";
 import { AnswerCard } from "../components/AnswerCard";
 import { icon } from "../icons/Icon";
 import { useIsMobile } from "../hooks/useMediaQuery";
-import { shareResultImage, type SharePlatform } from "../lib/shareCard";
+import { shareResultImage } from "../lib/shareCard";
 import { createChallenge, shareChallengeLink, shareChallengeToPlatform, type Challenge, type ChallengePlatform } from "../lib/challenge";
 import { nazarbanUrl } from "../lib/nazarban";
 import { ChallengeBanner, ChallengeOutcome } from "../components/ChallengeBanner";
@@ -546,20 +546,9 @@ function WagerPanel({ state, onSetConfidence, onSetCrowdGuess }: {
   );
 }
 
-// Sharing is image-only: every entry point sends the rendered result card (no
-// caption text). On mobile the native share sheet attaches the PNG and the user
-// picks the app; on desktop the PNG is saved and the chosen app is opened so
-// they can attach it.
-const SHARE_TARGETS: { platform: SharePlatform; label: string; color: string; iconName: string }[] = [
-  { platform: "whatsapp",  label: "WhatsApp",  color: "#25D366", iconName: "whatsapp" },
-  { platform: "telegram",  label: "Telegram",  color: "#229ED9", iconName: "telegram" },
-  { platform: "instagram", label: "Instagram", color: "#E1306C", iconName: "instagram" },
-  { platform: "email",     label: "Email",     color: "#7A8270", iconName: "mail" },
-];
-
 // "Challenge a friend" routes straight to one app via its prefill share URL,
-// carrying the challenge LINK (which unfurls into the personalised card) — unlike
-// the image-only result share above.
+// carrying the challenge LINK (which unfurls into the personalised "X challenged
+// you" card), rather than a result image.
 const CHALLENGE_TARGETS: { platform: ChallengePlatform; label: string; color: string; iconName: string }[] = [
   { platform: "whatsapp", label: "WhatsApp", color: "#25D366", iconName: "whatsapp" },
   { platform: "telegram", label: "Telegram", color: "#229ED9", iconName: "telegram" },
@@ -627,25 +616,6 @@ function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" 
     setBusy(false);
   }
 
-  async function onPlatform(p: SharePlatform, label: string) {
-    if (busy) return;
-    setBusy(true);
-    setToast("Creating image…");
-    const r = await shareResultImage(state, p);
-    setBusy(false);
-    if (r === "shared") flash("Shared!");
-    else if (r === "downloaded") flash(`Image saved — attach it in ${label}`);
-    else if (r === "error") flash("Couldn't create the image");
-    else setToast(null); // cancelled
-  }
-
-  const round = (bg: string): CSSProperties => ({
-    display: "inline-flex", alignItems: "center", justifyContent: "center",
-    width: 42, height: 42, borderRadius: 12, background: bg, border: "none",
-    borderBottom: "3px solid rgba(0,0,0,.18)", cursor: busy ? "default" : "pointer",
-    opacity: busy ? 0.6 : 1,
-  });
-
   return (
     <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 16, alignItems: align === "center" ? "center" : "flex-start" }}>
       {/* Challenge a friend — the viral loop */}
@@ -695,25 +665,20 @@ function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" 
         )}
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", justifyContent: align === "center" ? "center" : "flex-start" }}>
+      {/* Secondary, quiet by design: post the result card (which reveals the
+          verdict). The challenge above is the primary, growth-driving share. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: align === "center" ? "center" : "flex-start" }}>
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: "#9AA08C" }}>Or just post your result</span>
         <button onClick={onShareImage} disabled={busy}
-          style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: busy ? "default" : "pointer",
-            border: "2px solid #A5ED6E", borderBottomWidth: 4, background: "#58CC02", color: "#fff", opacity: busy ? 0.7 : 1,
-            padding: "11px 20px", borderRadius: 14, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 14 }}>
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          title="Share your result card as an image" aria-label="Share your result card as an image"
+          style={{ display: "inline-flex", alignItems: "center", gap: 7, cursor: busy ? "default" : "pointer",
+            border: "2px solid #E4EAD8", borderBottomWidth: 3, background: "#fff", color: "#5E6553", opacity: busy ? 0.6 : 1,
+            padding: "9px 15px", borderRadius: 12, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 13 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7C8470" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="3" y="5" width="18" height="14" rx="3" /><circle cx="9" cy="11" r="2" /><path d="M21 16l-4.5-4.5L7 21" />
           </svg>
           {imgLabel}
         </button>
-        {SHARE_TARGETS.map((t) => (
-          <button key={t.platform} onClick={() => onPlatform(t.platform, t.label)} disabled={busy}
-            title={`Share image to ${t.label}`} aria-label={`Share image to ${t.label}`} style={round(t.color)}>
-            {icon(t.iconName, 20, "#fff")}
-          </button>
-        ))}
-      </div>
-      <div style={{ fontSize: 12, fontWeight: 700, color: "#9AA08C" }}>
-        Shares the result card as an image — no caption text.
       </div>
       {toast && <div style={{ fontSize: 12.5, fontWeight: 800, color: "#1899D6" }}>{toast}</div>}
     </div>

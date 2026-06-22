@@ -210,14 +210,22 @@ const PLATFORM_OPEN: Record<SharePlatform, string> = {
   email:     "mailto:?subject=" + encodeURIComponent("My Quorum result"),
 };
 
+// A short caption + link home, so a shared result still points people back to
+// the game. Some apps (notably Instagram) keep only the image on a file share —
+// the card itself also prints quorumdaily.com, so the link is never wholly lost.
+const RESULT_SHARE_TEXT =
+  "My Quorum result today — four AIs argue, one judge decides. Play free: https://quorumdaily.com";
+
 /**
- * Share the result as an IMAGE ONLY — no caption text.
+ * Share the result card image, with a short caption + link back to the game.
  *
- * Best path (mobile + modern desktop): the native share sheet with just the PNG
- * attached, so the user can send it to WhatsApp / Instagram / Telegram / Mail
- * and the image goes with it. The web platform can't attach a generated file to
- * an app-specific deep link, so on desktop without file-sharing we save the PNG
- * and (if a platform was requested) open that app so they can attach it.
+ * Best path (mobile + modern desktop): the native share sheet with the PNG
+ * attached and the caption text, so the user can send it to WhatsApp / Telegram /
+ * Mail with both the image and the link. (Some targets, e.g. Instagram, keep only
+ * the image — the card prints quorumdaily.com too, so the link survives.) The web
+ * platform can't attach a generated file to an app-specific deep link, so on
+ * desktop without file-sharing we save the PNG and (if a platform was requested)
+ * open that app so they can attach it.
  */
 export async function shareResultImage(
   s: GameState,
@@ -230,8 +238,8 @@ export async function shareResultImage(
     const nav = navigator as any;
     if (nav.canShare && nav.canShare({ files: [file] }) && nav.share) {
       try {
-        // Image only — no `text` / `url`, so nothing but the card is shared.
-        await nav.share({ files: [file], title: "Quorum" });
+        // Image + caption: the PNG plus a one-line invite and link home.
+        await nav.share({ files: [file], title: "Quorum", text: RESULT_SHARE_TEXT });
         return "shared";
       } catch (e: any) {
         if (e?.name === "AbortError") return "cancelled";
