@@ -194,6 +194,38 @@ async function getModelAnswer(slot: number, _personaName: string, question: stri
 
 interface JudgeResult { winnerLetter: string; reasoning: string }
 
+/** Pull a one-sentence justification out of the judge's raw reply even when its
+ *  JSON is malformed: try the "reasoning" field loosely, else fall back to the
+ *  first substantial prose sentence. */
+function extractReasoning(content: string): string {
+  const field = content.match(/"reasoning"\s*:\s*"((?:[^"\\]|\\.)*)"/i);
+  if (field?.[1]) return clean(field[1].replace(/\\(.)/g, "$1"));
+  const stripped = content.replace(/```[\s\S]*?```/g, " ").replace(/[{}[\]]/g, " ");
+  const sentence = stripped.match(/[A-Za-z][^.!?]{15,}[.!?]/);
+  return sentence ? clean(sentence[0]) : "";
+}
+
+/** Last resort: ask the judge for a one-sentence "why" for an already-chosen
+ *  winner, so Arbi still explains himself when the first reply was unparseable. */
+async function reasonFor(
+  question: string,
+  answers: { letter: string; pick: string; answer: string }[],
+  letter: string,
+): Promise<string> {
+  const a = answers.find((x) => x.letter === letter);
+  if (!a) return "";
+  try {
+    const txt = await callModel(5, [
+      { role: "system", content: "You are Arbi, a rigorous AI judge. Reply with exactly ONE sentence — no preamble, no markdown, no JSON." },
+      { role: "user", content: `Question: ${question}\n\nThe winning answer:\nPick: ${a.pick}\nReasoning: ${a.answer}\n\nIn one sentence, explain why this is the sharpest, most defensible answer.` },
+    ], 80);
+    return clean(txt);
+  } catch (e) {
+    console.error("reasonFor follow-up failed:", e);
+    return "";
+  }
+}
+
 async function judgeAnswers(
   question: string,
   answers: { letter: string; persona: string; pick: string; answer: string }[]
@@ -222,24 +254,39 @@ async function judgeAnswers(
       }
     ], 150);
   } catch (e) {
-    console.error("judge model failed, using fallback winner:", e);
-    return { winnerLetter: firstEligible, reasoning: "" };
+    console.error("judge model failed, will salvage/fallback:", e);
   }
 
-  try {
-    // Extract JSON from the response (model may wrap it in markdown)
-    const jsonMatch = content.match(/\{[\s\S]*?\}/);
-    if (!jsonMatch) throw new Error("No JSON in judge response");
-    const parsed = JSON.parse(jsonMatch[0]);
-    const winner = (parsed.winner ?? "").toUpperCase();
-    if (!eligible.includes(winner)) throw new Error(`Invalid/ineligible winner: ${winner}`);
-    return { winnerLetter: winner, reasoning: parsed.reasoning ?? "" };
-  } catch {
-    // Fallback: scan content for an eligible letter choice, else first eligible.
-    const match = content.match(/\b([A-D])\b/);
-    const scanned = match?.[1] ?? "";
-    return { winnerLetter: eligible.includes(scanned) ? scanned : firstEligible, reasoning: "" };
+  // Parse the verdict, tolerating markdown wrappers and stray prose. A greedy
+  // brace match keeps reasoning that contains punctuation intact.
+  let winnerLetter = firstEligible;
+  let reasoning = "";
+  if (content) {
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("No JSON in judge response");
+      const parsed = JSON.parse(jsonMatch[0]);
+      const winner = (parsed.winner ?? "").toUpperCase();
+      if (!eligible.includes(winner)) throw new Error(`Invalid/ineligible winner: ${winner}`);
+      winnerLetter = winner;
+      reasoning = clean(String(parsed.reasoning ?? ""));
+    } catch {
+      // Couldn't parse clean JSON — salvage an eligible letter from the prose.
+      const scanned = content.match(/\b([A-D])\b/)?.[1] ?? "";
+      if (eligible.includes(scanned)) winnerLetter = scanned;
+    }
   }
+
+  // Arbi must always explain himself. Recover the "why" from the raw reply, then
+  // via a one-sentence follow-up call, and only then degrade to a specific line
+  // built from the winning pick — never an empty reasoning (which the UI hides).
+  if (!reasoning) reasoning = extractReasoning(content);
+  if (!reasoning) reasoning = await reasonFor(question, answers, winnerLetter);
+  if (!reasoning) {
+    const pick = answers.find((a) => a.letter === winnerLetter)?.pick;
+    reasoning = pick ? `${pick} was the most specific and defensible call.` : "";
+  }
+  return { winnerLetter, reasoning };
 }
 
 /** Strip markdown / boilerplate / leaked meta so picks read cleanly in the UI. */
