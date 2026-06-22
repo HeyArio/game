@@ -95,7 +95,6 @@ Deno.serve(async (req) => {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(desc)}">
-<meta name="robots" content="noindex">
 <link rel="canonical" href="${esc(dest)}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Quorum">
