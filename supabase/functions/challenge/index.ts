@@ -84,6 +84,10 @@ Deno.serve(async (req) => {
     }
   }
 
+  // NB: no <meta http-equiv="refresh"> in the markup below. A 0s meta-refresh
+  // makes social crawlers (WhatsApp, Telegram) follow the redirect to the SPA
+  // and never read the OG card above — so we redirect humans with the inline
+  // <script> in the body only; crawlers stay and render the card.
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -105,7 +109,6 @@ Deno.serve(async (req) => {
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(desc)}">
 <meta name="twitter:image" content="${esc(image)}">
-<meta http-equiv="refresh" content="0; url=${esc(dest)}">
 </head>
 <body style="margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:#F4F8EE;color:#3C3C46;text-align:center;padding:56px 20px">
 <script>location.replace(${JSON.stringify(dest)});</script>
