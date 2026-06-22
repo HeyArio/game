@@ -268,17 +268,59 @@ function cap(s: string, max: number): string {
   return (cut > max * 0.6 ? slice.slice(0, cut) : slice).replace(/[\s,;:.–—-]+$/, "") + "…";
 }
 
-/** Split raw model answer into a short "pick" headline and the full rationale */
+/** Upper-case the first letter so a rationale left after a dropped "because"
+ *  still reads as a sentence ("It delivers…", not "it delivers…"). */
+function cap1(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+/**
+ * Split a raw model answer into a short, *complete* "pick" headline and the
+ * supporting rationale.
+ *
+ * The pick must read as a finished thought, not a sentence chopped mid-word.
+ * Models routinely pack their reasoning into the same sentence as the claim
+ * ("Use an LLM API alone because it's faster…"), so taking the whole first
+ * sentence and hard-truncating it at 90 chars produced bold headlines that
+ * trailed off as "…" with the "why" stranded below. Instead we keep only the
+ * claim as the pick and fold any trailing reasoning into the rationale:
+ *   • reasoning connectives (because / since / due to / …) are dropped, since the
+ *     clause stands on its own as an explanation;
+ *   • conditional connectives (when / if / while / unless) are kept, because they
+ *     frame the recommendation ("When your task needs only general knowledge…").
+ * The length caps remain only as a backstop for a model that ignores the format.
+ */
 function splitAnswer(raw: string): { pick: string; rationale: string } {
   const text = clean(raw);
   if (!text) return { pick: "No response", rationale: "This model didn't return an answer in time." };
-  // First sentence = pick/prediction, rest = rationale
-  const parts = text.match(/^([^.!?]+[.!?])\s*([\s\S]*)$/);
-  if (parts) {
-    const pick = clean(parts[1]).replace(/^(I (pick|predict|choose|go with|say)|My (pick|answer|prediction) is)\s*/i, "");
-    return { pick: cap(pick, 90), rationale: cap(clean(parts[2]) || pick, 220) };
-  }
-  return { pick: cap(text, 90), rationale: cap(text, 220) };
+
+  // First sentence carries the stance; anything after it is extra rationale.
+  const m = text.match(/^([^.!?]+[.!?])\s*([\s\S]*)$/);
+  const firstSentence = m ? m[1] : text;
+  const rest = m ? m[2] : "";
+
+  // Drop conversational lead-ins so the headline opens on the actual claim.
+  let pick = clean(firstSentence).replace(
+    /^(I(?:'d|'ll| would| will)? (?:pick|predict|choose|go with|say|think|believe|argue|recommend)(?: to)?|My (?:pick|answer|prediction|choice) is)\s*/i,
+    "",
+  );
+
+  // Peel any trailing reasoning off the claim. Strong connectives are dropped;
+  // conditional ones are kept (group 2 includes the connective word). The longer
+  // minimum before a conditional split avoids over-trimming a terse stance
+  // ("Buy when in doubt"); the dash split requires surrounding spaces so it never
+  // breaks a hyphenated word or a numeric range ("lower-maintenance", "2010–2020").
+  let reasonTail = "";
+  const strong = pick.match(/^(.{4,}?\S)[,\s]+(?:because|since|due to|so that|in order to|owing to)\b[\s,]*([\s\S]*)$/i);
+  const cond = pick.match(/^(.{16,}?\S)[,\s]+((?:when|while|if|unless)\b[\s\S]*)$/i);
+  const dash = pick.match(/^(.{4,}?\S)(?:\s*—\s*|\s+(?:–|--)\s+)([\s\S]*)$/);
+  if (strong) { pick = strong[1]; reasonTail = strong[2]; }
+  else if (cond) { pick = cond[1]; reasonTail = cond[2]; }
+  else if (dash) { pick = dash[1]; reasonTail = dash[2]; }
+  if (!pick) pick = clean(firstSentence) || text;
+
+  const rationale = cap1(clean([reasonTail, rest].filter(Boolean).join(" "))) || pick;
+  return { pick: cap(cap1(pick.replace(/[\s,;:.]+$/, "")), 100), rationale: cap(rationale, 280) };
 }
 
 const CORS = {
