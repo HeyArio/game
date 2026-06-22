@@ -4,7 +4,7 @@ import { AnswerCard } from "../components/AnswerCard";
 import { icon } from "../icons/Icon";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { shareResultImage, type SharePlatform } from "../lib/shareCard";
-import { createChallenge, shareChallengeLink, type Challenge } from "../lib/challenge";
+import { createChallenge, shareChallengeLink, shareChallengeToPlatform, type Challenge, type ChallengePlatform } from "../lib/challenge";
 import { nazarbanUrl } from "../lib/nazarban";
 import { ChallengeBanner, ChallengeOutcome } from "../components/ChallengeBanner";
 import type { GameState, CardId, Confidence } from "../state/types";
@@ -557,6 +557,14 @@ const SHARE_TARGETS: { platform: SharePlatform; label: string; color: string; ic
   { platform: "email",     label: "Email",     color: "#7A8270", iconName: "mail" },
 ];
 
+// "Challenge a friend" routes straight to one app via its prefill share URL,
+// carrying the challenge LINK (which unfurls into the personalised card) — unlike
+// the image-only result share above.
+const CHALLENGE_TARGETS: { platform: ChallengePlatform; label: string; color: string; iconName: string }[] = [
+  { platform: "whatsapp", label: "WhatsApp", color: "#25D366", iconName: "whatsapp" },
+  { platform: "telegram", label: "Telegram", color: "#229ED9", iconName: "telegram" },
+];
+
 function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" | "center" }) {
   const [imgLabel, setImgLabel] = useState("Share image");
   const [toast, setToast] = useState<string | null>(null);
@@ -572,14 +580,12 @@ function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" 
   const [chBusy, setChBusy] = useState(false);
   const [chCopied, setChCopied] = useState(false);
 
-  async function onChallenge() {
-    if (chBusy) return;
-    if (chLink) {
-      const r = await shareChallengeLink(chLink, chBlob);
-      if (r === "shared") flash("Challenge sent!");
-      else if (r === "copied") { setChCopied(true); setTimeout(() => setChCopied(false), 1800); }
-      return;
-    }
+  // Mint the link, then reveal the platform buttons. Minting is async, so we
+  // can't open an app in the same gesture (a popup blocker would eat it) — hence
+  // the deliberate two-step: create here, then the WhatsApp/Telegram buttons
+  // each fire on their own clean click.
+  async function onCreateChallenge() {
+    if (chBusy || chLink) return;
     setChBusy(true);
     setToast("Creating challenge…");
     const minted = await createChallenge(state);
@@ -588,9 +594,22 @@ function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" 
     if (!minted) { flash("Couldn't create the challenge link"); return; }
     setChLink(minted.url);
     setChBlob(minted.cardBlob);
-    const r = await shareChallengeLink(minted.url, minted.cardBlob);
+    flash("Link ready — pick where to send it");
+  }
+
+  function onChallengePlatform(p: ChallengePlatform, label: string) {
+    if (!chLink) return;
+    shareChallengeToPlatform(p, chLink);
+    flash(`Opening ${label}…`);
+  }
+
+  // Native share sheet (attaches the card image) for everything that isn't a
+  // first-class button — iMessage, Signal, email, and so on.
+  async function onShareChallengeSheet() {
+    if (!chLink) return;
+    const r = await shareChallengeLink(chLink, chBlob);
     if (r === "shared") flash("Challenge sent!");
-    else if (r === "copied") flash("Link copied — send it to a friend");
+    else if (r === "copied") { setChCopied(true); setTimeout(() => setChCopied(false), 1800); }
   }
 
   async function onCopyChallenge() {
@@ -635,27 +654,43 @@ function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" 
           <span aria-hidden="true">⚔️</span> Challenge a friend
         </div>
         <div style={{ fontWeight: 700, fontSize: 12.5, color: "#7C8470", marginTop: 4, marginBottom: 11 }}>
-          Sends Arbi and the case as an image — with a link to out-judge the judge.
+          {chLink
+            ? "Send it on WhatsApp or Telegram — the link unfurls into Arbi and today's case."
+            : "Create a link that previews Arbi and today's case — and dares them to out-judge the judge."}
         </div>
         {!chLink ? (
-          <button onClick={onChallenge} disabled={chBusy}
+          <button onClick={onCreateChallenge} disabled={chBusy}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: chBusy ? "default" : "pointer",
               border: "2px solid #A5ED6E", borderBottomWidth: 4, background: "#58CC02", color: "#fff", opacity: chBusy ? 0.7 : 1,
               padding: "11px 20px", borderRadius: 14, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 14 }}>
             {chBusy ? "Creating…" : "Create challenge link"}
           </button>
         ) : (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-            <input readOnly value={chLink} onFocus={(e) => e.currentTarget.select()} aria-label="Challenge link"
-              style={{ flex: "1 1 220px", minWidth: 0, padding: "10px 12px", borderRadius: 12, border: "2px solid #E4EAD8", background: "#fff", color: "#5E6553", fontWeight: 700, fontSize: 13, fontFamily: "'Nunito',sans-serif" }} />
-            <button onClick={onCopyChallenge}
-              style={{ cursor: "pointer", border: "2px solid #E4EAD8", borderBottomWidth: 4, background: "#fff", color: "#46A302", padding: "10px 16px", borderRadius: 12, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 13 }}>
-              {chCopied ? "Copied!" : "Copy"}
-            </button>
-            <button onClick={onChallenge}
-              style={{ cursor: "pointer", border: "2px solid #A5ED6E", borderBottomWidth: 4, background: "#58CC02", color: "#fff", padding: "10px 16px", borderRadius: 12, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 13 }}>
-              Share
-            </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+              <input readOnly value={chLink} onFocus={(e) => e.currentTarget.select()} aria-label="Challenge link"
+                style={{ flex: "1 1 220px", minWidth: 0, padding: "10px 12px", borderRadius: 12, border: "2px solid #E4EAD8", background: "#fff", color: "#5E6553", fontWeight: 700, fontSize: 13, fontFamily: "'Nunito',sans-serif" }} />
+              <button onClick={onCopyChallenge}
+                style={{ cursor: "pointer", border: "2px solid #E4EAD8", borderBottomWidth: 4, background: "#fff", color: "#46A302", padding: "10px 16px", borderRadius: 12, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 13 }}>
+                {chCopied ? "Copied!" : "Copy"}
+              </button>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+              {CHALLENGE_TARGETS.map((t) => (
+                <button key={t.platform} onClick={() => onChallengePlatform(t.platform, t.label)}
+                  title={`Challenge via ${t.label}`} aria-label={`Challenge via ${t.label}`}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 7, cursor: "pointer",
+                    border: "none", borderBottom: "3px solid rgba(0,0,0,.18)", background: t.color, color: "#fff",
+                    padding: "10px 15px", borderRadius: 12, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 13 }}>
+                  {icon(t.iconName, 18, "#fff")} {t.label}
+                </button>
+              ))}
+              <button onClick={onShareChallengeSheet}
+                title="More sharing options" aria-label="More sharing options"
+                style={{ cursor: "pointer", border: "2px solid #E4EAD8", borderBottomWidth: 4, background: "#fff", color: "#5E6553", padding: "10px 15px", borderRadius: 12, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 13 }}>
+                More…
+              </button>
+            </div>
           </div>
         )}
       </div>

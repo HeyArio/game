@@ -23,6 +23,10 @@ const CHALLENGE_FIELDS = "id, case_no, question, challenger_name, challenger_pic
 
 const SITE = "https://quorumdaily.com";
 
+// One caption, reused everywhere a challenge is shared, so the invite reads the
+// same in a WhatsApp bubble, a Telegram message, or the native share sheet.
+const CHALLENGE_TEXT = "I just played today's Quorum case — think you can out-judge Arbi?";
+
 /** A short, url-safe slug. ~62^12 space → collisions are negligible. */
 function makeId(len = 12): string {
   const alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -225,7 +229,7 @@ export async function shareChallengeLink(
   link: string,
   cardBlob?: Blob | null,
 ): Promise<"shared" | "copied" | "cancelled" | "error"> {
-  const text = "I just played today's Quorum case — think you can out-judge Arbi?";
+  const text = CHALLENGE_TEXT;
   try {
     const nav = navigator as any;
 
@@ -250,6 +254,47 @@ export async function shareChallengeLink(
   } catch {
     return "error";
   }
+}
+
+/**
+ * First-class "send a challenge via X" targets.
+ *
+ * Unlike the native share sheet (shareChallengeLink) — which attaches the card
+ * image but lets the OS pick the app — these go STRAIGHT to one app via its
+ * prefill share URL, carrying the challenge LINK and caption. The link then
+ * unfurls into the personalised "X challenges you" card on the recipient's side
+ * (generic Quorum card until the OG proxy in deploy/nginx-challenge.conf is on).
+ */
+export type ChallengePlatform = "whatsapp" | "telegram";
+
+/** The prefill share URL for a platform — drops the user into a chat with the
+ *  challenge link (and caption) ready to send. Works on mobile (opens the app)
+ *  and desktop (opens the web client). */
+export function platformShareUrl(
+  platform: ChallengePlatform,
+  link: string,
+  text = CHALLENGE_TEXT,
+): string {
+  switch (platform) {
+    case "whatsapp":
+      // wa.me takes a single `text` param; the trailing link unfurls in-chat.
+      return `https://wa.me/?text=${encodeURIComponent(`${text} ${link}`)}`;
+    case "telegram":
+      // Telegram unfurls `url` and shows `text` as the accompanying message.
+      return `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
+  }
+}
+
+/**
+ * Open a challenge directly in WhatsApp / Telegram. Call this from a click
+ * handler (not after an await) so the navigation stays inside the user gesture
+ * and isn't swallowed by a popup blocker; falls back to navigating the current
+ * tab if the popup is blocked anyway.
+ */
+export function shareChallengeToPlatform(platform: ChallengePlatform, link: string): void {
+  const url = platformShareUrl(platform, link);
+  const win = window.open(url, "_blank", "noopener,noreferrer");
+  if (!win) window.location.href = url;
 }
 
 /** Reads `?c=<id>` from the URL once and resolves the incoming challenge. */
