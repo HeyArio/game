@@ -322,28 +322,62 @@ function bw(bg: string): CSSProperties {
   };
 }
 
-// Play-rail achievements, all measured against the player's *real* lifetime
-// stats so the widget reflects actual progress (and stays consistent with the
-// Profile page) instead of showing decorative always-earned / always-locked
-// tiles. `mk` tints + colours the tile when earned and greys it when locked.
+// ── Achievements ────────────────────────────────────────────────────────────
+// One canonical list, shared by the Play-rail badges and the Profile page, so
+// the two surfaces can never drift apart. Every threshold reads the player's
+// real lifetime stats.
+export interface AchievementDef {
+  key: string;
+  icon: string;
+  tint: string;    // accent colour when earned
+  tintBg: string;  // icon-wrap background when earned
+  cardBg: string;  // Profile card background when earned
+  border: string;  // Profile card border when earned
+  title: string;
+  desc: string;    // shown on the Profile rows
+  goal: number;
+  cur: (s: GameState, st: PlayerStats) => number;
+  earned: (s: GameState, st: PlayerStats) => boolean;
+  railCount?: (s: GameState, st: PlayerStats) => string; // small count badge on the rail
+}
+
+export const ACHIEVEMENTS: AchievementDef[] = [
+  { key: "apprentice", icon: "medal", tint: "#58CC02", tintBg: "#E8FFD7", cardBg: "#F4FFEA", border: "#BFE89A",
+    title: "Apprentice", desc: "Judge 10 cases", goal: 10,
+    cur: (_s, st) => st.casesJudged, earned: (_s, st) => st.casesJudged >= 10 },
+  { key: "scholar", icon: "cap", tint: "#1CB0F6", tintBg: "#E3F6FF", cardBg: "#F2FBFF", border: "#BEEAFD",
+    title: "Scholar", desc: "Judge 50 cases", goal: 50,
+    cur: (_s, st) => st.casesJudged, earned: (_s, st) => st.casesJudged >= 50 },
+  { key: "onfire", icon: "flame", tint: "#FF9600", tintBg: "#FFF3E0", cardBg: "#FFF9F0", border: "#FFD9A6",
+    title: "On Fire", desc: "Reach a 14-day streak", goal: 14,
+    cur: (s) => s.streak, earned: (s) => s.streak >= 14, railCount: (s) => String(s.streak) },
+  { key: "sharpeye", icon: "eye", tint: "#CE82FF", tintBg: "#F6ECFF", cardBg: "#FBF6FF", border: "#E6D2FF",
+    title: "Sharp Eye", desc: "Match the judge 10 times", goal: 10,
+    cur: (_s, st) => st.correctCount, earned: (_s, st) => st.correctCount >= 10,
+    railCount: (_s, st) => `${Math.min(st.correctCount, 10)}/10` },
+  { key: "sage", icon: "scale", tint: "#58A700", tintBg: "#E8FFD7", cardBg: "#F4FFEE", border: "#C4E89E",
+    title: "Sage", desc: "Match the judge 50 times", goal: 50,
+    cur: (_s, st) => st.correctCount, earned: (_s, st) => st.correctCount >= 50 },
+  { key: "marksman", icon: "target", tint: "#E5A300", tintBg: "#FFF8E1", cardBg: "#FFFDF5", border: "#FFE9B8",
+    title: "Marksman", desc: "60% agreement over 20+ cases", goal: 60,
+    cur: (_s, st) => st.agreementPct, earned: (_s, st) => st.casesJudged >= 20 && st.agreementPct >= 60 },
+];
+
+// Play-rail badges — compact tiles tinted when earned, greyed when locked.
 export function badgesView(s: GameState, st: PlayerStats): BadgeView[] {
-  const mk = (earned: boolean, iconName: string, tint: string, tintBg: string, label: string, count?: string): BadgeView => ({
-    iconEl: icon(iconName, 25, earned ? tint : "#C2C7B6"),
-    label,
-    iconWrap: bw(earned ? tintBg : "#F0F2EA"),
-    labelColor: earned ? "#3C3C46" : "#B2B7A6",
-    showCount: count != null,
-    count,
-    ring: earned ? tint : "#C2C7B6",
+  return ACHIEVEMENTS.map((a) => {
+    const earned = a.earned(s, st);
+    const count = a.railCount?.(s, st);
+    return {
+      iconEl: icon(a.icon, 25, earned ? a.tint : "#C2C7B6"),
+      label: a.title,
+      iconWrap: bw(earned ? a.tintBg : "#F0F2EA"),
+      labelColor: earned ? "#3C3C46" : "#B2B7A6",
+      showCount: count != null,
+      count,
+      ring: earned ? a.tint : "#C2C7B6",
+    };
   });
-  return [
-    mk(st.casesJudged >= 10, "medal", "#58CC02", "#E8FFD7", "Apprentice"),
-    mk(st.casesJudged >= 50, "cap", "#1CB0F6", "#E3F6FF", "Scholar"),
-    mk(s.streak >= 14, "flame", "#FF9600", "#FFF3E0", "On Fire", String(s.streak)),
-    mk(st.correctCount >= 10, "eye", "#CE82FF", "#F6ECFF", "Sharp Eye", `${Math.min(st.correctCount, 10)}/10`),
-    mk(st.correctCount >= 50, "scale", "#58A700", "#E8FFD7", "Sage"),
-    mk(st.casesJudged >= 20 && st.agreementPct >= 60, "target", "#E5A300", "#FFF8E1", "Marksman"),
-  ];
 }
 
 function rc(bg: string, col: string): CSSProperties {
@@ -601,38 +635,23 @@ export function profileView(s: GameState, st: PlayerStats): ProfileView {
     { iconEl: icon("calendar", 22, "#1CB0F6"), iconWrap: wrap("#E3F6FF"), value: String(st.casesJudged), label: "Cases judged" },
     { iconEl: icon("scale", 22, "#58A700"), iconWrap: wrap("#E8FFD7"), value: st.agreementPct + "%", label: "Agreement" },
   ];
-  const ach = (
-    iconName: string,
-    ic: string,
-    bg2: string,
-    bg: string,
-    border: string,
-    title: string,
-    desc: string,
-    cur: number,
-    goal: number,
-    barColor: string
-  ) => {
-    const done = cur >= goal;
+  // Same canonical list as the Play-rail badges, rendered here as rows with a
+  // description and a real progress bar — one source of truth for both surfaces.
+  const achievements = ACHIEVEMENTS.map((a) => {
+    const cur = a.cur(s, st);
+    const done = a.earned(s, st);
     return {
-      iconEl: icon(iconName, 24, done ? ic : "#C2C7B6"),
-      iconWrap: wrap(done ? bg2 : "#F0F2EA"),
-      bg: done ? bg : "#fff",
-      border: done ? border : "#E4EAD8",
+      iconEl: icon(a.icon, 24, done ? a.tint : "#C2C7B6"),
+      iconWrap: wrap(done ? a.tintBg : "#F0F2EA"),
+      bg: done ? a.cardBg : "#fff",
+      border: done ? a.border : "#E4EAD8",
       titleColor: done ? "#3C3C46" : "#7C8470",
-      title,
-      desc,
-      barWidth: Math.min(100, (cur / goal) * 100) + "%",
-      barColor,
+      title: a.title,
+      desc: a.desc,
+      barWidth: Math.min(100, (cur / a.goal) * 100) + "%",
+      barColor: a.tint,
     };
-  };
-  // All thresholds measured against the player's real vote history.
-  const achievements = [
-    ach("cap", "#58CC02", "#E8FFD7", "#F4FFEA", "#BFE89A", "Scholar", "Judge 50 cases", st.casesJudged, 50, "#58CC02"),
-    ach("flame", "#FF9600", "#FFF3E0", "#FFF9F0", "#FFD9A6", "On Fire", "Reach a 14-day streak", s.streak, 14, "#FF9600"),
-    ach("eye", "#CE82FF", "#F6ECFF", "#FBF6FF", "#E6D2FF", "Sharp Eye", "Match my verdict 10 times", st.correctCount, 10, "#CE82FF"),
-    ach("scale", "#1CB0F6", "#E3F6FF", "#F2FBFF", "#BEEAFD", "Sage", "Match my verdict 50 times", st.correctCount, 50, "#1CB0F6"),
-  ];
+  });
   const figures = [
     { iconEl: icon("scale", 20, "#58A700"), iconWrap: wrap("#E8FFD7"), value: st.agreementPct + "%", label: "Agreement with me" },
     { iconEl: icon("check", 20, "#1899D6"), iconWrap: wrap("#E3F6FF"), value: String(st.correctCount), label: "Verdicts matched" },

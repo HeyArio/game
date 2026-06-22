@@ -2,6 +2,7 @@ import { useState, type CSSProperties, type ReactNode } from "react";
 import { Mascot } from "../components/Mascot";
 import { icon } from "../icons/Icon";
 import { useQuests } from "../hooks/useQuests";
+import { useIsMobile } from "../hooks/useMediaQuery";
 import { questsView, type QuestItemView } from "../state/viewHelpers";
 
 export interface QuestsPageProps {
@@ -18,6 +19,7 @@ const pill = (bg: string, col: string): CSSProperties => ({
 export function QuestsPage({ countdownText = "", onClaimed }: QuestsPageProps) {
   const { quests, loading, claimingKey, claim } = useQuests();
   const view = questsView(quests, countdownText);
+  const isMobile = useIsMobile();
   const [toast, setToast] = useState<string | null>(null);
 
   async function onClaim(key: string) {
@@ -123,7 +125,7 @@ export function QuestsPage({ countdownText = "", onClaimed }: QuestsPageProps) {
       )}
 
       {toast && (
-        <div role="status" style={{ position: "fixed", left: "50%", bottom: 28, transform: "translateX(-50%)", zIndex: 50, padding: "11px 18px", borderRadius: 14, background: "#3C3C46", color: "#fff", fontWeight: 800, fontSize: 14, boxShadow: "0 6px 20px rgba(0,0,0,.18)", animation: "qrise .35s ease both" }}>
+        <div role="status" style={{ position: "fixed", left: "50%", bottom: isMobile ? 96 : 28, transform: "translateX(-50%)", zIndex: 50, padding: "11px 18px", borderRadius: 14, background: "#3C3C46", color: "#fff", fontWeight: 800, fontSize: 14, boxShadow: "0 6px 20px rgba(0,0,0,.18)", animation: "qrise .35s ease both" }}>
           {toast}
         </div>
       )}
