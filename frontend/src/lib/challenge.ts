@@ -329,24 +329,39 @@ export function rememberReferral(id: string): void {
   try { localStorage.setItem(REF_KEY, id); } catch { /* private mode / no storage */ }
 }
 
+/** Outcome of redeeming a stashed challenge id (the claim_referral RPC). */
+export interface ReferralResult {
+  ok: boolean;
+  already?: boolean;
+  reason?: string;
+  bonus_xp?: number;
+  total_xp?: number;
+  level?: number;
+  inviter_name?: string;
+}
+
 /**
  * Record that the signed-in user arrived via a challenge link, crediting the
- * inviter. Safe to call on every authenticated load: the server (claim_referral)
- * enforces set-once, no-self-referral and new-users-only, so re-calls are
- * harmless. We clear the stashed id once the outcome is terminal (any structured
- * response) so it never re-fires; a transient network error keeps it for the
- * next load.
+ * inviter and granting the invitee a one-time welcome bonus. Safe to call on
+ * every authenticated load: the server (claim_referral) enforces set-once,
+ * no-self-referral and new-users-only, so re-calls are harmless. We clear the
+ * stashed id once the outcome is terminal (any structured response) so it never
+ * re-fires; a transient network error keeps it for the next load.
+ *
+ * Returns the parsed result so the caller can celebrate a fresh attribution
+ * (ok && !already), or null when there was nothing to do / a transient failure.
  */
-export async function claimReferral(): Promise<void> {
-  if (!isSupabaseConfigured) return;
+export async function claimReferral(): Promise<ReferralResult | null> {
+  if (!isSupabaseConfigured) return null;
   let id = "";
   try { id = localStorage.getItem(REF_KEY) ?? ""; } catch { /* ignore */ }
-  if (!id) return;
+  if (!id) return null;
   try {
-    const { error } = await supabase.rpc("claim_referral", { p_challenge_id: id });
-    if (error) return; // transient — keep the id and retry next load
+    const { data, error } = await supabase.rpc("claim_referral", { p_challenge_id: id });
+    if (error) return null; // transient — keep the id and retry next load
     try { localStorage.removeItem(REF_KEY); } catch { /* ignore */ }
+    return (data as ReferralResult) ?? null;
   } catch {
-    /* keep the id for a future attempt */
+    return null; // keep the id for a future attempt
   }
 }

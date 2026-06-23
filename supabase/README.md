@@ -249,6 +249,16 @@ like a phishing link and kills the share. The two supported styles:
   so attribution can't be forged or replayed. **`get_my_referral_stats()`**
   returns `invites_sent` / `friends_joined` for the inviter UI + leaderboards.
   No new deploy step: apply `0015` in the SQL editor (or `supabase db push`).
+- **Invite rewards (0016).** Turns attribution into a two-sided incentive.
+  *Inviter:* a claimable **`invite_friend`** quest ("Bring a friend to Quorum",
+  150 XP) — it rides the existing `quest_defs` / `claim_quest` engine via a new
+  `'invite'` period key (`'all'`, so it's claim-once-forever, no reset). *Invitee:*
+  `claim_referral` now also grants a one-time **welcome XP bonus** (50) and returns
+  the new total/level so the client reflects it immediately and shows a "you joined
+  via {name} — challenge them back" toast. Profile surfaces *Friends joined* /
+  *Invites sent* from `get_my_referral_stats()`. Apply `0016` **after** `0015`
+  (it redefines `quest_defs` / `quest_period_key` / `quest_progress_value` /
+  `claim_referral`, preserving the daily/weekly/monthly tiers from `0012`).
 - **Still to wire (optional, currently presentational):** the schema's tiered
   **weekly league** cohort assignment + reset (`leagues` / `league_memberships`
   / `league_standings`); the all-time `global_leaderboard` stands in for now.

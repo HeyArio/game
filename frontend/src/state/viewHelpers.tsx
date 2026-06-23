@@ -595,7 +595,7 @@ export function questsView(rows: QuestStateRow[], refresh = ""): QuestsView {
       const th = BIG_THEME[r.qtype] ?? BIG_THEME.weekly;
       return {
         questKey: r.quest_key,
-        iconEl: icon(r.qtype === "monthly" ? "calendar" : "trophy", 32, "#fff"),
+        iconEl: icon(r.qtype === "invite" ? "users" : r.qtype === "monthly" ? "calendar" : "trophy", 32, "#fff"),
         label: r.label,
         sub: th.sub,
         count: String(r.progress),
@@ -614,6 +614,7 @@ export function questsView(rows: QuestStateRow[], refresh = ""): QuestsView {
 const BIG_THEME: Record<string, { gradient: string; shadow: string; sub: string }> = {
   weekly:  { gradient: "linear-gradient(135deg,#1CB0F6,#1899D6)", shadow: "0 6px 0 #137FB5", sub: "Weigh in on cases before the week resets" },
   monthly: { gradient: "linear-gradient(135deg,#CE82FF,#A95FE0)", shadow: "0 6px 0 #8A4BC0", sub: "Keep showing up all month for the big reward" },
+  invite:  { gradient: "linear-gradient(135deg,#58CC02,#46A302)", shadow: "0 6px 0 #3E8E00", sub: "They get a head start, you get the XP" },
 };
 
 export interface ProfileView {
@@ -657,6 +658,9 @@ export function profileView(s: GameState, st: PlayerStats): ProfileView {
     { iconEl: icon("check", 20, "#1899D6"), iconWrap: wrap("#E3F6FF"), value: String(st.correctCount), label: "Verdicts matched" },
     { iconEl: icon("flame", 20, "#FF9600"), iconWrap: wrap("#FFF3E0"), value: String(s.bestStreak), label: "Best streak" },
     { iconEl: icon("star", 20, "#7A3FB0"), iconWrap: wrap("#F6ECFF"), value: String(s.level), label: "Level" },
+    // Referral attribution (get_my_referral_stats) — keeps the grid an even 3×2.
+    { iconEl: icon("users", 20, "#46A302"), iconWrap: wrap("#E8FFD7"), value: String(st.friendsJoined ?? 0), label: "Friends joined" },
+    { iconEl: icon("share", 20, "#1899D6"), iconWrap: wrap("#E3F6FF"), value: String(st.invitesSent ?? 0), label: "Invites sent" },
   ];
   const note = st.casesJudged === 0
     ? "We haven't judged a case together yet. Make your first call and I'll start tracking how often we land in the same place."

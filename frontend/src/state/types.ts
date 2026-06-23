@@ -25,19 +25,23 @@ export interface LeaguePlayer {
   isBot?: boolean;
 }
 
-/** Real lifetime figures for the player, from get_player_stats(). */
+/** Real lifetime figures for the player, from get_player_stats() and
+ *  get_my_referral_stats(). */
 export interface PlayerStats {
   casesJudged: number;
   correctCount: number;
   agreementPct: number;
   votesThisWeek: number;
+  /** Referral attribution (get_my_referral_stats). Optional: absent until loaded. */
+  friendsJoined?: number;
+  invitesSent?: number;
 }
 
 /** One quest's live state, from the get_quest_state() RPC. */
 export interface QuestStateRow {
   quest_key: string;
   label: string;
-  qtype: "daily" | "weekly" | "monthly";
+  qtype: "daily" | "weekly" | "monthly" | "invite";
   progress: number;
   goal: number;
   reward_xp: number;

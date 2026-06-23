@@ -66,10 +66,21 @@ function Game() {
       submitVote(caseId, optionId, confidence, crowdGuessOptionId),
   });
 
-  // Credit the inviter if this player arrived via a challenge link. We're on the
-  // authenticated path here, so the user exists; the id was stashed at arrival
-  // and survives the OAuth redirect via localStorage. No-op for organic players.
-  useEffect(() => { claimReferral(); }, []);
+  // Welcome shown once to a newcomer attributed to a friend's challenge link.
+  const [welcome, setWelcome] = useState<{ name: string; xp: number } | null>(null);
+
+  // Credit the inviter if this player arrived via a challenge link, and welcome
+  // the newcomer. We're on the authenticated path here, so the user exists; the
+  // id was stashed at arrival and survives the OAuth redirect via localStorage.
+  // No-op for organic players.
+  useEffect(() => {
+    claimReferral().then((r) => {
+      if (!r?.ok || r.already) return;
+      // Reflect the welcome bonus immediately (server returns the new totals).
+      if (typeof r.total_xp === "number") game.actions.grantBonusXp(r.total_xp, r.level ?? 1);
+      setWelcome({ name: r.inviter_name ?? "a friend", xp: r.bonus_xp ?? 0 });
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (caseStatus !== "active" || !dailyCase) return;
@@ -148,11 +159,23 @@ function Game() {
 
       // Real lifetime stats for the Profile + Quests screens.
       const { data: stats } = await supabase.rpc("get_player_stats").single();
+      // Referral stats live behind migrations 0015/0016; tolerate their absence
+      // so the rest of the profile still loads on a not-yet-migrated backend.
+      let friendsJoined = 0, invitesSent = 0;
+      try {
+        const { data: ref } = await supabase.rpc("get_my_referral_stats").single();
+        if (ref) {
+          friendsJoined = (ref as any).friends_joined ?? 0;
+          invitesSent = (ref as any).invites_sent ?? 0;
+        }
+      } catch { /* RPC not deployed yet — leave zeros */ }
       if (stats) game.actions.initStats({
         casesJudged: (stats as any).cases_judged ?? 0,
         correctCount: (stats as any).correct_count ?? 0,
         agreementPct: (stats as any).agreement_pct ?? 0,
         votesThisWeek: (stats as any).votes_this_week ?? 0,
+        friendsJoined,
+        invitesSent,
       });
 
       // The player's real rank across everyone (they're rarely in the top 20).
@@ -169,7 +192,12 @@ function Game() {
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <GameShell game={game} caseLoading={caseStatus === "loading"} noCase={caseStatus === "no_case"} error={caseStatus === "error" ? caseError : null} />;
+  return (
+    <>
+      <GameShell game={game} caseLoading={caseStatus === "loading"} noCase={caseStatus === "no_case"} error={caseStatus === "error" ? caseError : null} />
+      {welcome && <WelcomeToast name={welcome.name} xp={welcome.xp} onClose={() => setWelcome(null)} />}
+    </>
+  );
 }
 
 // ---- Testing path: case generated in-browser via LLM providers, scored locally ----
@@ -320,6 +348,27 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
       {showBottomNav && <BottomNav screen={state.screen} onSelectScreen={selectScreen} />}
 
       <ConfettiCanvas setCanvas={setCanvas} />
+    </div>
+  );
+}
+
+// Shown once to a newcomer attributed to a friend's challenge link: names the
+// inviter, confirms the welcome XP, and nudges the rematch loop. Auto-dismisses.
+function WelcomeToast({ name, xp, onClose }: { name: string; xp: number; onClose: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onClose, 9000);
+    return () => clearTimeout(t);
+  }, [onClose]);
+  return (
+    <div role="status" style={{ position: "fixed", left: "50%", bottom: 24, transform: "translateX(-50%)", zIndex: 60, maxWidth: 380, width: "calc(100% - 32px)", display: "flex", alignItems: "center", gap: 12, padding: "13px 15px", borderRadius: 16, background: "#fff", border: "2px solid #C4E89E", borderBottom: "4px solid #58CC02", boxShadow: "0 10px 30px rgba(0,0,0,.16)", animation: "qrise .35s ease both" }}>
+      <span style={{ flex: "none" }}><Mascot size={40} mood="happy" /></span>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontWeight: 800, fontSize: 14, color: "#3C3C46" }}>
+          You joined via <b style={{ color: "#46A302" }}>{name}</b>{xp > 0 ? <> · <span style={{ color: "#46A302" }}>+{xp} XP</span></> : null}
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#5E6553" }}>Play today's case, then challenge them back.</div>
+      </div>
+      <button onClick={onClose} aria-label="Dismiss" style={{ flex: "none", border: "none", background: "transparent", color: "#9AA08C", fontWeight: 800, fontSize: 18, cursor: "pointer", lineHeight: 1, padding: 4 }}>×</button>
     </div>
   );
 }
