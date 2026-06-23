@@ -196,6 +196,7 @@ export async function createChallenge(s: GameState): Promise<MintedChallenge | n
       case_no: s.caseNo || null,
       question: s.question,
       category: s.category || null,
+      challenger_id: user.id,                // who minted it — powers attribution
       challenger_name: name,
       challenger_pick: s.selected,           // letter only — spoiler-free
       confidence: s.confidence,
@@ -304,9 +305,48 @@ export function useIncomingChallenge(): Challenge | null {
     let id = "";
     try { id = new URLSearchParams(window.location.search).get("c") ?? ""; } catch { /* ignore */ }
     if (!id) return;
+    // Stash the id so the inviter gets credit even after sign-in: Google OAuth
+    // returns to the bare origin and drops the ?c= param, so the URL alone can't
+    // carry attribution across the round-trip. claimReferral() reads it back.
+    rememberReferral(id);
     let cancelled = false;
     fetchChallenge(id).then((c) => { if (!cancelled) setChallenge(c); });
     return () => { cancelled = true; };
   }, []);
   return challenge;
+}
+
+// ---------- Referral attribution -------------------------------------------
+// One end-to-end edge: a recipient who arrives via ?c=<id> and then signs up is
+// attributed to the challenger who minted that link. The id is stashed at arrival
+// (rememberReferral) and redeemed once the user is authenticated (claimReferral),
+// because the OAuth redirect drops the query string in between.
+
+const REF_KEY = "quorum_ref";
+
+/** Remember an incoming challenge id so it survives the sign-in round-trip. */
+export function rememberReferral(id: string): void {
+  try { localStorage.setItem(REF_KEY, id); } catch { /* private mode / no storage */ }
+}
+
+/**
+ * Record that the signed-in user arrived via a challenge link, crediting the
+ * inviter. Safe to call on every authenticated load: the server (claim_referral)
+ * enforces set-once, no-self-referral and new-users-only, so re-calls are
+ * harmless. We clear the stashed id once the outcome is terminal (any structured
+ * response) so it never re-fires; a transient network error keeps it for the
+ * next load.
+ */
+export async function claimReferral(): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  let id = "";
+  try { id = localStorage.getItem(REF_KEY) ?? ""; } catch { /* ignore */ }
+  if (!id) return;
+  try {
+    const { error } = await supabase.rpc("claim_referral", { p_challenge_id: id });
+    if (error) return; // transient — keep the id and retry next load
+    try { localStorage.removeItem(REF_KEY); } catch { /* ignore */ }
+  } catch {
+    /* keep the id for a future attempt */
+  }
 }

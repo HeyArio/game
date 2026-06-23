@@ -18,7 +18,7 @@ const ProfilePage = lazy(() => import("./pages/ProfilePage").then((m) => ({ defa
 const QuestsPage = lazy(() => import("./pages/QuestsPage").then((m) => ({ default: m.QuestsPage })));
 const LandingPage = lazy(() => import("./pages/LandingPage").then((m) => ({ default: m.LandingPage })));
 import { useDailyCase } from "./hooks/useDailyCase";
-import { useIncomingChallenge } from "./lib/challenge";
+import { useIncomingChallenge, claimReferral } from "./lib/challenge";
 import { useClientCase } from "./hooks/useClientCase";
 import { useVote } from "./hooks/useVote";
 import { useIsMobile } from "./hooks/useMediaQuery";
@@ -65,6 +65,11 @@ function Game() {
     onSubmitVote: async (caseId, optionId, confidence, crowdGuessOptionId) =>
       submitVote(caseId, optionId, confidence, crowdGuessOptionId),
   });
+
+  // Credit the inviter if this player arrived via a challenge link. We're on the
+  // authenticated path here, so the user exists; the id was stashed at arrival
+  // and survives the OAuth redirect via localStorage. No-op for organic players.
+  useEffect(() => { claimReferral(); }, []);
 
   useEffect(() => {
     if (caseStatus !== "active" || !dailyCase) return;

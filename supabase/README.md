@@ -238,6 +238,17 @@ like a phishing link and kills the share. The two supported styles:
   longer executable by `public`. Voting now goes through `record_vote()`, which
   inserts the vote and updates progress in one transaction (and keeps `level`
   in sync on every vote, not just on quest claims).
+- **Referral attribution (0015).** Records *who invited whom* — the foundation
+  for an invite campaign (inviter rewards, conversion / K-factor, leaderboards).
+  `challenges.challenger_id` captures who minted a link; `profiles.invited_by`
+  (+ `invited_via_challenge`) captures the inviter who converted a new player.
+  The recipient's client stashes the `?c=<id>` (so it survives the OAuth redirect,
+  which drops the query string) and calls **`claim_referral(challenge_id)`** once
+  after sign-in. That SECURITY DEFINER RPC enforces the rules server-side —
+  set-once, no self-referral, and new-signups-only (profile created within 24h) —
+  so attribution can't be forged or replayed. **`get_my_referral_stats()`**
+  returns `invites_sent` / `friends_joined` for the inviter UI + leaderboards.
+  No new deploy step: apply `0015` in the SQL editor (or `supabase db push`).
 - **Still to wire (optional, currently presentational):** the schema's tiered
   **weekly league** cohort assignment + reset (`leagues` / `league_memberships`
   / `league_standings`); the all-time `global_leaderboard` stands in for now.
