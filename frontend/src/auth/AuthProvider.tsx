@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { track } from "../lib/analytics";
 
 interface AuthContextValue {
   session: Session | null;
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       loading,
       signInWithGoogle: async () => {
+        track("sign_in_start");
         const { error } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: { redirectTo: window.location.origin },

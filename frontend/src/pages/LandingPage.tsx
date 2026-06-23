@@ -3,6 +3,7 @@ import { Mascot } from "../components/Mascot";
 import { useAuth } from "../auth/AuthProvider";
 import { isSupabaseConfigured } from "../lib/supabase";
 import { nazarbanUrl } from "../lib/nazarban";
+import { feedbackHref, feedbackIsExternal } from "../lib/feedback";
 import { icon } from "../icons/Icon";
 
 // Google "G" mark — official 4-colour glyph, inline so we ship no extra asset.
@@ -517,6 +518,9 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
             <a href="#how" style={navLink}>How it works</a>
             <a href="#why" style={navLink}>Why Quorum</a>
             <a href="#faq" style={navLink}>FAQ</a>
+            <a href="/privacy.html" style={navLink}>Privacy</a>
+            <a href="/terms.html" style={navLink}>Terms</a>
+            <a href={feedbackHref()} {...(feedbackIsExternal() ? { target: "_blank", rel: "noopener noreferrer" } : {})} style={navLink}>Feedback</a>
           </nav>
           <div style={{ fontWeight: 700, fontSize: 13, color: "#5E6654" }}>
             <a href={nazarbanUrl("landing_footer")} target="_blank" rel="noopener noreferrer" style={{ color: "#3E7200", fontWeight: 800, textDecoration: "none" }}>

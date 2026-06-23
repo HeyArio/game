@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import { useAuth } from "./auth/AuthProvider";
 import { ConfettiCanvas } from "./components/ConfettiCanvas";
 import { PromoOverlay } from "./components/PromoOverlay";
@@ -19,6 +20,9 @@ const QuestsPage = lazy(() => import("./pages/QuestsPage").then((m) => ({ defaul
 const LandingPage = lazy(() => import("./pages/LandingPage").then((m) => ({ default: m.LandingPage })));
 import { useDailyCase } from "./hooks/useDailyCase";
 import { useIncomingChallenge, claimReferral } from "./lib/challenge";
+import { useIncomingInvite, claimInvite } from "./lib/invite";
+import { feedbackHref, feedbackIsExternal } from "./lib/feedback";
+import { track } from "./lib/analytics";
 import { useClientCase } from "./hooks/useClientCase";
 import { useVote } from "./hooks/useVote";
 import { useIsMobile } from "./hooks/useMediaQuery";
@@ -66,20 +70,30 @@ function Game() {
       submitVote(caseId, optionId, confidence, crowdGuessOptionId),
   });
 
-  // Welcome shown once to a newcomer attributed to a friend's challenge link.
-  const [welcome, setWelcome] = useState<{ name: string; xp: number } | null>(null);
+  // Welcome shown once to a newcomer who arrived via a friend's link — either a
+  // founding member (personal invite link, ?i=) or a challenge recipient (?c=).
+  const [welcome, setWelcome] = useState<{ name: string; xp: number; founder?: boolean } | null>(null);
 
-  // Credit the inviter if this player arrived via a challenge link, and welcome
-  // the newcomer. We're on the authenticated path here, so the user exists; the
-  // id was stashed at arrival and survives the OAuth redirect via localStorage.
-  // No-op for organic players.
+  // Credit the inviter and welcome the newcomer. We're on the authenticated path
+  // here, so the user exists; the invite code / challenge id was stashed at
+  // arrival and survives the OAuth redirect via localStorage. A founding-member
+  // invite takes precedence over a challenge referral — claim_invite records
+  // attribution too, so the subsequent claim_referral is then a no-op. Both are
+  // no-ops for organic players.
   useEffect(() => {
-    claimReferral().then((r) => {
-      if (!r?.ok || r.already) return;
-      // Reflect the welcome bonus immediately (server returns the new totals).
-      if (typeof r.total_xp === "number") game.actions.grantBonusXp(r.total_xp, r.level ?? 1);
-      setWelcome({ name: r.inviter_name ?? "a friend", xp: r.bonus_xp ?? 0 });
-    });
+    (async () => {
+      const inv = await claimInvite();
+      if (inv?.ok && !inv.already && inv.founder) {
+        if (typeof inv.total_xp === "number") game.actions.grantBonusXp(inv.total_xp, inv.level ?? 1);
+        setWelcome({ name: inv.inviter_name ?? "a friend", xp: inv.bonus_xp ?? 0, founder: true });
+      }
+      const ref = await claimReferral();
+      if (ref?.ok && !ref.already) {
+        if (typeof ref.total_xp === "number") game.actions.grantBonusXp(ref.total_xp, ref.level ?? 1);
+        // Don't clobber a founder welcome if one was already shown this load.
+        setWelcome((w) => w ?? { name: ref.inviter_name ?? "a friend", xp: ref.bonus_xp ?? 0 });
+      }
+    })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -195,7 +209,7 @@ function Game() {
   return (
     <>
       <GameShell game={game} caseLoading={caseStatus === "loading"} noCase={caseStatus === "no_case"} error={caseStatus === "error" ? caseError : null} />
-      {welcome && <WelcomeToast name={welcome.name} xp={welcome.xp} onClose={() => setWelcome(null)} />}
+      {welcome && <WelcomeToast name={welcome.name} xp={welcome.xp} founder={welcome.founder} onClose={() => setWelcome(null)} />}
     </>
   );
 }
@@ -227,8 +241,10 @@ function GuestGame() {
   // challenge link (?c=<id>) is dropped straight onto the case so they see the
   // "X challenged you" intro instead of a marketing wall.
   const [view, setView] = useState<"landing" | "game">(() => {
-    try { return new URLSearchParams(window.location.search).has("c") ? "game" : "landing"; }
-    catch { return "landing"; }
+    try {
+      const q = new URLSearchParams(window.location.search);
+      return q.has("c") || q.has("i") ? "game" : "landing";
+    } catch { return "landing"; }
   });
   const { status: caseStatus, dailyCase, error: caseError } = useDailyCase();
   const game = useGameState(); // no onSubmitVote — guests can't score or save
@@ -285,6 +301,9 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
   // A recipient who arrived via a challenge link (?c=<id>) — drives the intro
   // banner and the You-vs-them-vs-Arbi reveal line.
   const challenge = useIncomingChallenge();
+  // Stash an incoming personal invite code (?i=<code>) so the founding-member
+  // claim survives the sign-in round-trip (redeemed on the authenticated path).
+  useIncomingInvite();
   const isMobile = useIsMobile();
   const screenLabel = { play: "Daily Case", leagues: "Leagues", quests: "Quests", profile: "Profile" }[state.screen];
   // When a guest tries to lock in, prompt them to sign in via a modal popup.
@@ -304,7 +323,7 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
     : actions.setScreen;
   // Guests who try to lock in get a "please sign in" popup; other gated actions
   // fall back to the landing page.
-  const lockIn = guest ? () => setSignInPrompt(true) : actions.lockIn;
+  const lockIn = guest ? () => setSignInPrompt(true) : () => { track("vote_locked"); actions.lockIn(); };
   const openStreak = guest ? requireAuth : actions.openStreak;
   // Logo target: guests go back to the landing page; signed-in players go home
   // (to the daily case). TopBar also scrolls to top for visible feedback.
@@ -343,6 +362,11 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
         <a href={nazarbanUrl("app_footer")} target="_blank" rel="noopener noreferrer" style={{ color: "#5E6654", fontWeight: 800, textDecoration: "none" }}>
           From the team behind Quorum — see what else we build →
         </a>
+        <div style={{ marginTop: 10, display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
+          <a href="/privacy.html" style={footerLink}>Privacy</a>
+          <a href="/terms.html" style={footerLink}>Terms</a>
+          <a href={feedbackHref()} {...(feedbackIsExternal() ? { target: "_blank", rel: "noopener noreferrer" } : {})} style={footerLink}>Feedback</a>
+        </div>
       </footer>
 
       {showBottomNav && <BottomNav screen={state.screen} onSelectScreen={selectScreen} />}
@@ -352,9 +376,10 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
   );
 }
 
-// Shown once to a newcomer attributed to a friend's challenge link: names the
-// inviter, confirms the welcome XP, and nudges the rematch loop. Auto-dismisses.
-function WelcomeToast({ name, xp, onClose }: { name: string; xp: number; onClose: () => void }) {
+// Shown once to a newcomer who arrived via a friend's link: a founding member
+// (personal invite) or a challenge recipient. Names the inviter, confirms the
+// welcome XP, and nudges the loop. Auto-dismisses.
+function WelcomeToast({ name, xp, founder, onClose }: { name: string; xp: number; founder?: boolean; onClose: () => void }) {
   useEffect(() => {
     const t = setTimeout(onClose, 9000);
     return () => clearTimeout(t);
@@ -364,14 +389,21 @@ function WelcomeToast({ name, xp, onClose }: { name: string; xp: number; onClose
       <span style={{ flex: "none" }}><Mascot size={40} mood="happy" /></span>
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontWeight: 800, fontSize: 14, color: "#3C3C46" }}>
-          You joined via <b style={{ color: "#46A302" }}>{name}</b>{xp > 0 ? <> · <span style={{ color: "#46A302" }}>+{xp} XP</span></> : null}
+          {founder
+            ? <>You're a <b style={{ color: "#46A302" }}>founding member</b>{xp > 0 ? <> · <span style={{ color: "#46A302" }}>+{xp} XP</span></> : null}</>
+            : <>You joined via <b style={{ color: "#46A302" }}>{name}</b>{xp > 0 ? <> · <span style={{ color: "#46A302" }}>+{xp} XP</span></> : null}</>}
         </div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "#5E6553" }}>Play today's case, then challenge them back.</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#5E6553" }}>
+          {founder ? <>Joined via {name}. Play today's case, then invite friends.</> : <>Play today's case, then challenge them back.</>}
+        </div>
       </div>
       <button onClick={onClose} aria-label="Dismiss" style={{ flex: "none", border: "none", background: "transparent", color: "#9AA08C", fontWeight: 800, fontSize: 18, cursor: "pointer", lineHeight: 1, padding: 4 }}>×</button>
     </div>
   );
 }
+
+// Shared footer link style (Privacy · Terms · Feedback).
+const footerLink: CSSProperties = { color: "#7C8470", fontWeight: 800, textDecoration: "none" };
 
 function ErrorScreen({ message }: { message: string }) {
   return (

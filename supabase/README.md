@@ -259,7 +259,33 @@ like a phishing link and kills the share. The two supported styles:
   *Invites sent* from `get_my_referral_stats()`. Apply `0016` **after** `0015`
   (it redefines `quest_defs` / `quest_period_key` / `quest_progress_value` /
   `claim_referral`, preserving the daily/weekly/monthly tiers from `0012`).
+- **Personal invite links & founders (0017).** A second, identity-level invite
+  surface alongside challenge links: every player gets one stable, reusable link
+  (`quorumdaily.com/?i=<code>`). A recipient who joins via it becomes a
+  **founding member** — `profiles.is_founder` (a Profile badge) plus a one-time
+  **100 XP** welcome bonus — and is attributed to the inviter, so it also feeds
+  the existing `invite_friend` quest + referral stats. There's **no access gate**:
+  organic players still join freely (just not as founders). `claim_invite(code)`
+  is a SECURITY DEFINER RPC with the same guards as `claim_referral` (set-once /
+  no-self / new-signups-only); `get_my_invite()` powers the Profile "Invite
+  friends" card (the caller's code, founder flag, friends-joined count). Codes are
+  minted on signup (`handle_new_user`) and backfilled for existing players. No new
+  deploy step: apply `0017` in the SQL editor (or `supabase db push`).
 - **Still to wire (optional, currently presentational):** the schema's tiered
   **weekly league** cohort assignment + reset (`leagues` / `league_memberships`
   / `league_standings`); the all-time `global_leaderboard` stands in for now.
   That would need its own scheduled job.
+
+## 7. Analytics & feedback (frontend)
+
+Both are optional and **off by default** (no third-party scripts ship unless you
+opt in). Configure them in `frontend/.env`:
+
+- `VITE_PLAUSIBLE_DOMAIN` — turn on cookieless [Plausible](https://plausible.io)
+  analytics (page views + a few custom events: sign-in, vote locked, shares,
+  founder joins). No cookie banner needed. Point `VITE_PLAUSIBLE_SRC` at a
+  self-hosted instance if you don't use plausible.io.
+- `VITE_FEEDBACK_URL` — the in-app "Feedback" links (footer) open this form;
+  leave blank to fall back to a `mailto:` (update the address in
+  `frontend/src/lib/feedback.ts`). The Privacy / Terms links point at the static
+  `frontend/public/privacy.html` and `terms.html` pages.

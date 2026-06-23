@@ -1,9 +1,10 @@
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { Mascot } from "../components/Mascot";
 import type { GameState } from "../state/types";
 import { profileView } from "../state/viewHelpers";
 import { useAuth } from "../auth/AuthProvider";
 import { useIsMobile } from "../hooks/useMediaQuery";
+import { fetchMyInvite, inviteUrl, shareInvite, type MyInvite } from "../lib/invite";
 
 export interface ProfilePageProps {
   state: GameState;
@@ -13,6 +14,8 @@ export function ProfilePage({ state }: ProfilePageProps) {
   const isMobile = useIsMobile();
   const profile = profileView(state, state.stats);
   const { user, signOut } = useAuth();
+  const [invite, setInvite] = useState<MyInvite | null>(null);
+  useEffect(() => { fetchMyInvite().then(setInvite); }, []);
 
   const meta = (user?.user_metadata ?? {}) as { full_name?: string; name?: string };
   const displayName = meta.full_name || meta.name || user?.email?.split("@")[0] || "You";
@@ -57,6 +60,11 @@ export function ProfilePage({ state }: ProfilePageProps) {
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 10, background: "#E3F6FF", color: "#1899D6", fontWeight: 800, fontSize: 12 }}>
               {profile.leagueEl}{profile.tier}
             </span>
+            {invite?.is_founder && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 10, background: "#FFF3D4", color: "#A9791C", fontWeight: 800, fontSize: 12 }}>
+                🎖 Founding member
+              </span>
+            )}
           </div>
         </div>
         <ProfileShareButton shareEl={profile.shareEl} summary={shareSummary} />
@@ -82,6 +90,8 @@ export function ProfilePage({ state }: ProfilePageProps) {
           Sign out
         </button>
       </div>
+
+      <InviteCard invite={invite} />
 
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 12 }}>
         {profile.stats.map((st, i) => (
@@ -172,4 +182,65 @@ function ProfileShareButton({ shareEl, summary }: { shareEl: ReactNode; summary:
       {shareEl}{label}
     </button>
   );
+}
+
+// Personal invite link — every player's stable "join as a founding member" link.
+// Copy or share it; anyone who joins via it becomes a founding member, and it
+// credits the inviter (feeding the existing invite quest + referral stats).
+function InviteCard({ invite }: { invite: MyInvite | null }) {
+  const [copied, setCopied] = useState(false);
+  const code = invite?.code;
+  const link = code ? inviteUrl(code) : "";
+  const joined = invite?.friends_joined ?? 0;
+
+  async function onCopy() {
+    if (!link) return;
+    try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1900); }
+    catch { /* clipboard blocked — the field is selectable as a fallback */ }
+  }
+  function onShare() { if (code) void shareInvite(code); }
+
+  return (
+    <div style={{ background: "#fff", border: "2px solid #C4E89E", borderRadius: 20, padding: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <h2 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 18, color: "#3C3C46" }}>Invite friends</h2>
+          <div style={{ fontWeight: 600, fontSize: 13, color: "#7C8470", marginTop: 2 }}>
+            Anyone who joins via your link becomes a <b style={{ color: "#46A302" }}>founding member</b>.
+          </div>
+        </div>
+        {joined > 0 && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 12, background: "#E8FFD7", color: "#3E7200", fontWeight: 800, fontSize: 13, flex: "none" }}>
+            {joined} joined via you
+          </span>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+        <input
+          readOnly
+          value={link || "Sign in to get your invite link"}
+          onFocus={(e) => e.currentTarget.select()}
+          aria-label="Your personal invite link"
+          style={{ flex: 1, minWidth: 200, padding: "11px 14px", borderRadius: 12, border: "2px solid #E4EAD8", background: "#F8FBF2", color: "#3C3C46", fontWeight: 700, fontSize: 14, fontFamily: "'Nunito',sans-serif" }}
+        />
+        <button onClick={onCopy} disabled={!link} style={invitePill("#E8FFD7", "#A5ED6E", "#3E7200", !link)}>
+          {copied ? "Copied!" : "Copy"}
+        </button>
+        <button onClick={onShare} disabled={!link} style={invitePill("#58CC02", "#46A302", "#fff", !link)}>
+          Share
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function invitePill(bg: string, border: string, color: string, disabled: boolean): CSSProperties {
+  return {
+    border: "2px solid " + border, borderBottomWidth: "4px",
+    background: bg, color,
+    padding: "11px 18px", borderRadius: 12,
+    fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 14,
+    cursor: disabled ? "default" : "pointer", flex: "none",
+    opacity: disabled ? 0.55 : 1,
+  };
 }

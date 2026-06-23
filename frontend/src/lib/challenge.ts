@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase, isSupabaseConfigured } from "./supabase";
 import { roundRect, wrapText, drawMascot } from "./shareCard";
+import { track } from "./analytics";
 import type { GameState } from "../state/types";
 
 // Challenge links — "nobody gets a link, everybody gets a challenge."
@@ -231,6 +232,7 @@ export async function shareChallengeLink(
   cardBlob?: Blob | null,
 ): Promise<"shared" | "copied" | "cancelled" | "error"> {
   const text = CHALLENGE_TEXT;
+  track("challenge_share");
   try {
     const nav = navigator as any;
 
