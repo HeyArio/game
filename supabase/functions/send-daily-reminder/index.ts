@@ -245,8 +245,7 @@ Deno.serve(async (req) => {
     );
 
     // 3. Page through auth.users for addresses (we never store emails ourselves).
-    let recipients: Recipient[] = [];
-    let skippedUnsub = 0;
+    const allUsers: { id: string; email: string; name: string }[] = [];
     let page = 1;
     const perPage = 1000;
     for (;;) {
@@ -255,19 +254,44 @@ Deno.serve(async (req) => {
       const users = data?.users ?? [];
       for (const u of users) {
         if (!u.email) continue;
-        const pref = prefs.get(u.id);
-        // Default to subscribed if a pre-0018 user has no prefs row yet, but we
-        // can only build an unsubscribe link when we have a token — so require one.
-        if (pref && pref.daily_reminder === false) { skippedUnsub++; continue; }
-        if (!pref?.unsubscribe_token) continue;
         const name =
           (u.user_metadata?.full_name as string | undefined) ??
           (u.user_metadata?.name as string | undefined) ??
           "";
-        recipients.push({ email: u.email, name, token: pref.unsubscribe_token });
+        allUsers.push({ id: u.id, email: u.email, name });
       }
       if (users.length < perPage) break;
       page++;
+    }
+
+    // 3b. Self-heal: make sure every signed-up user has a preferences row (opt-in
+    //     flag + unsubscribe token). The signup trigger normally seeds this, but
+    //     if the trigger is missing or a user was created another way we'd
+    //     otherwise silently never email them. Insert any missing rows, then pull
+    //     back their fresh tokens so they're eligible this run.
+    const missing = allUsers.filter((u) => !prefs.has(u.id)).map((u) => u.id);
+    if (missing.length) {
+      const { error: healErr } = await admin
+        .from("email_preferences")
+        .upsert(missing.map((id) => ({ user_id: id })), { onConflict: "user_id", ignoreDuplicates: true });
+      if (healErr) console.error("Failed to backfill email_preferences:", healErr);
+      const { data: healed } = await admin
+        .from("email_preferences")
+        .select("user_id, daily_reminder, unsubscribe_token")
+        .in("user_id", missing);
+      for (const row of healed ?? []) {
+        prefs.set(row.user_id as string, row as { daily_reminder: boolean; unsubscribe_token: string });
+      }
+    }
+
+    // 3c. Build the recipient list, dropping anyone who unsubscribed.
+    let recipients: Recipient[] = [];
+    let skippedUnsub = 0;
+    for (const u of allUsers) {
+      const pref = prefs.get(u.id);
+      if (pref && pref.daily_reminder === false) { skippedUnsub++; continue; }
+      if (!pref?.unsubscribe_token) continue;
+      recipients.push({ email: u.email, name: u.name, token: pref.unsubscribe_token });
     }
 
     // Test mode: narrow to just the requested address (must be a signed-up user
