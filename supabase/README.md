@@ -276,6 +276,85 @@ like a phishing link and kills the share. The two supported styles:
   / `league_standings`); the all-time `global_leaderboard` stands in for now.
   That would need its own scheduled job.
 
+## 6b. Daily reminder emails (Zoho ZeptoMail)
+
+Migration `0018` + the `send-daily-reminder` Edge Function email every signed-up
+player a once-a-day nudge that **today's question is live**. It reuses the exact
+pattern as daily-case generation: a privileged Edge Function fired by `pg_cron`,
+authorized by the service-role key (or a shared `x-cron-secret`).
+
+**Why ZeptoMail?** For a code-driven, per-recipient daily send straight from your
+Supabase signups, Zoho's transactional API ([ZeptoMail](https://www.zoho.com/zeptomail/))
+is the right tool — a simple REST call + token, high limits, good deliverability.
+(Zoho *Campaigns* is a newsletter UI that needs you to sync contacts into Zoho
+lists; Zoho *Mail* SMTP has low caps. Neither fits an automated job as cleanly.)
+
+**How it works:**
+
+- **`email_preferences` table** (migration `0018`): one row per player holding
+  the opt-in flag + an unguessable `unsubscribe_token`. We **still don't store
+  emails** — the send job reads addresses from `auth.users` with the service-role
+  key at send time (cf. migration 0001). A trigger seeds a row on signup and the
+  migration backfills existing players.
+- **`send-daily-reminder` Edge Function**: reads today's case (for the question),
+  pages through `auth.users`, drops anyone who unsubscribed, and sends each player
+  a personalised email via ZeptoMail (every message carries that player's own
+  one-click unsubscribe link). Keep `verify_jwt` **on** — like generate-daily-case,
+  only the cron/operator may call it.
+- **`email-unsubscribe` Edge Function**: the public one-click opt-out target for
+  the footer link. It authenticates on the per-row token alone (the click has no
+  auth header), so deploy it `--no-verify-jwt`.
+
+**Set the secrets** (`supabase/.env`, then push):
+
+```bash
+# Add to supabase/.env (see .env.example):
+#   ZEPTOMAIL_TOKEN, EMAIL_FROM_ADDRESS, EMAIL_FROM_NAME
+supabase secrets set --env-file ./supabase/.env
+```
+
+> The `EMAIL_FROM_ADDRESS` domain must be **verified in ZeptoMail** (Mail Agents →
+> Domains) or sends are rejected. EU data-centre accounts: set
+> `ZEPTOMAIL_API_URL=https://api.zeptomail.eu/v1.1/email`.
+
+**Apply + deploy:**
+
+```bash
+# 1. Apply migration 0018 in the SQL editor (or: supabase db push).
+# 2. Deploy the send job (keep JWT verification ON):
+supabase functions deploy send-daily-reminder
+# 3. Deploy the unsubscribe handler PUBLIC (the email click has no auth header):
+supabase functions deploy email-unsubscribe --no-verify-jwt
+```
+
+**Send a test blast manually** (service-role key — the anon key is rejected):
+
+```bash
+curl -X POST 'https://YOUR-PROJECT-ref.supabase.co/functions/v1/send-daily-reminder' \
+  -H "Authorization: Bearer YOUR-SERVICE-ROLE-KEY" \
+  -H "Content-Type: application/json"
+# → {"ok":true,"caseNo":...,"recipients":N,"sent":N,"failed":0,"skippedUnsubscribed":M}
+```
+
+**Schedule it daily** (SQL editor — needs pg_cron + pg_net, same as the case job).
+Pick a time *after* `generate-daily-case` (which runs 00:05 UTC) so the new case
+exists — e.g. 13:00 UTC:
+
+```sql
+select cron.schedule(
+  'send-daily-reminder', '0 13 * * *',
+  $$ select net.http_post(
+       url     := 'https://YOUR-PROJECT-ref.supabase.co/functions/v1/send-daily-reminder',
+       headers := '{"Authorization": "Bearer YOUR-SERVICE-ROLE-KEY", "Content-Type": "application/json"}'::jsonb
+     ); $$
+);
+```
+
+> **Volume note.** This Edge Function sends one API call per recipient with a
+> small concurrency cap — perfect at launch scale. If your list grows into the
+> tens of thousands, move to ZeptoMail's **batch** endpoint or chunk the send
+> across several cron ticks so it stays within the function's wall-clock budget.
+
 ## 7. Analytics & feedback (frontend)
 
 Both are optional and **off by default** (no third-party scripts ship unless you
