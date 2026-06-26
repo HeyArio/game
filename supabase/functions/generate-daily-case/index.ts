@@ -404,6 +404,22 @@ function isAuthorized(req: Request): boolean {
   return jwtPayload(token).role === "service_role";
 }
 
+/** Tell the `send-daily-reminder` function to email signed-up players that a new
+ *  case is live. Same-project call, authorized with the service-role key. Returns
+ *  the reminder job's JSON summary (or an error shape) for visibility — callers
+ *  must guard it so an email hiccup never fails the (already-committed) case. */
+async function notifyPlayers(): Promise<unknown> {
+  const base = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!base || !key) return { ok: false, error: "missing SUPABASE_URL / service-role key" };
+  const res = await fetch(`${base}/functions/v1/send-daily-reminder`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+  });
+  const text = await res.text();
+  try { return JSON.parse(text); } catch { return { ok: res.ok, status: res.status, body: text }; }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   // Allow both cron invocations (no body) and manual POST with { question, category }
@@ -440,10 +456,13 @@ Deno.serve(async (req) => {
     // Accept a manual question or generate one
     let question: string;
     let category: string;
+    let skipEmail = false;
     try {
       const body = req.method === "POST" ? await req.json() : {};
       question = body.question || "";
       category = body.category || "";
+      // Manual/test generations can opt out of the "new question is live" blast.
+      skipEmail = body.skipEmail === true;
     } catch { question = ""; category = ""; }
 
     if (!question) {
@@ -533,7 +552,19 @@ Deno.serve(async (req) => {
       .gt("closes_at", opens.toISOString());
     if (expireErr) console.error("Failed to expire previous open cases:", expireErr);
 
-    return new Response(JSON.stringify({ ok: true, caseNo: nextCaseNo, question, winner: winnerLetter }), {
+    // A new question is now live — nudge signed-up players to come play it.
+    // Opt-in via SEND_DAILY_REMINDER=true (so nothing emails until you turn it
+    // on), and skippable per call with { "skipEmail": true } for manual/test
+    // runs. The case is already committed, so a mail failure is logged, not fatal.
+    let email: unknown = "disabled";
+    if (Deno.env.get("SEND_DAILY_REMINDER") === "true" && !skipEmail) {
+      email = await notifyPlayers().catch((e) => {
+        console.error("send-daily-reminder trigger failed:", e);
+        return { ok: false, error: String(e) };
+      });
+    }
+
+    return new Response(JSON.stringify({ ok: true, caseNo: nextCaseNo, question, winner: winnerLetter, email }), {
       headers: { "Content-Type": "application/json", ...CORS },
     });
   } catch (e) {

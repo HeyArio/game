@@ -301,6 +301,13 @@ lists; Zoho *Mail* SMTP has low caps. Neither fits an automated job as cleanly.)
   a personalised email via ZeptoMail (every message carries that player's own
   one-click unsubscribe link). Keep `verify_jwt` **on** — like generate-daily-case,
   only the cron/operator may call it.
+- **Trigger: "whenever a new question is live."** Rather than a second timer,
+  `generate-daily-case` calls `send-daily-reminder` itself right after it commits
+  a new case — so the email fires exactly when the new question goes live. It's
+  **off by default**: set `SEND_DAILY_REMINDER=true` to enable it. A manual/test
+  case generation can suppress the blast with a `{ "skipEmail": true }` body. A
+  mail failure is logged, never fatal (the case is already committed), and the
+  reminder summary is echoed back on the generate-daily-case response under `email`.
 - **`email-unsubscribe` Edge Function**: the public one-click opt-out target for
   the footer link. It authenticates on the per-row token alone (the click has no
   auth header), so deploy it `--no-verify-jwt`.
@@ -309,12 +316,15 @@ lists; Zoho *Mail* SMTP has low caps. Neither fits an automated job as cleanly.)
 
 ```bash
 # Add to supabase/.env (see .env.example):
-#   ZEPTOMAIL_TOKEN, EMAIL_FROM_ADDRESS, EMAIL_FROM_NAME
+#   ZEPTOMAIL_TOKEN  (the send-mail token ONLY — no "Zoho-enczapikey " prefix)
+#   EMAIL_FROM_ADDRESS=noreply@nazarbanai.com   (any address on your verified domain)
+#   EMAIL_FROM_NAME, SEND_DAILY_REMINDER=true
 supabase secrets set --env-file ./supabase/.env
 ```
 
 > The `EMAIL_FROM_ADDRESS` domain must be **verified in ZeptoMail** (Mail Agents →
-> Domains) or sends are rejected. EU data-centre accounts: set
+> Domains) or sends are rejected. The ZeptoMail Agent Alias and SMTP host are NOT
+> needed — the API uses the send-mail token only. EU data-centre accounts: set
 > `ZEPTOMAIL_API_URL=https://api.zeptomail.eu/v1.1/email`.
 
 **Apply + deploy:**
@@ -325,29 +335,30 @@ supabase secrets set --env-file ./supabase/.env
 supabase functions deploy send-daily-reminder
 # 3. Deploy the unsubscribe handler PUBLIC (the email click has no auth header):
 supabase functions deploy email-unsubscribe --no-verify-jwt
+# 4. Redeploy the case job so it triggers the email on each new question:
+supabase functions deploy generate-daily-case
 ```
 
-**Send a test blast manually** (service-role key — the anon key is rejected):
+**That's the whole schedule.** Because `generate-daily-case` now fires the
+reminder itself (when `SEND_DAILY_REMINDER=true`), there is **no separate email
+cron** — the existing daily case cron (00:05 UTC, §4) drives both. The new
+question goes live and the email goes out in the same step. To change *when*
+players get pinged, change the case cron's time; the email follows.
+
+**Smoke-test it safely first** (no blast): generate a case with email suppressed,
+then send only to yourself by temporarily unsubscribing everyone else, or just
+trigger the send job directly while your list is small:
 
 ```bash
-curl -X POST 'https://YOUR-PROJECT-ref.supabase.co/functions/v1/send-daily-reminder' \
-  -H "Authorization: Bearer YOUR-SERVICE-ROLE-KEY" \
-  -H "Content-Type: application/json"
+# (a) regenerate a case WITHOUT emailing anyone:
+curl -X POST '.../functions/v1/generate-daily-case' \
+  -H "Authorization: Bearer YOUR-SERVICE-ROLE-KEY" -H "Content-Type: application/json" \
+  -d '{"skipEmail": true}'
+
+# (b) or fire just the email job by hand (service-role key; anon is rejected):
+curl -X POST '.../functions/v1/send-daily-reminder' \
+  -H "Authorization: Bearer YOUR-SERVICE-ROLE-KEY" -H "Content-Type: application/json"
 # → {"ok":true,"caseNo":...,"recipients":N,"sent":N,"failed":0,"skippedUnsubscribed":M}
-```
-
-**Schedule it daily** (SQL editor — needs pg_cron + pg_net, same as the case job).
-Pick a time *after* `generate-daily-case` (which runs 00:05 UTC) so the new case
-exists — e.g. 13:00 UTC:
-
-```sql
-select cron.schedule(
-  'send-daily-reminder', '0 13 * * *',
-  $$ select net.http_post(
-       url     := 'https://YOUR-PROJECT-ref.supabase.co/functions/v1/send-daily-reminder',
-       headers := '{"Authorization": "Bearer YOUR-SERVICE-ROLE-KEY", "Content-Type": "application/json"}'::jsonb
-     ); $$
-);
 ```
 
 > **Volume note.** This Edge Function sends one API call per recipient with a
