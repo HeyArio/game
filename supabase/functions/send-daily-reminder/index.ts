@@ -207,6 +207,15 @@ Deno.serve(async (req) => {
     return json({ error: "Email not configured: set ZEPTOMAIL_TOKEN and EMAIL_FROM_ADDRESS." }, 500);
   }
 
+  // Optional { "testEmail": "you@example.com" } — send ONLY to that address (if it
+  // belongs to a signed-up user) for an isolated deliverability test, instead of
+  // the whole list. Auth is already enforced above, so only an operator can do this.
+  let testEmail = "";
+  if (req.method === "POST") {
+    try { testEmail = String((await req.json())?.testEmail ?? "").trim().toLowerCase(); }
+    catch { testEmail = ""; }
+  }
+
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -236,7 +245,7 @@ Deno.serve(async (req) => {
     );
 
     // 3. Page through auth.users for addresses (we never store emails ourselves).
-    const recipients: Recipient[] = [];
+    let recipients: Recipient[] = [];
     let skippedUnsub = 0;
     let page = 1;
     const perPage = 1000;
@@ -261,6 +270,18 @@ Deno.serve(async (req) => {
       page++;
     }
 
+    // Test mode: narrow to just the requested address (must be a signed-up user
+    // so we have a real unsubscribe token for it).
+    if (testEmail) {
+      recipients = recipients.filter((r) => r.email.toLowerCase() === testEmail);
+      if (recipients.length === 0) {
+        return json({
+          ok: false,
+          error: `No signed-up, subscribed user matches ${testEmail}. Sign up with that address first (or check it isn't unsubscribed), then retry.`,
+        }, 404);
+      }
+    }
+
     if (recipients.length === 0) {
       return json({ ok: true, sent: 0, recipients: 0, skippedUnsubscribed: skippedUnsub, note: "No eligible recipients." });
     }
@@ -268,21 +289,25 @@ Deno.serve(async (req) => {
     // 4. Send, capped concurrency.
     const sent = await pool(recipients, SEND_CONCURRENCY, (r) => sendOne(r, question, caseNo, zeptoToken));
 
-    // 5. Stamp last-sent for the recipients we attempted (best-effort).
-    const attemptedIds = (prefRows ?? [])
-      .filter((p) => p.daily_reminder !== false && p.unsubscribe_token)
-      .map((p) => p.user_id as string);
-    if (attemptedIds.length) {
-      const { error: stampErr } = await admin
-        .from("email_preferences")
-        .update({ last_reminder_at: new Date().toISOString() })
-        .in("user_id", attemptedIds);
-      if (stampErr) console.error("Failed to stamp last_reminder_at:", stampErr);
+    // 5. Stamp last-sent for the recipients we attempted (best-effort). Skipped in
+    //    test mode so a one-off test doesn't move everyone's last-sent timestamp.
+    if (!testEmail) {
+      const attemptedIds = (prefRows ?? [])
+        .filter((p) => p.daily_reminder !== false && p.unsubscribe_token)
+        .map((p) => p.user_id as string);
+      if (attemptedIds.length) {
+        const { error: stampErr } = await admin
+          .from("email_preferences")
+          .update({ last_reminder_at: new Date().toISOString() })
+          .in("user_id", attemptedIds);
+        if (stampErr) console.error("Failed to stamp last_reminder_at:", stampErr);
+      }
     }
 
     return json({
       ok: true,
       caseNo,
+      test: testEmail || undefined,
       recipients: recipients.length,
       sent,
       failed: recipients.length - sent,
