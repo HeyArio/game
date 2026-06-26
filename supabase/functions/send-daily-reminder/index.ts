@@ -94,6 +94,36 @@ function esc(s: string): string {
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+// Addresses we must NEVER send to. Sending to seeded/mock or otherwise invalid
+// addresses generates hard bounces that wreck sender reputation (and can get a
+// ZeptoMail account suspended). We skip:
+//   * RFC 2606 reserved/test domains: example.com/net/org, *.test, *.example,
+//     *.invalid, *.localhost, localhost — guaranteed undeliverable.
+//   * any domain in SKIP_EMAIL_DOMAINS   (comma-separated, e.g. "mock.local,fake.io")
+//   * any address containing a SKIP_EMAIL_PATTERNS substring (comma-separated,
+//     e.g. "mock,+test") — a catch-all for seed data that uses real-looking TLDs.
+const SKIP_DOMAINS = new Set(
+  (Deno.env.get("SKIP_EMAIL_DOMAINS") ?? "")
+    .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
+);
+const SKIP_PATTERNS = (Deno.env.get("SKIP_EMAIL_PATTERNS") ?? "")
+  .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+const RESERVED_TLDS = new Set(["test", "example", "invalid", "localhost"]);
+const RESERVED_DOMAINS = new Set(["example.com", "example.net", "example.org", "localhost"]);
+
+function isUndeliverable(email: string): boolean {
+  const e = email.toLowerCase().trim();
+  const at = e.lastIndexOf("@");
+  if (at <= 0) return true;                         // missing local part or "@"
+  const domain = e.slice(at + 1);
+  if (!domain || domain.includes(" ")) return true;
+  if (RESERVED_DOMAINS.has(domain)) return true;
+  if (RESERVED_TLDS.has(domain.slice(domain.lastIndexOf(".") + 1))) return true;
+  if (SKIP_DOMAINS.has(domain)) return true;
+  if (SKIP_PATTERNS.some((p) => e.includes(p))) return true;
+  return false;
+}
+
 interface Recipient {
   email: string;
   name: string;
@@ -211,9 +241,13 @@ Deno.serve(async (req) => {
   // belongs to a signed-up user) for an isolated deliverability test, instead of
   // the whole list. Auth is already enforced above, so only an operator can do this.
   let testEmail = "";
+  let dryRun = false;
   if (req.method === "POST") {
-    try { testEmail = String((await req.json())?.testEmail ?? "").trim().toLowerCase(); }
-    catch { testEmail = ""; }
+    try {
+      const body = await req.json();
+      testEmail = String(body?.testEmail ?? "").trim().toLowerCase();
+      dryRun = body?.dryRun === true;   // count + sample only; send nothing
+    } catch { /* no/invalid body — treat as a normal full send */ }
   }
 
   const admin = createClient(
@@ -284,13 +318,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 3c. Build the recipient list, dropping anyone who unsubscribed.
+    // 3c. Build the recipient list, dropping anyone who unsubscribed or whose
+    //     address is undeliverable (reserved/test domains, mock seed data, …).
     let recipients: Recipient[] = [];
     let skippedUnsub = 0;
+    let skippedUndeliverable = 0;
     for (const u of allUsers) {
       const pref = prefs.get(u.id);
       if (pref && pref.daily_reminder === false) { skippedUnsub++; continue; }
       if (!pref?.unsubscribe_token) continue;
+      if (isUndeliverable(u.email)) { skippedUndeliverable++; continue; }
       recipients.push({ email: u.email, name: u.name, token: pref.unsubscribe_token });
     }
 
@@ -306,8 +343,22 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Dry run: report who WOULD be emailed (with a sample) and send nothing.
+    // Use this to confirm mock/seed accounts are excluded before a real blast.
+    if (dryRun) {
+      return json({
+        ok: true,
+        dryRun: true,
+        caseNo,
+        recipients: recipients.length,
+        sampleEmails: recipients.slice(0, 10).map((r) => r.email),
+        skippedUnsubscribed: skippedUnsub,
+        skippedUndeliverable,
+      });
+    }
+
     if (recipients.length === 0) {
-      return json({ ok: true, sent: 0, recipients: 0, skippedUnsubscribed: skippedUnsub, note: "No eligible recipients." });
+      return json({ ok: true, sent: 0, recipients: 0, skippedUnsubscribed: skippedUnsub, skippedUndeliverable, note: "No eligible recipients." });
     }
 
     // 4. Send, capped concurrency.
@@ -336,6 +387,7 @@ Deno.serve(async (req) => {
       sent,
       failed: recipients.length - sent,
       skippedUnsubscribed: skippedUnsub,
+      skippedUndeliverable,
     });
   } catch (e) {
     console.error(e);
