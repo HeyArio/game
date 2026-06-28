@@ -28,7 +28,7 @@ export function OnboardingOverlay({ onDone }: { onDone: () => void }) {
       <div style={{ width: "100%", maxWidth: 440, background: "#fff", borderRadius: 24, border: "2px solid #E4EAD8", borderBottomWidth: 4, padding: "28px 24px", animation: "qrise .4s ease both" }}>
         <div style={{ display: "flex", justifyContent: "center", animation: "qbob 3s ease-in-out infinite" }}><Mascot size={60} mood="happy" /></div>
         <h2 id="ob-title" style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 24, color: "#3C3C46", textAlign: "center", margin: "10px 0 4px" }}>How Quorum works</h2>
-        <p style={{ textAlign: "center", fontWeight: 700, fontSize: 14, color: "#7C8470", margin: "0 0 18px" }}>Two minutes. One sharp call. Here's the loop:</p>
+        <p style={{ textAlign: "center", fontWeight: 700, fontSize: 14, color: "#7C8470", margin: "0 0 18px" }}>A 2-minute daily game: four AI models answer one debatable question — you back the sharpest pick and see if the judge agrees. One case a day.</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {STEPS.map((s, i) => (
             <div key={i} style={{ display: "flex", gap: 13, alignItems: "flex-start" }}>

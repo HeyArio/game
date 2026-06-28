@@ -42,9 +42,11 @@ export interface PlayPageProps {
   onLockIn: () => void;
   onAdvance: () => void;
   onReplay: () => void;
+  /** Re-open the "How it works" explainer (the first-run onboarding overlay). */
+  onHowToPlay?: () => void;
 }
 
-export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, noCase, canReplay, challenge, onSelectCard, onSetConfidence, onSetCrowdGuess, onLockIn, onAdvance, onReplay }: PlayPageProps) {
+export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, noCase, canReplay, challenge, onSelectCard, onSetConfidence, onSetCrowdGuess, onLockIn, onAdvance, onReplay, onHowToPlay }: PlayPageProps) {
   const isMobile = useIsMobile();
   const cards = viewCards(state);
   const your = yourCard(state);
@@ -172,6 +174,17 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
             {icon("clock", 16, "#7C8470")}
             {countdownText}
           </span>
+          {onHowToPlay && (
+            <button
+              type="button"
+              onClick={onHowToPlay}
+              aria-label="How to play"
+              style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 13px", borderRadius: 11, background: "#E3F4FF", border: "2px solid #BEEAFD", color: "#1899D6", fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 12, letterSpacing: ".02em", cursor: "pointer" }}
+            >
+              {icon("help", 16, "#1899D6")}
+              How to play
+            </button>
+          )}
         </div>
 
         <h1 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: "clamp(28px,3.6vw,42px)", lineHeight: 1.1, color: "#3C3C46", letterSpacing: "-.01em", textWrap: "balance" as CSSProperties["textWrap"] }}>

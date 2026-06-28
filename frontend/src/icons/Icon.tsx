@@ -69,6 +69,11 @@ export const ICONS: Record<string, ShapeDef[]> = {
     { t: "path", d: "M2 12s4-6.3 10-6.3 10 6.3 10 6.3-4 6.3-10 6.3S2 12 2 12z" },
     { t: "circle", cx: 12, cy: 12, r: 3 },
   ],
+  help: [
+    { t: "circle", cx: 12, cy: 12, r: 9 },
+    { t: "path", d: "M9.3 9.2a2.8 2.8 0 0 1 5.4.9c0 1.9-2.7 2.3-2.7 4.1" },
+    { t: "path", d: "M12 17.5h.01" },
+  ],
   trendUp: [
     { t: "path", d: "M3 17l6-6 4 4 7.5-7.5" },
     { t: "path", d: "M16 7.5h5v5" },

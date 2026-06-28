@@ -340,7 +340,7 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
         {state.screen === "play" && (
           <PlayPage state={state} countdownText={countdownText} countdownSeconds={countdownSeconds} caseLoading={caseLoading} noCase={noCase} canReplay={canReplay} challenge={challenge}
             onSelectCard={actions.selectCard} onSetConfidence={actions.setConfidence} onSetCrowdGuess={actions.setCrowdGuess}
-            onLockIn={lockIn} onAdvance={actions.advance} onReplay={actions.reset} />
+            onLockIn={lockIn} onAdvance={actions.advance} onReplay={actions.reset} onHowToPlay={() => setShowOnboarding(true)} />
         )}
         {state.screen === "leagues" && <LeaguesPage state={state} />}
         {state.screen === "quests"  && <QuestsPage  countdownText={countdownText} onClaimed={actions.grantBonusXp} />}
