@@ -244,7 +244,7 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, marginTop: 14 }}>
               {[
-                { l: "A", c: "#58CC02", n: "GPT-OSS 120B", p: "No — talent stays" },
+                { l: "A", c: "#58CC02", n: "GPT-OSS 20B", p: "No — talent stays" },
                 { l: "B", c: "#1CB0F6", n: "Llama 3.3 70B", p: "Yes, eventually", win: true },
                 { l: "C", c: "#CE82FF", n: "Mistral Small", p: "No, it amplifies" },
                 { l: "D", c: "#FF9600", n: "Gemini Flash", p: "Yes — it shifts" },

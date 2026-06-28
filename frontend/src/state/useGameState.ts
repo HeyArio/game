@@ -33,7 +33,7 @@ function defaultLeague(): LeaguePlayer[] {
 
 export function baseCards(): BaseCard[] {
   return [
-    { id: "a", letter: "A", name: "GPT-OSS 120B", pick: "France", crowd: 28, answer: "Back-to-back finalists with absurd depth and a forward who decides knockout games on his own." },
+    { id: "a", letter: "A", name: "GPT-OSS 20B", pick: "France", crowd: 28, answer: "Back-to-back finalists with absurd depth and a forward who decides knockout games on his own." },
     { id: "b", letter: "B", name: "Llama 3.3 70B", pick: "Argentina", crowd: 31, answer: "Defending champions — the 2022 spine is intact and tournament temperament wins tight knockouts." },
     { id: "c", letter: "C", name: "Mistral Small", pick: "Brazil", crowd: 22, answer: "A hungry new generation with the deepest attacking pool on the planet and a point to prove." },
     { id: "d", letter: "D", name: "Gemini Flash", pick: "Spain", crowd: 19, answer: "The Euro 2024 core matured two years; the midfield dictates tempo better than anyone alive." },

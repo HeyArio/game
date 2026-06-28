@@ -2,13 +2,13 @@
  * generate-daily-case
  *
  * Calls 5 different LLM providers to build today's Quorum case:
- *   - 4 "answerer" models (GPT-OSS 120B / Llama 3.3 70B / Mistral Small / Gemini Flash) each answer the question
+ *   - 4 "answerer" models (GPT-OSS 20B / Llama 3.3 70B / Mistral Small / Gemini Flash) each answer the question
  *   - 1 "judge" model (Arbi) evaluates all four answers and picks the sharpest
  *
  * Scheduled via Supabase cron — runs once daily at 00:05 UTC.
  *
  * Each persona slot is backed by a provider:
- *   1 GPT-OSS 120B  → OpenRouter  (openai/gpt-oss-120b:free)
+ *   1 GPT-OSS 20B   → OpenRouter  (openai/gpt-oss-20b:free)
  *   2 Llama 3.3 70B → Groq        (llama-3.3-70b-versatile)
  *   3 Mistral Small → Mistral     (mistral-small-latest)
  *   4 Gemini Flash  → Gemini      (gemini-3.1-flash-lite-preview)
@@ -32,7 +32,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Display names shown on each answer card (the actual model behind each slot).
-const PERSONA_NAMES = ["GPT-OSS 120B", "Llama 3.3 70B", "Mistral Small", "Gemini Flash"];
+const PERSONA_NAMES = ["GPT-OSS 20B", "Llama 3.3 70B", "Mistral Small", "Gemini Flash"];
 const LETTERS = ["A", "B", "C", "D"];
 
 /** Unbiased Fisher–Yates shuffle (returns a new array). */
@@ -70,7 +70,7 @@ interface SlotConfig { provider: ProviderId; model: string; }
 
 // Default provider + model per persona slot (override via LLM_PROVIDER_N / LLM_MODEL_N).
 const DEFAULT_SLOTS: Record<number, SlotConfig> = {
-  1: { provider: "openrouter", model: "openai/gpt-oss-120b:free" },     // GPT-OSS 120B
+  1: { provider: "openrouter", model: "openai/gpt-oss-20b:free" },      // GPT-OSS 20B
   2: { provider: "groq", model: "llama-3.3-70b-versatile" },            // Llama 3.3 70B
   3: { provider: "mistral", model: "mistral-small-latest" },            // Mistral Small
   4: { provider: "gemini", model: "gemini-3.1-flash-lite-preview" },    // Gemini Flash
