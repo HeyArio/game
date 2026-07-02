@@ -22,6 +22,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const CROWD_BONUS = 15;
 
+// The crowd bet is only graded against REAL votes. Below this many prior real
+// votes on the case, there is no crowd to read yet — the bet is returned as
+// ungraded (no bonus, no "missed" either) instead of being scored against the
+// seeded/fabricated crowd_pct numbers the case is generated with.
+const MIN_CROWD_SAMPLE = 5;
+
 type Confidence = "low" | "med" | "high";
 const XP_TABLE: Record<Confidence, { correct: number; wrong: number }> = {
   low:  { correct: 30,  wrong: 10 },
@@ -117,7 +123,10 @@ Deno.serve(async (req) => {
   if (optErr || !option) return json({ error: "Invalid option" }, 400);
 
   const wasCorrect = option.is_judge_pick;
-  const crowdCorrect = !!crowdGuessOptionId && crowdGuessOptionId === ctx.crowdLeaderOptionId;
+  // Grade the crowd bet against the leader among REAL votes only, and only once
+  // enough of them exist — never against the seeded crowd_pct fiction.
+  const crowdGraded = ctx.realVoteCount >= MIN_CROWD_SAMPLE && !!ctx.realCrowdLeaderOptionId;
+  const crowdCorrect = crowdGraded && !!crowdGuessOptionId && crowdGuessOptionId === ctx.realCrowdLeaderOptionId;
   const xpEarned = baseXp(wasCorrect, confidence) + (crowdCorrect ? CROWD_BONUS : 0);
 
   // --- Record the vote + update progress atomically (single transaction) ---
@@ -158,7 +167,7 @@ Deno.serve(async (req) => {
 
   return json({
     ...buildPayload(ctx, {
-      votedOptionId: optionId, wasCorrect, xpEarned, confidence, crowdGuessOptionId, crowdCorrect,
+      votedOptionId: optionId, wasCorrect, xpEarned, confidence, crowdGuessOptionId, crowdCorrect, crowdGraded,
     }),
     alreadyVoted: false,
   });
@@ -171,6 +180,10 @@ interface CaseContext {
   judgeReasoning: string | null;
   crowdLeaderOptionId: string | null;
   crowdLeaderLetter: string | null;
+  /** Total REAL votes cast on this case (excludes seeded percentages). */
+  realVoteCount: number;
+  /** Leader among real votes only — the honest target for the crowd bet. */
+  realCrowdLeaderOptionId: string | null;
 }
 
 // Everything about the case that's the same regardless of who voted: enriched
@@ -190,11 +203,17 @@ async function getCaseContext(admin: ReturnType<typeof createClient>, caseId: st
 
   const { data: summary } = await admin
     .from("case_vote_summary")
-    .select("option_id, pct")
+    .select("option_id, pct, vote_count")
     .eq("case_id", caseId);
 
   const crowdMap: Record<string, number> = {};
-  (summary ?? []).forEach((s: { option_id: string; pct: number }) => { crowdMap[s.option_id] = s.pct; });
+  const voteCounts: Record<string, number> = {};
+  let realVoteCount = 0;
+  (summary ?? []).forEach((s: { option_id: string; pct: number; vote_count: number }) => {
+    crowdMap[s.option_id] = s.pct;
+    voteCounts[s.option_id] = s.vote_count ?? 0;
+    realVoteCount += s.vote_count ?? 0;
+  });
 
   const enriched = (options ?? []).map((o: any) => ({
     ...o,
@@ -203,10 +222,21 @@ async function getCaseContext(admin: ReturnType<typeof createClient>, caseId: st
 
   const judge = enriched.find((o: any) => o.is_judge_pick);
 
-  // Crowd leader = highest live %, tie-broken by seeded crowd_pct then letter.
-  const leader = [...enriched].sort(
+  // Leader among REAL votes only (ties broken by letter) — used for grading the
+  // crowd bet. Null when nobody has actually voted yet.
+  const realLeader = realVoteCount > 0
+    ? [...enriched].sort(
+        (a, b) => ((voteCounts[b.id] ?? 0) - (voteCounts[a.id] ?? 0)) || a.letter.localeCompare(b.letter)
+      )[0]
+    : null;
+
+  // Display leader = highest live % (real votes when they exist, seeds until
+  // then), tie-broken by seeded crowd_pct then letter. Once real votes exist,
+  // prefer the real leader so the CROWD tile and the graded bet always agree.
+  const blendLeader = [...enriched].sort(
     (a, b) => (b.live_pct - a.live_pct) || (b.crowd_pct - a.crowd_pct) || a.letter.localeCompare(b.letter)
   )[0];
+  const leader = realLeader ?? blendLeader;
 
   return {
     options: enriched,
@@ -215,6 +245,8 @@ async function getCaseContext(admin: ReturnType<typeof createClient>, caseId: st
     judgeReasoning: (caseRow as any)?.judge_reasoning ?? null,
     crowdLeaderOptionId: leader?.id ?? null,
     crowdLeaderLetter: leader?.letter ?? null,
+    realVoteCount,
+    realCrowdLeaderOptionId: realLeader?.id ?? null,
   };
 }
 
@@ -225,6 +257,8 @@ function buildPayload(ctx: CaseContext, v: {
   confidence: Confidence;
   crowdGuessOptionId: string | null;
   crowdCorrect: boolean;
+  /** Omitted on the already-voted replay paths (grading happened at vote time). */
+  crowdGraded?: boolean;
 }) {
   return {
     wasCorrect:        v.wasCorrect,
@@ -239,6 +273,7 @@ function buildPayload(ctx: CaseContext, v: {
     crowdLeaderLetter:  ctx.crowdLeaderLetter,
     crowdCorrect:       v.crowdCorrect,
     crowdBonus:         v.crowdCorrect ? CROWD_BONUS : 0,
+    crowdGraded:        v.crowdGraded ?? true,
     options:            ctx.options,
   };
 }
