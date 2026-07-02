@@ -21,6 +21,24 @@
 --      instead of a two-use lifetime allowance.
 -- ============================================================================
 
+-- ---------- 0. prerequisite: live crowd summary view ---------------------------
+-- get_case_archive joins case_vote_summary (defined in 0002). Some live
+-- databases have drifted and lack it, which aborts this whole migration with
+-- 42P01 — so re-assert the canonical definition here. CREATE OR REPLACE is a
+-- no-op-safe upgrade when the view already exists.
+create or replace view public.case_vote_summary as
+  select
+    v.case_id,
+    v.option_id,
+    count(*) as vote_count,
+    round(
+      count(*) * 100.0 / nullif(sum(count(*)) over (partition by v.case_id), 0)
+    , 0)::int as pct
+  from public.votes v
+  group by v.case_id, v.option_id;
+
+grant select on public.case_vote_summary to authenticated;
+
 -- ---------- 1. case archive --------------------------------------------------
 create or replace function public.get_case_archive(
   p_limit          int default 30,
