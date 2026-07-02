@@ -164,6 +164,7 @@ export function navView(screen: string): NavItemView[] {
     { id: "play", label: "Play", icon: "play" },
     { id: "leagues", label: "Leagues", icon: "trophy" },
     { id: "quests", label: "Quests", icon: "target" },
+    { id: "archive", label: "Archive", icon: "calendar" },
     { id: "profile", label: "Profile", icon: "user" },
   ];
   return items.map((it) => {
@@ -247,8 +248,27 @@ export interface WeekDayView {
 
 export function weekDaysView(s: GameState): WeekDayView[] {
   const todayIdx = new Date().getDay(); // 0=Sun … 6=Sat
+  // Honest history: a past day only shows as "done" if the player's streak
+  // actually covers it. The streak counts consecutive play days ending today
+  // (once today is played) or yesterday (before today's vote) — so a day d
+  // days ago is covered when the streak reaches back that far. Previously
+  // every past weekday was painted green regardless of play.
+  const playedToday = s.scored || s.alreadyPlayed;
   return ["S", "M", "T", "W", "T", "F", "S"].map((letter, i) => {
-    const st = i < todayIdx ? "done" : i === todayIdx ? (s.scored ? "done" : "today") : "future";
+    const daysAgo = todayIdx - i;
+    const covered = daysAgo > 0 && (playedToday ? s.streak >= daysAgo + 1 : s.streak >= daysAgo);
+    const st = i < todayIdx ? (covered ? "done" : "missed") : i === todayIdx ? (playedToday ? "done" : "today") : "future";
+    if (st === "missed") {
+      return {
+        letter,
+        iconEl: null,
+        style: {
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          width: "30px", height: "30px", borderRadius: "50%",
+          background: "#F0F2EA", border: "2px dashed #D2D8C6",
+        } as CSSProperties,
+      };
+    }
     const base: CSSProperties = {
       display: "inline-flex",
       alignItems: "center",
@@ -393,13 +413,10 @@ export interface RewardChip {
 export function rewardChipsView(s: GameState): RewardChip[] {
   const your = baseCards(s).find((c) => c.id === s.selected);
   const chips: RewardChip[] = [];
-  if (s.win) {
-    chips.push({ iconEl: icon("flame", 16, "#FF9600"), label: "Streak → " + s.streak, style: rc("#FFF3E0", "#FF9600") });
-    chips.push({ iconEl: icon("eye", 16, "#A95FE0"), label: "Sharp Eye " + s.sharpEye + "/" + s.sharpEyeGoal, style: rc("#F6ECFF", "#A95FE0") });
-    if (s.promoted) chips.push({ iconEl: icon("trendUp", 16, "#58A700"), label: "Promotion zone!", style: rc("#E8FFD7", "#58A700") });
-  } else {
-    chips.push({ iconEl: icon("flame", 16, "#FF9600"), label: "Streak → " + s.streak, style: rc("#FFF3E0", "#FF9600") });
-    chips.push({ iconEl: icon("users", 16, "#1899D6"), label: (your ? your.crowd : 0) + "% voted with you", style: rc("#E3F6FF", "#1899D6") });
+  chips.push({ iconEl: icon("flame", 16, "#FF9600"), label: "Streak → " + s.streak, style: rc("#FFF3E0", "#FF9600") });
+  chips.push({ iconEl: icon("users", 16, "#1899D6"), label: (your ? your.crowd : 0) + "% voted with you", style: rc("#E3F6FF", "#1899D6") });
+  if (s.win && s.promoted) {
+    chips.push({ iconEl: icon("trendUp", 16, "#58A700"), label: "Top 5 overall!", style: rc("#E8FFD7", "#58A700") });
   }
   return chips;
 }

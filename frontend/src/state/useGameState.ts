@@ -14,6 +14,11 @@ export const CROWD_LEADER: CardId = "b";
 
 const STARTING_COUNTDOWN = 60138; // seconds, ported from `_countdown = 60138`
 
+// Minimum time Arbi "deliberates" after lock-in. The real vote is submitted
+// during this beat, so the reveal that follows is staged from the server's
+// actual verdict — the spinner just guarantees the moment never feels instant.
+const MIN_DELIBERATION_MS = 850;
+
 // Placeholder leaderboard shown only until the real global_leaderboard loads
 // (and in offline dev mode). Opponents are labeled AI bots, never fake humans —
 // and "You" starts at an honest 0 XP (last) so nobody is shown a fabricated
@@ -63,6 +68,8 @@ export interface VoteResult {
   crowdLeaderLetter: string | null;
   crowdCorrect: boolean;
   crowdBonus: number;
+  /** False when there weren't enough real votes yet to grade the crowd bet. */
+  crowdGraded?: boolean;
   alreadyVoted: boolean;
   options: { id: string; letter: string; is_judge_pick: boolean; live_pct: number }[];
 }
@@ -82,7 +89,6 @@ interface InitProps {
   totalXp?: number;
   dailyXp?: number;
   contLeft?: number;
-  sharpEye?: number;
   /** Called when the user locks in. Returns server verdict. */
   onSubmitVote?: (
     caseId: string,
@@ -107,16 +113,12 @@ function makeInitState(props: InitProps): GameState {
     completed: false,
     alreadyPlayed: false,
     overlay: null,
-    contEquipped: false,
     streak: props.streak ?? 0,
     bestStreak: props.bestStreak ?? props.streak ?? 0,
     level: levelFromXp(props.totalXp ?? 0),
     totalXp: props.totalXp ?? 0,
     dailyXp: props.dailyXp ?? 0,
     dailyGoal: 50,
-    sharpEye: props.sharpEye ?? 0,
-    sharpEyeGoal: 10,
-    questMatch: 0,
     contLeft: props.contLeft ?? 0,
     league: defaultLeague(),
     stats: { casesJudged: 0, correctCount: 0, agreementPct: 0, votesThisWeek: 0 },
@@ -127,6 +129,7 @@ function makeInitState(props: InitProps): GameState {
     crowdLeaderId: null,
     crowdCorrect: false,
     crowdBonus: 0,
+    crowdGraded: true,
     voteError: null,
     // case data — overwritten via initCase() when DB data loads
     cards: baseCards(),
@@ -140,16 +143,29 @@ function makeInitState(props: InitProps): GameState {
 }
 
 /**
- * Faithful port of the Component class's state machine, timers, and effects.
- * Mirrors the original setTimeout/setInterval sequencing exactly:
- *   lockIn -> (850ms) -> startReveal -> ids(+120ms) -> bars(+520ms, starts pct count)
- *   -> judge(+1150ms) -> score(+1550ms)
+ * The play-state machine. The production reveal is staged from REAL data:
+ *
+ *   lockIn -> submit-vote fires immediately (during the >=850ms "weighing" beat)
+ *   -> server verdict arrives -> stageReveal(result):
+ *        ids(+120ms) -> bars(+520ms, real crowd %) -> judge(+1150ms, real pick)
+ *        -> verdict(+1550ms, XP/streak payout)
+ *
+ * The dev/no-backend path keeps the same cadence but scores locally against the
+ * judgeCardId the client generator supplied.
  */
 export function useGameState(props: InitProps = {}) {
   const [state, setState] = useState<GameState>(() => makeInitState(props));
   const onSubmitVoteRef = useRef(props.onSubmitVote);
-  // Keep the latest callback so score() never calls a stale closure.
+  // Keep the latest callback so the lock-in submit never calls a stale closure.
   useEffect(() => { onSubmitVoteRef.current = props.onSubmitVote; }, [props.onSubmitVote]);
+
+  // Mirror of the latest rendered state, so event handlers (lockIn) can read
+  // current values without the setState-updater side-effect dance.
+  const stateRef = useRef(state);
+  useEffect(() => { stateRef.current = state; });
+
+  // Guards a double lock-in (double click / Enter mash) from double-submitting.
+  const submittingRef = useRef(false);
 
   // Last real progress loaded from the DB. Now that the initial state defaults to
   // honest zeros, replaying today's case (reset) restores the player's true
@@ -193,9 +209,12 @@ export function useGameState(props: InitProps = {}) {
     if (confettiInterval.current != null) clearInterval(confettiInterval.current);
   }, []);
 
-  const countPct = useCallback((cards?: BaseCard[]) => {
+  // Animate the crowd bars toward the given cards' crowd values. Callers must
+  // pass the cards that carry the REAL percentages (post-verdict live_pct) —
+  // there is deliberately no default, so the bars can never animate seed data.
+  const countPct = useCallback((cards: BaseCard[]) => {
     const targets: Record<CardId, number> = {} as any;
-    (cards ?? baseCards()).forEach((c) => (targets[c.id] = c.crowd));
+    cards.forEach((c) => (targets[c.id] = c.crowd));
     const dur = 650;
     const t0 = Date.now();
     if (pctInterval.current != null) clearInterval(pctInterval.current);
@@ -286,27 +305,14 @@ export function useGameState(props: InitProps = {}) {
     }, 16);
   }, []);
 
-  // Apply a server vote result into game state.
-  //
-  // Two distinct cases, and conflating them was the source of the "congratulated
-  // no matter what you pick" bug:
-  //
-  //  • A FRESH vote (result.alreadyVoted === false): the server just recorded the
-  //    vote and incremented progress server-side, so we mirror that locally —
-  //    add XP, bump the streak, animate the daily bar, fire confetti on a win.
-  //
-  //  • An ALREADY-CAST vote (result.alreadyVoted === true): the player is just
-  //    reviewing a case they already played (on load, or via a stale replay).
-  //    The server did NOT award anything again, so we must NOT re-add XP, bump
-  //    the streak, or re-fire the celebration — otherwise every revisit/replay
-  //    re-congratulates them and re-shows their old win against a new pick.
-  //    We snap straight to a locked reveal of THEIR original answer.
+  // Apply a REVIEW of an already-cast vote (on load, or a stale replay). The
+  // server did NOT award anything again, so we must NOT re-add XP, bump the
+  // streak, or re-fire the celebration — we snap straight to a locked reveal of
+  // their original answer. Fresh votes take the staged path (stageReveal →
+  // finalizeVerdict) instead.
   const applyVoteResult = useCallback((result: VoteResult) => {
-    const review = result.alreadyVoted === true;
-    if (review) alreadyPlayedRef.current = true;
+    alreadyPlayedRef.current = true;
     setState((s) => {
-      const win = result.wasCorrect;
-      const earned = result.xpEarned;
       // Map live_pct from server result onto displayPct keyed by card letter
       const dp: any = { a: 0, b: 0, c: 0, d: 0 };
       result.options.forEach((o) => { dp[o.letter.toLowerCase()] = o.live_pct; });
@@ -316,64 +322,30 @@ export function useGameState(props: InitProps = {}) {
         const opt = result.options.find((o) => o.letter.toLowerCase() === c.id);
         return opt ? { ...c, crowd: opt.live_pct } : c;
       });
-      const crowdLeaderId = (result.crowdLeaderLetter?.toLowerCase() ?? null) as CardId | null;
-
-      // Common reveal fields (the verdict, judge pick, crowd, live %).
-      const revealed = {
+      const votedOpt = result.options.find((o) => o.id === result.votedOptionId);
+      const selected = (votedOpt?.letter.toLowerCase() ?? s.selected) as CardId | null;
+      return {
         ...s,
         cards,
+        selected,
         judgeCardId,
         judgeOptionId: result.judgeOptionId,
         judgeReasoning: result.judgeReasoning ?? null,
-        crowdLeaderId,
+        crowdLeaderId: (result.crowdLeaderLetter?.toLowerCase() ?? null) as CardId | null,
         crowdCorrect: result.crowdCorrect,
         crowdBonus: result.crowdBonus,
+        crowdGraded: result.crowdGraded ?? true,
         scored: true,
-        win,
-        earned,
+        win: result.wasCorrect,
+        earned: result.xpEarned,
         displayPct: dp,
-      };
-
-      if (review) {
-        // Reviewing an already-played case: lock it, show their real pick, and
-        // leave progress (XP / streak / league) exactly as loaded — no re-award.
-        const votedOpt = result.options.find((o) => o.id === result.votedOptionId);
-        const selected = (votedOpt?.letter.toLowerCase() ?? s.selected) as CardId | null;
-        return {
-          ...revealed,
-          selected,
-          phase: "revealed",
-          alreadyPlayed: true,
-          reveal: { ids: true, bars: true, judge: true, verdict: true },
-          displayDaily: s.dailyXp,
-        };
-      }
-
-      // Fresh vote: mirror the server-side progress increment locally.
-      const league = s.league
-        .map((p) => (p.isYou ? { ...p, xp: p.xp + earned } : p))
-        .sort((a, b) => b.xp - a.xp);
-      const youRank = league.findIndex((p) => p.isYou) + 1;
-      return {
-        ...revealed,
-        reveal: { ...s.reveal, verdict: true },
-        totalXp: s.totalXp + earned,
-        level: levelFromXp(s.totalXp + earned),
-        streak: s.streak + 1,
-        bestStreak: Math.max(s.bestStreak, s.streak + 1),
-        dailyXp: Math.min(s.dailyGoal, s.dailyXp + earned),
-        sharpEye: win ? Math.min(s.sharpEyeGoal, s.sharpEye + 1) : s.sharpEye,
-        questMatch: win ? Math.min(2, s.questMatch + 1) : s.questMatch,
-        league,
-        promoted: win && youRank <= 5,
+        phase: "revealed",
+        alreadyPlayed: true,
+        reveal: { ids: true, bars: true, judge: true, verdict: true },
+        displayDaily: s.dailyXp,
       };
     });
-    // Celebration + daily-bar animation only ever fire for a genuinely new vote.
-    if (!review) {
-      if (result.wasCorrect) queueMicrotask(() => fireConfetti());
-      queueMicrotask(() => countDaily());
-    }
-  }, [countDaily, fireConfetti]);
+  }, []);
 
   // Load an existing vote the player already cast on today's case, so a returning
   // player lands directly on their locked result instead of a fresh, votable
@@ -382,46 +354,84 @@ export function useGameState(props: InitProps = {}) {
     applyVoteResult({ ...result, alreadyVoted: true });
   }, [applyVoteResult]);
 
-  const score = useCallback(async () => {
-    let currentState: GameState | null = null;
-    setState((s) => { currentState = s; return s; });
-    await new Promise<void>(r => setTimeout(r, 0)); // flush
+  // Final beat of the staged reveal: the verdict banner + payout. Mirrors the
+  // progress increment the server already recorded (XP, streak, daily bar).
+  const finalizeVerdict = useCallback((result: VoteResult) => {
     setState((s) => {
       if (s.scored) return s;
-      currentState = s;
-      return s;
+      const win = result.wasCorrect;
+      const earned = result.xpEarned;
+      const dp: any = { a: 0, b: 0, c: 0, d: 0 };
+      result.options.forEach((o) => { dp[o.letter.toLowerCase()] = o.live_pct; });
+      const league = s.league
+        .map((p) => (p.isYou ? { ...p, xp: p.xp + earned } : p))
+        .sort((a, b) => b.xp - a.xp);
+      // findIndex is -1 (rank 0) when "You" isn't on the loaded board at all —
+      // that must never read as a promotion.
+      const youRank = league.findIndex((p) => p.isYou) + 1;
+      return {
+        ...s,
+        reveal: { ...s.reveal, verdict: true },
+        scored: true,
+        win,
+        earned,
+        displayPct: dp,
+        crowdCorrect: result.crowdCorrect,
+        crowdBonus: result.crowdBonus,
+        crowdGraded: result.crowdGraded ?? true,
+        totalXp: s.totalXp + earned,
+        level: levelFromXp(s.totalXp + earned),
+        streak: s.streak + 1,
+        bestStreak: Math.max(s.bestStreak, s.streak + 1),
+        dailyXp: Math.min(s.dailyGoal, s.dailyXp + earned),
+        league,
+        promoted: win && youRank > 0 && youRank <= 5,
+      };
     });
-    if (!currentState) return;
-    const s = currentState as GameState;
-    if (s.scored) return;
+    if (result.wasCorrect) queueMicrotask(() => fireConfetti());
+    queueMicrotask(() => countDaily());
+  }, [countDaily, fireConfetti]);
 
-    const onVote = onSubmitVoteRef.current;
-    if (onVote) {
-      // Production: the server is the single source of truth for the verdict.
-      // Never fabricate one locally — if the call fails, surface it and let the
-      // player lock in again. (The old code fell back to a hardcoded "judge = D"
-      // verdict on any failure, which could wrongly flash "We agree!" whenever
-      // card D was picked.)
-      const selectedCard = s.cards.find((c) => c.id === s.selected);
-      const optionId = selectedCard?._optionId;
-      const crowdCard = s.crowdGuess ? s.cards.find((c) => c.id === s.crowdGuess) : undefined;
-      const crowdOptionId = crowdCard?._optionId;
-      const result = s.caseId && optionId
-        ? await onVote(s.caseId, optionId, s.confidence, crowdOptionId ?? null)
-        : null;
-      if (result) { applyVoteResult(result); return; }
-      setState((s2) => ({
-        ...s2,
-        phase: "unvoted",
-        scored: false,
-        reveal: { ids: false, bars: false, judge: false, verdict: false },
-        voteError: "Couldn't reach the scoring server — check your connection and lock in again.",
-      }));
-      return;
-    }
+  // Stage the reveal from the server's REAL verdict: the crowd bars count up to
+  // the live percentages, the judge beat highlights the actual pick, and only
+  // then does the verdict banner land. (Previously the bars animated hardcoded
+  // seed numbers and the judge beat was empty because the verdict hadn't been
+  // fetched yet — the reveal was theater. Now every beat shows real data.)
+  const stageReveal = useCallback((result: VoteResult) => {
+    setState((s) => {
+      const cards = s.cards.map((c) => {
+        const opt = result.options.find((o) => o.letter.toLowerCase() === c.id);
+        return opt ? { ...c, crowd: opt.live_pct } : c;
+      });
+      return {
+        ...s,
+        phase: "revealed",
+        cards,
+        judgeCardId: (result.judgeOptionLetter?.toLowerCase() ?? null) as CardId | null,
+        judgeOptionId: result.judgeOptionId,
+        judgeReasoning: result.judgeReasoning ?? null,
+        crowdLeaderId: (result.crowdLeaderLetter?.toLowerCase() ?? null) as CardId | null,
+      };
+    });
+    t2.current = window.setTimeout(() => {
+      setState((s) => ({ ...s, reveal: { ...s.reveal, ids: true } }));
+    }, 120);
+    t3.current = window.setTimeout(() => {
+      setState((s) => ({ ...s, reveal: { ...s.reveal, bars: true } }));
+      countPct(stateRef.current.cards);
+    }, 520);
+    t4.current = window.setTimeout(() => {
+      setState((s) => ({ ...s, reveal: { ...s.reveal, judge: true } }));
+    }, 1150);
+    t5.current = window.setTimeout(() => {
+      finalizeVerdict(result);
+    }, 1550);
+  }, [countPct, finalizeVerdict]);
 
-    // No backend (client/dev test path only): score locally against the
-    // judgeCardId the client generator supplied.
+  // Dev/no-backend scoring: decide locally against the judgeCardId the client
+  // generator supplied. Production never reaches this — the server verdict is
+  // the single source of truth there.
+  const scoreLocal = useCallback(() => {
     setState((s2) => {
       if (s2.scored) return s2;
       const win = s2.selected === (s2.judgeCardId ?? JUDGE_ID);
@@ -441,36 +451,75 @@ export function useGameState(props: InitProps = {}) {
         totalXp: s2.totalXp + earned, level: levelFromXp(s2.totalXp + earned),
         streak: s2.streak + 1, bestStreak: Math.max(s2.bestStreak, s2.streak + 1),
         dailyXp: Math.min(s2.dailyGoal, s2.dailyXp + earned),
-        sharpEye: win ? Math.min(s2.sharpEyeGoal, s2.sharpEye + 1) : s2.sharpEye,
-        questMatch: win ? Math.min(2, s2.questMatch + 1) : s2.questMatch,
-        league, promoted: win && youRank <= 5 };
+        league, promoted: win && youRank > 0 && youRank <= 5 };
     });
-  }, [countDaily, fireConfetti, applyVoteResult]);
+  }, [countDaily, fireConfetti]);
 
-  const startReveal = useCallback(() => {
+  // Dev/no-backend staged reveal (same cadence as production, local data).
+  const startLocalReveal = useCallback(() => {
     setState((s) => ({ ...s, phase: "revealed" }));
     t2.current = window.setTimeout(() => {
       setState((s) => ({ ...s, reveal: { ...s.reveal, ids: true } }));
     }, 120);
     t3.current = window.setTimeout(() => {
       setState((s) => ({ ...s, reveal: { ...s.reveal, bars: true } }));
-      countPct();
+      countPct(stateRef.current.cards);
     }, 520);
     t4.current = window.setTimeout(() => {
       setState((s) => ({ ...s, reveal: { ...s.reveal, judge: true } }));
     }, 1150);
     t5.current = window.setTimeout(() => {
-      score();
+      scoreLocal();
     }, 1550);
-  }, [countPct, score]);
+  }, [countPct, scoreLocal]);
 
   const lockIn = useCallback(() => {
-    setState((s) => {
-      if (s.phase !== "unvoted" || !s.selected) return s;
-      t1.current = window.setTimeout(() => startReveal(), 850);
-      return { ...s, phase: "voting", voteError: null };
+    const s0 = stateRef.current;
+    if (s0.phase !== "unvoted" || !s0.selected || submittingRef.current) return;
+    setState((s) => (s.phase === "unvoted" && s.selected ? { ...s, phase: "voting", voteError: null } : s));
+
+    const onVote = onSubmitVoteRef.current;
+    if (!onVote) {
+      // No backend (client/dev test path only): keep the old cadence, score locally.
+      t1.current = window.setTimeout(() => startLocalReveal(), MIN_DELIBERATION_MS);
+      return;
+    }
+
+    // Production: submit NOW, during the "I'm weighing them up…" beat, so the
+    // staged reveal that follows is built from the server's actual verdict.
+    // Never fabricate one locally — if the call fails, surface it and let the
+    // player lock in again.
+    submittingRef.current = true;
+    const t0 = Date.now();
+    const selectedCard = s0.cards.find((c) => c.id === s0.selected);
+    const optionId = selectedCard?._optionId;
+    const crowdCard = s0.crowdGuess ? s0.cards.find((c) => c.id === s0.crowdGuess) : undefined;
+    const submit = s0.caseId && optionId
+      ? onVote(s0.caseId, optionId, s0.confidence, crowdCard?._optionId ?? null)
+      : Promise.resolve(null);
+    submit.then((result) => {
+      const wait = Math.max(0, MIN_DELIBERATION_MS - (Date.now() - t0));
+      if (!result) {
+        submittingRef.current = false;
+        t1.current = window.setTimeout(() => {
+          setState((s) => ({
+            ...s,
+            phase: "unvoted",
+            scored: false,
+            reveal: { ids: false, bars: false, judge: false, verdict: false },
+            voteError: "Couldn't reach the scoring server — check your connection and lock in again.",
+          }));
+        }, wait);
+        return;
+      }
+      if (result.alreadyVoted) {
+        // Vote already existed (double-submit race / stale tab): snap to review.
+        applyVoteResult(result);
+        return;
+      }
+      t1.current = window.setTimeout(() => stageReveal(result), wait);
     });
-  }, [startReveal]);
+  }, [applyVoteResult, stageReveal, startLocalReveal]);
 
   const selectCard = useCallback((id: CardId) => {
     setState((s) => (s.phase === "unvoted" ? { ...s, selected: id, voteError: null } : s));
@@ -492,13 +541,6 @@ export function useGameState(props: InitProps = {}) {
   const openStreak = useCallback(() => setState((s) => ({ ...s, overlay: "streak" as OverlayKind })), []);
   const closeOverlay = useCallback(() => setState((s) => ({ ...s, overlay: null as OverlayKind })), []);
 
-  const equipContinuance = useCallback(() => {
-    setState((s) => {
-      if (s.contEquipped || s.contLeft <= 0) return s;
-      return { ...s, contEquipped: true, contLeft: s.contLeft - 1 };
-    });
-  }, []);
-
   const advance = useCallback(() => {
     setState((s) => {
       if (s.promoted) {
@@ -518,6 +560,7 @@ export function useGameState(props: InitProps = {}) {
     // only exists for the no-backend dev/client flow, where nothing is stored.)
     if (alreadyPlayedRef.current) return;
     clearAllTimers();
+    submittingRef.current = false;
     // Preserve the player's real progress across a replay (defaults are now 0s).
     setState(() => makeInitState({ ...props, ...progressRef.current }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -625,8 +668,6 @@ export function useGameState(props: InitProps = {}) {
       setConfidence,
       setCrowdGuess,
       lockIn,
-      score,
-      equipContinuance,
       advance,
       dismissPromo,
       reset,
@@ -645,4 +686,3 @@ export function useGameState(props: InitProps = {}) {
     },
   };
 }
-

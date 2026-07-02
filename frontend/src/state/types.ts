@@ -1,6 +1,6 @@
 export type CardId = "a" | "b" | "c" | "d";
 export type Phase = "unvoted" | "voting" | "revealed";
-export type Screen = "play" | "leagues" | "quests" | "profile";
+export type Screen = "play" | "leagues" | "quests" | "archive" | "profile";
 export type OverlayKind = "streak" | "promo" | null;
 export type Confidence = "low" | "med" | "high";
 
@@ -81,7 +81,6 @@ export interface GameState {
   // went. One vote per case per day (enforced by a DB unique constraint).
   alreadyPlayed: boolean;
   overlay: OverlayKind;
-  contEquipped: boolean;
 
   streak: number;
   bestStreak: number;
@@ -89,9 +88,6 @@ export interface GameState {
   totalXp: number;
   dailyXp: number;
   dailyGoal: number;
-  sharpEye: number;
-  sharpEyeGoal: number;
-  questMatch: number;
   contLeft: number;
   league: LeaguePlayer[];
   stats: PlayerStats;
@@ -104,6 +100,7 @@ export interface GameState {
   crowdLeaderId: CardId | null; // the actual crowd leader (revealed)
   crowdCorrect: boolean;        // did the crowd guess hit?
   crowdBonus: number;           // bonus XP from the crowd bet
+  crowdGraded: boolean;         // false when too few real votes existed to grade the bet
   voteError: string | null;     // set when server scoring fails (so we never fake a verdict)
 
   // Dynamic case data (replaces hardcoded baseCards / JUDGE_ID)

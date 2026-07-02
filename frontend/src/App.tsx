@@ -13,6 +13,7 @@ import { useGameState } from "./state/useGameState";
 // Route-level code splitting: a guest hitting the landing page shouldn't have to
 // download PlayPage (+ its share-card/canvas code) and vice-versa. Each screen
 // is its own chunk, loaded on demand behind a Suspense boundary.
+const ArchivePage = lazy(() => import("./pages/ArchivePage").then((m) => ({ default: m.ArchivePage })));
 const LeaguesPage = lazy(() => import("./pages/LeaguesPage").then((m) => ({ default: m.LeaguesPage })));
 const PlayPage = lazy(() => import("./pages/PlayPage").then((m) => ({ default: m.PlayPage })));
 const ProfilePage = lazy(() => import("./pages/ProfilePage").then((m) => ({ default: m.ProfilePage })));
@@ -305,7 +306,7 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
   // claim survives the sign-in round-trip (redeemed on the authenticated path).
   useIncomingInvite();
   const isMobile = useIsMobile();
-  const screenLabel = { play: "Daily Case", leagues: "Leagues", quests: "Quests", profile: "Profile" }[state.screen];
+  const screenLabel = { play: "Daily Case", leagues: "Leagues", quests: "Quests", archive: "Archive", profile: "Profile" }[state.screen];
   // When a guest tries to lock in, prompt them to sign in via a modal popup.
   const [signInPrompt, setSignInPrompt] = useState(false);
   // First-run onboarding: shown once to signed-in players (guests already came
@@ -344,11 +345,12 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
         )}
         {state.screen === "leagues" && <LeaguesPage state={state} />}
         {state.screen === "quests"  && <QuestsPage  countdownText={countdownText} onClaimed={actions.grantBonusXp} />}
+        {state.screen === "archive" && <ArchivePage />}
         {state.screen === "profile" && <ProfilePage state={state} />}
       </Suspense>
 
       {state.overlay === "streak" && (
-        <StreakOverlay state={state} countdownText={countdownText} onClose={actions.closeOverlay} onEquip={actions.equipContinuance} />
+        <StreakOverlay state={state} countdownText={countdownText} onClose={actions.closeOverlay} />
       )}
       {state.overlay === "promo" && <PromoOverlay onDismiss={actions.dismissPromo} tierName={leagueTier(state.totalXp).name} tierColor={leagueTier(state.totalXp).color} />}
 

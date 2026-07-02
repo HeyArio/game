@@ -7,10 +7,9 @@ export interface StreakOverlayProps {
   state: GameState;
   countdownText: string;
   onClose: () => void;
-  onEquip: () => void;
 }
 
-export function StreakOverlay({ state, countdownText, onClose, onEquip }: StreakOverlayProps) {
+export function StreakOverlay({ state, countdownText, onClose }: StreakOverlayProps) {
   const trapRef = useFocusTrap();
   const stop = (e: React.MouseEvent) => e.stopPropagation();
   return (
@@ -119,111 +118,50 @@ export function StreakOverlay({ state, countdownText, onClose, onEquip }: Streak
           </div>
         </div>
         <div style={{ padding: "20px 22px 24px" }}>
-          {!state.contEquipped && (
-            <>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  padding: 16,
-                  borderRadius: 18,
-                  background: "#F4FBEC",
-                  border: "2px solid #D7EEC0",
-                }}
-              >
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 48,
-                    height: 48,
-                    borderRadius: 14,
-                    background: "#fff",
-                    border: "2px solid #D7EEC0",
-                    flex: "none",
-                  }}
-                >
-                  {icon("shield", 24, "#58A700")}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16, color: "#3C3C46" }}>
-                    Continuance · {state.contLeft} left
-                  </div>
-                  <div style={{ fontWeight: 600, fontSize: 14, color: "#7C8470", lineHeight: 1.5 }}>
-                    Hold your streak through one missed day. Even judges grant a recess.
-                  </div>
-                </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              padding: 16,
+              borderRadius: 18,
+              background: "#F4FBEC",
+              border: "2px solid #D7EEC0",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 48,
+                height: 48,
+                borderRadius: 14,
+                background: "#fff",
+                border: "2px solid #D7EEC0",
+                flex: "none",
+              }}
+            >
+              {icon("shield", 24, "#58A700")}
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 16, color: "#3C3C46" }}>
+                Continuance · {state.contLeft} left
               </div>
-              <button
-                onClick={onEquip}
-                style={{
-                  width: "100%",
-                  marginTop: 14,
-                  border: "none",
-                  cursor: "pointer",
-                  padding: 15,
-                  borderRadius: 15,
-                  fontFamily: "'Nunito',sans-serif",
-                  fontWeight: 800,
-                  fontSize: 15,
-                  letterSpacing: ".03em",
-                  textTransform: "uppercase",
-                  color: "#fff",
-                  background: "#58CC02",
-                  boxShadow: "0 4px 0 #46A302",
-                }}
-              >
-                Equip a Continuance
-              </button>
-              <button onClick={onClose} style={{ display: "block", width: "100%", textAlign: "center", marginTop: 12, fontWeight: 800, fontSize: 13, color: "#8E9582", background: "none", border: "none", cursor: "pointer", fontFamily: "'Nunito',sans-serif" }}>
-                I'll defend it live →
-              </button>
-            </>
-          )}
-          {state.contEquipped && (
-            <div style={{ textAlign: "center", padding: "8px 4px", animation: "qpop .4s ease both" }}>
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 58,
-                  height: 58,
-                  borderRadius: "50%",
-                  background: "#58CC02",
-                  boxShadow: "0 4px 0 #46A302",
-                }}
-              >
-                {icon("check", 26, "#fff", 2.8)}
+              <div style={{ fontWeight: 600, fontSize: 14, color: "#7C8470", lineHeight: 1.5 }}>
+                {state.contLeft > 0
+                  ? "Miss a day and one is used automatically — your streak holds. Even judges grant a recess."
+                  : "None left — a missed day now resets your streak."}
               </div>
-              <div style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 20, color: "#58A700", marginTop: 12 }}>
-                Continuance equipped
-              </div>
-              <div style={{ fontWeight: 600, fontSize: 14.5, color: "#7C8470", marginTop: 3, lineHeight: 1.55 }}>
-                Your streak holds through one missed day. {state.contLeft} continuance remaining.
-              </div>
-              <button
-                onClick={onClose}
-                style={{
-                  marginTop: 16,
-                  border: "none",
-                  cursor: "pointer",
-                  padding: "13px 26px",
-                  borderRadius: 14,
-                  fontFamily: "'Nunito',sans-serif",
-                  fontWeight: 800,
-                  fontSize: 14,
-                  color: "#fff",
-                  background: "#58CC02",
-                  boxShadow: "0 4px 0 #46A302",
-                }}
-              >
-                Back to the case
-              </button>
             </div>
-          )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, padding: "10px 14px", borderRadius: 13, background: "#FFF8E1", border: "2px solid #FFECB3", fontWeight: 700, fontSize: 13, color: "#8A6D1F", lineHeight: 1.45 }}>
+            {icon("bolt", 16, "#E5A300")}
+            <span>Earn a new Continuance every 7-day streak milestone (you can hold up to 3).</span>
+          </div>
+          <button onClick={onClose} style={{ display: "block", width: "100%", textAlign: "center", marginTop: 14, fontWeight: 800, fontSize: 13, color: "#8E9582", background: "none", border: "none", cursor: "pointer", fontFamily: "'Nunito',sans-serif" }}>
+            I'll defend it live →
+          </button>
         </div>
       </div>
     </div>

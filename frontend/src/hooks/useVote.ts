@@ -12,6 +12,8 @@ export interface VoteResult {
   crowdLeaderLetter: string | null;
   crowdCorrect: boolean;
   crowdBonus: number;
+  /** False when there weren't enough real votes yet to grade the crowd bet. */
+  crowdGraded?: boolean;
   confidence: Confidence;
   alreadyVoted: boolean;
   options: {
