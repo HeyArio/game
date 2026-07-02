@@ -199,6 +199,22 @@ async function renderShareCard(s: GameState): Promise<Blob | null> {
   return await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), "image/png", 0.92));
 }
 
+// Wordle-style copyable result: spoiler-safe (never reveals which option won),
+// pasteable anywhere plain text goes — group chats, forums, socials. This is
+// the highest-reach share format a daily game has; the image card stays as the
+// richer alternative.
+export function buildResultShareText(s: GameState): string {
+  const tier = { low: "🛡️ Safe", med: "⚖️ Balanced", high: "🎯 Bold" }[s.confidence] ?? "⚖️ Balanced";
+  const bits = [`${tier} ${s.win ? "✅" : "❌"}`];
+  if (s.crowdGuess) bits.push(`crowd ${s.crowdCorrect ? "✅" : "❌"}`);
+  if (s.streak > 0) bits.push(`🔥 ${s.streak}`);
+  return [
+    `Quorum Daily Case${s.caseNo ? ` #${s.caseNo}` : ""}`,
+    bits.join(" · "),
+    "https://quorumdaily.com",
+  ].join("\n");
+}
+
 export type SharePlatform = "whatsapp" | "telegram" | "instagram" | "email";
 
 // Where each platform button sends the user on desktop (where a generated image

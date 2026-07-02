@@ -3,7 +3,7 @@ import { Mascot } from "../components/Mascot";
 import { AnswerCard } from "../components/AnswerCard";
 import { icon } from "../icons/Icon";
 import { useIsMobile } from "../hooks/useMediaQuery";
-import { shareResultImage } from "../lib/shareCard";
+import { buildResultShareText, shareResultImage } from "../lib/shareCard";
 import { createChallenge, shareChallengeLink, shareChallengeToPlatform, type Challenge, type ChallengePlatform } from "../lib/challenge";
 import { nazarbanUrl } from "../lib/nazarban";
 import { ChallengeBanner, ChallengeOutcome } from "../components/ChallengeBanner";
@@ -318,7 +318,11 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 999, fontWeight: 800, fontSize: 12,
                     background: state.crowdCorrect ? "#E3F6FF" : "#F4F1EC", color: state.crowdCorrect ? "#1899D6" : "#9A8E7C" }}>
                     {icon("users", 16, state.crowdCorrect ? "#1899D6" : "#9A8E7C")}
-                    {state.crowdCorrect ? `Called the crowd  +${state.crowdBonus}` : "Missed the crowd"}
+                    {state.crowdCorrect
+                      ? `Called the crowd  +${state.crowdBonus}`
+                      : state.crowdGraded
+                        ? "Missed the crowd"
+                        : "Crowd's still forming — too few votes to grade"}
                   </span>
                 )}
               </div>
@@ -569,6 +573,7 @@ const CHALLENGE_TARGETS: { platform: ChallengePlatform; label: string; color: st
 
 function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" | "center" }) {
   const [imgLabel, setImgLabel] = useState("Share image");
+  const [copyLabel, setCopyLabel] = useState("Copy result");
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -617,6 +622,17 @@ function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" 
   async function onCopyChallenge() {
     if (!chLink) return;
     try { await navigator.clipboard.writeText(chLink); setChCopied(true); setTimeout(() => setChCopied(false), 1800); } catch { /* ignore */ }
+  }
+
+  // The Wordle move: a spoiler-safe text summary that pastes anywhere.
+  async function onCopyResult() {
+    try {
+      await navigator.clipboard.writeText(buildResultShareText(state));
+      setCopyLabel("Copied!");
+    } catch {
+      setCopyLabel("Couldn't copy");
+    }
+    setTimeout(() => setCopyLabel("Copy result"), 2000);
   }
 
   async function onShareImage() {
@@ -682,6 +698,16 @@ function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" 
           verdict). The challenge above is the primary, growth-driving share. */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: align === "center" ? "center" : "flex-start" }}>
         <span style={{ fontSize: 12.5, fontWeight: 700, color: "#9AA08C" }}>Or just post your result</span>
+        <button onClick={onCopyResult}
+          title="Copy a spoiler-safe text summary of your result" aria-label="Copy a spoiler-safe text summary of your result"
+          style={{ display: "inline-flex", alignItems: "center", gap: 7, cursor: "pointer",
+            border: "2px solid #E4EAD8", borderBottomWidth: 3, background: "#fff", color: "#5E6553",
+            padding: "9px 15px", borderRadius: 12, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 13 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7C8470" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="9" y="9" width="12" height="12" rx="2.5" /><path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5" />
+          </svg>
+          {copyLabel}
+        </button>
         <button onClick={onShareImage} disabled={busy}
           title="Share your result card as an image" aria-label="Share your result card as an image"
           style={{ display: "inline-flex", alignItems: "center", gap: 7, cursor: busy ? "default" : "pointer",
