@@ -5,6 +5,15 @@ import { profileView } from "../state/viewHelpers";
 import { useAuth } from "../auth/AuthProvider";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { fetchMyInvite, inviteUrl, shareInvite, type MyInvite } from "../lib/invite";
+import { supabase } from "../lib/supabase";
+
+// Calibration: how the player's confidence wagers actually perform. Computed
+// server-side from the real vote history (get_calibration_stats, 0019).
+interface CalibrationStats {
+  by_confidence: { confidence: "low" | "med" | "high"; cases: number; correct: number }[];
+  crowd: { bets: number; hits: number } | null;
+  by_category: { category: string; cases: number; correct: number }[];
+}
 
 export interface ProfilePageProps {
   state: GameState;
@@ -16,6 +25,14 @@ export function ProfilePage({ state }: ProfilePageProps) {
   const { user, signOut } = useAuth();
   const [invite, setInvite] = useState<MyInvite | null>(null);
   useEffect(() => { fetchMyInvite().then(setInvite); }, []);
+  const [calibration, setCalibration] = useState<CalibrationStats | null>(null);
+  useEffect(() => {
+    // Tolerate the RPC's absence (migration 0019 not deployed yet) — the rest
+    // of the profile still loads; the card simply doesn't render.
+    supabase.rpc("get_calibration_stats")
+      .then(({ data }) => { if (data) setCalibration(data as CalibrationStats); })
+      .then(undefined, () => { /* not deployed yet */ });
+  }, []);
 
   const meta = (user?.user_metadata ?? {}) as { full_name?: string; name?: string };
   const displayName = meta.full_name || meta.name || user?.email?.split("@")[0] || "You";
@@ -113,6 +130,8 @@ export function ProfilePage({ state }: ProfilePageProps) {
         </div>
       </div>
 
+      <CalibrationCard stats={calibration} />
+
       <div style={{ background: "#fff", border: "2px solid #E4EAD8", borderRadius: 20, padding: 20 }}>
         <h2 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 18, color: "#3C3C46", marginBottom: 16 }}>Achievements</h2>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,1fr)", gap: 14 }}>
@@ -142,6 +161,79 @@ export function ProfilePage({ state }: ProfilePageProps) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// "How good is your read, really?" — accuracy split by wager tier, the crowd
+// bet, and category. This is what makes the Safe/Balanced/Bold panel matter
+// over weeks: a player who learns they hit 80% on Bold should wager harder.
+const TIERS: { key: "low" | "med" | "high"; label: string; color: string; bg: string }[] = [
+  { key: "low",  label: "Safe",     color: "#1899D6", bg: "#E3F6FF" },
+  { key: "med",  label: "Balanced", color: "#58A700", bg: "#E8FFD7" },
+  { key: "high", label: "Bold",     color: "#E07F00", bg: "#FFF3E0" },
+];
+
+function CalibrationCard({ stats }: { stats: CalibrationStats | null }) {
+  if (!stats) return null;
+  const rows = TIERS.map((t) => {
+    const r = stats.by_confidence?.find((c) => c.confidence === t.key);
+    return { ...t, cases: r?.cases ?? 0, correct: r?.correct ?? 0 };
+  });
+  const totalCases = rows.reduce((n, r) => n + r.cases, 0);
+  if (totalCases === 0) return null; // nothing to calibrate yet
+  const crowd = stats.crowd;
+  const cats = (stats.by_category ?? []).filter((c) => c.cases >= 3);
+
+  return (
+    <div style={{ background: "#fff", border: "2px solid #E4EAD8", borderRadius: 20, padding: 20 }}>
+      <h2 style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 700, fontSize: 18, color: "#3C3C46" }}>Calibration</h2>
+      <div style={{ fontWeight: 600, fontSize: 13, color: "#8E9582", marginTop: 2, marginBottom: 14 }}>
+        How your confidence wagers actually perform. Sharp players bet Bold where they hit.
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {rows.map((r) => {
+          const pct = r.cases > 0 ? Math.round((r.correct / r.cases) * 100) : 0;
+          return (
+            <div key={r.key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ width: 76, flex: "none", padding: "4px 0", borderRadius: 9, background: r.bg, color: r.color, fontWeight: 800, fontSize: 12, textAlign: "center" }}>{r.label}</span>
+              <div style={{ flex: 1, height: 10, borderRadius: 999, background: "#EEF1E6", overflow: "hidden" }}>
+                <div style={{ height: "100%", borderRadius: 999, width: `${r.cases > 0 ? pct : 0}%`, background: r.color }} />
+              </div>
+              <span style={{ width: 110, flex: "none", fontWeight: 800, fontSize: 12.5, color: r.cases > 0 ? "#5E6553" : "#B2B7A6", textAlign: "right" }}>
+                {r.cases > 0 ? `${pct}% of ${r.cases}` : "not tried yet"}
+              </span>
+            </div>
+          );
+        })}
+        {crowd && crowd.bets > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ width: 76, flex: "none", padding: "4px 0", borderRadius: 9, background: "#F6ECFF", color: "#A95FE0", fontWeight: 800, fontSize: 12, textAlign: "center" }}>Crowd</span>
+            <div style={{ flex: 1, height: 10, borderRadius: 999, background: "#EEF1E6", overflow: "hidden" }}>
+              <div style={{ height: "100%", borderRadius: 999, width: `${Math.round((crowd.hits / crowd.bets) * 100)}%`, background: "#A95FE0" }} />
+            </div>
+            <span style={{ width: 110, flex: "none", fontWeight: 800, fontSize: 12.5, color: "#5E6553", textAlign: "right" }}>
+              {Math.round((crowd.hits / crowd.bets) * 100)}% of {crowd.bets}
+            </span>
+          </div>
+        )}
+      </div>
+      {cats.length > 0 && (
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: "2px solid #F0F2EA" }}>
+          <div style={{ fontWeight: 800, fontSize: 11, letterSpacing: ".06em", color: "#9AA08C", marginBottom: 8 }}>BY CATEGORY</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {cats.map((c) => {
+              const pct = Math.round((c.correct / c.cases) * 100);
+              const strong = pct >= 60;
+              return (
+                <span key={c.category} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 11px", borderRadius: 999, background: strong ? "#E8FFD7" : "#F4F8EE", border: "1.5px solid " + (strong ? "#C4E89E" : "#E4EAD8"), color: strong ? "#3E7200" : "#7C8470", fontWeight: 800, fontSize: 12 }}>
+                  {c.category.split(" · ")[0]} · {pct}% ({c.cases})
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
