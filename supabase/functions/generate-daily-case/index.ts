@@ -146,7 +146,55 @@ const FALLBACK_QUESTIONS: { question: string; category: string }[] = [
   { question: "What is the most effective lever for cutting global emissions this decade?", category: "ENVIRONMENT · POLICY" },
 ];
 
-async function generateQuestion(): Promise<{ question: string; category: string }> {
+/** Recent questions the generator must not repeat. Question quality is the
+ *  product: with 9 fixed categories and a small model, near-duplicates were
+ *  otherwise inevitable within weeks. */
+async function fetchRecentQuestions(supabase: ReturnType<typeof createClient>, limit = 60): Promise<string[]> {
+  try {
+    const { data } = await supabase
+      .from("daily_cases")
+      .select("question")
+      .order("case_no", { ascending: false })
+      .limit(limit);
+    return (data ?? []).map((r: { question: string }) => r.question).filter(Boolean);
+  } catch (e) {
+    console.error("fetchRecentQuestions failed (continuing without dedup):", e);
+    return [];
+  }
+}
+
+/** One-shot quality gate: is the candidate genuinely debatable, non-obvious,
+ *  and fresh vs. recent questions? If not, the critic supplies a rewrite. On
+ *  any failure the original question is kept — the gate can only improve. */
+async function critiqueQuestion(question: string, recent: string[]): Promise<string> {
+  try {
+    const recentBlock = recent.slice(0, 30).map((q) => `- ${q}`).join("\n");
+    const content = await callModel(5, [
+      {
+        role: "system",
+        content: "You are a sharp editor for a daily debate game. You judge whether a question is genuinely debatable (reasonable experts disagree), non-obvious, specific enough to have a defensible best answer, and not a repeat. Output ONLY a JSON object.",
+      },
+      {
+        role: "user",
+        content: `Candidate question: ${question}\n\nRecently used questions (must not be repeated or closely paraphrased):\n${recentBlock || "(none)"}\n\nIf the candidate is debatable, non-obvious, specific, and fresh, output {"ok": true}. Otherwise output {"ok": false, "rewrite": "<a better single-sentence question on a similar theme, ending with a question mark>"}.`,
+      },
+    ], 120);
+    const parsed = JSON.parse(content.match(/\{[\s\S]*\}/)?.[0] ?? "{}");
+    if (parsed.ok === false && typeof parsed.rewrite === "string") {
+      const rewrite = clean(parsed.rewrite).split("\n")[0].trim();
+      if (rewrite.length > 15 && rewrite.endsWith("?")) {
+        console.log(`critic rewrote question: "${question}" -> "${rewrite}"`);
+        return rewrite;
+      }
+    }
+    return question;
+  } catch (e) {
+    console.error("critiqueQuestion failed (keeping original):", e);
+    return question;
+  }
+}
+
+async function generateQuestion(recent: string[]): Promise<{ question: string; category: string }> {
   const categories = [
     "GEOPOLITICS · FORECAST", "SPORT · FORECAST", "TECHNOLOGY · PREDICTION",
     "ECONOMICS · FORECAST", "SCIENCE · DEBATE", "CULTURE · OPINION",
@@ -156,6 +204,7 @@ async function generateQuestion(): Promise<{ question: string; category: string 
   const topic = cat.split(" · ")[0].toLowerCase();
 
   try {
+    const avoidBlock = recent.slice(0, 30).map((q) => `- ${q}`).join("\n");
     const content = await callModel(5, [
       {
         role: "system",
@@ -163,13 +212,16 @@ async function generateQuestion(): Promise<{ question: string; category: string 
       },
       {
         role: "user",
-        content: `Generate a single compelling, open-ended question about ${topic} that reasonable experts could disagree on. It should have a clear "best" answer but not be obvious. Make it timely and interesting. One sentence, ends with a question mark.`
+        content: `Generate a single compelling, open-ended question about ${topic} that reasonable experts could disagree on. It should have a clear "best" answer but not be obvious. Make it timely and interesting. One sentence, ends with a question mark.` +
+          (avoidBlock ? `\n\nDo NOT repeat or closely paraphrase any of these recently used questions:\n${avoidBlock}` : "")
       }
     ], 80);
 
     // Strip leading/trailing quotes or extra text
-    const question = content.replace(/^["']|["']$/g, "").split("\n")[0].trim();
+    let question = content.replace(/^["']|["']$/g, "").split("\n")[0].trim();
     if (!question) throw new Error("Empty question from model");
+    // Second-pass quality gate: debatable, non-obvious, fresh — or rewritten.
+    question = await critiqueQuestion(question, recent);
     return { question, category: cat };
   } catch (e) {
     console.error("generateQuestion failed, using fallback:", e);
@@ -241,40 +293,59 @@ async function judgeAnswers(
   const eligible = answers.map((a) => a.letter);
   const firstEligible = eligible[0] ?? "A";
 
-  let content = "";
-  try {
-    content = await callModel(5, [
-      {
-        role: "system",
-        content: "You are Arbi, a rigorous AI judge. You evaluate competing answers by their quality of reasoning, specificity, and defensibility. You are decisive and fair. Output ONLY a JSON object, nothing else."
-      },
-      {
-        role: "user",
-        content: `Question: ${question}\n\nThese AI models have each given an answer:\n\n${answerBlock}\n\nEvaluate them. Which answer is the sharpest — the most well-reasoned, specific, and defensible? Output JSON: {"winner": "<letter>", "reasoning": "one sentence explaining why this is the sharpest answer"}`
-      }
-    ], 150);
-  } catch (e) {
-    console.error("judge model failed, will salvage/fallback:", e);
-  }
-
-  // Parse the verdict, tolerating markdown wrappers and stray prose. A greedy
-  // brace match keeps reasoning that contains punctuation intact.
-  let winnerLetter = firstEligible;
-  let reasoning = "";
-  if (content) {
+  // Parse a verdict, tolerating markdown wrappers and stray prose. A greedy
+  // brace match keeps reasoning that contains punctuation intact. Returns null
+  // when no eligible winner can be extracted.
+  const parseVerdict = (content: string): { winner: string; reasoning: string } | null => {
+    if (!content) return null;
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error("No JSON in judge response");
       const parsed = JSON.parse(jsonMatch[0]);
       const winner = (parsed.winner ?? "").toUpperCase();
       if (!eligible.includes(winner)) throw new Error(`Invalid/ineligible winner: ${winner}`);
-      winnerLetter = winner;
-      reasoning = clean(String(parsed.reasoning ?? ""));
+      return { winner, reasoning: clean(String(parsed.reasoning ?? "")) };
     } catch {
       // Couldn't parse clean JSON — salvage an eligible letter from the prose.
       const scanned = content.match(/\b([A-D])\b/)?.[1] ?? "";
-      if (eligible.includes(scanned)) winnerLetter = scanned;
+      if (eligible.includes(scanned)) return { winner: scanned, reasoning: "" };
+      return null;
     }
+  };
+
+  const judgePrompt: ChatMessage[] = [
+    {
+      role: "system",
+      content: "You are Arbi, a rigorous AI judge. You evaluate competing answers by their quality of reasoning, specificity, and defensibility. You are decisive and fair. Output ONLY a JSON object, nothing else."
+    },
+    {
+      role: "user",
+      content: `Question: ${question}\n\nThese AI models have each given an answer:\n\n${answerBlock}\n\nEvaluate them. Which answer is the sharpest — the most well-reasoned, specific, and defensible? Output JSON: {"winner": "<letter>", "reasoning": "one sentence explaining why this is the sharpest answer"}`
+    }
+  ];
+
+  // The verdict IS the product — never accept an arbitrary winner without a
+  // retry. Two attempts (the second with a stricter format reminder), and only
+  // then degrade to the first eligible letter, loudly.
+  let content = "";
+  let verdict: { winner: string; reasoning: string } | null = null;
+  for (let attempt = 0; attempt < 2 && !verdict; attempt++) {
+    try {
+      content = await callModel(5, attempt === 0 ? judgePrompt : [
+        judgePrompt[0],
+        { role: "user", content: judgePrompt[1].content + `\n\nIMPORTANT: reply with EXACTLY one JSON object of the form {"winner": "A|B|C|D", "reasoning": "..."} and nothing else.` },
+      ], 150);
+    } catch (e) {
+      console.error(`judge model attempt ${attempt + 1} failed:`, e);
+      content = "";
+    }
+    verdict = parseVerdict(content);
+  }
+
+  let winnerLetter = verdict?.winner ?? firstEligible;
+  let reasoning = verdict?.reasoning ?? "";
+  if (!verdict) {
+    console.error(`JUDGE FALLBACK ENGAGED: no parseable verdict after 2 attempts — defaulting winner to "${firstEligible}". Raw last reply: ${content.slice(0, 300)}`);
   }
 
   // Arbi must always explain himself. Recover the "why" from the raw reply, then
@@ -466,7 +537,8 @@ Deno.serve(async (req) => {
     } catch { question = ""; category = ""; }
 
     if (!question) {
-      ({ question, category } = await generateQuestion());
+      const recent = await fetchRecentQuestions(supabase);
+      ({ question, category } = await generateQuestion(recent));
     }
 
     // Get answers from all 4 models in parallel. A single model failing (timeout,
