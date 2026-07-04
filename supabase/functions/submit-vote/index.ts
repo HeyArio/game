@@ -16,6 +16,13 @@
  *      crowd percentages, and the XP breakdown.
  *
  * Called from the frontend with the user's Supabase JWT in Authorization header.
+ *
+ * GUEST PREVIEW ({ guest: true }): a logged-out visitor gets the same graded
+ * verdict for their pick — judge pick + reasoning, live crowd, XP they WOULD
+ * have earned — but nothing is recorded: no vote row, no progress, no streak.
+ * This deliberately gives away the payoff before the sign-in wall (the reveal
+ * is the pitch); the pick is stashed client-side and redeemed as a real vote
+ * right after sign-up. Guest calls don't count toward the crowd.
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -63,21 +70,27 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  let caseId: string, optionId: string, confidence: Confidence, crowdGuessOptionId: string | null;
+  let caseId: string, optionId: string, confidence: Confidence, crowdGuessOptionId: string | null, guest: boolean;
   try {
     const body = await req.json();
     caseId   = body.case_id;
     optionId = body.option_id;
     confidence = (["low", "med", "high"].includes(body.confidence) ? body.confidence : "med") as Confidence;
     crowdGuessOptionId = body.crowd_guess_option_id ?? null;
+    guest = body.guest === true;
     if (!caseId || !optionId) throw new Error("Missing case_id or option_id");
   } catch (e) {
     return json({ error: String(e) }, 400);
   }
 
-  // Get the authenticated user
-  const { data: { user }, error: authErr } = await userClient.auth.getUser();
-  if (authErr || !user) return json({ error: "Not authenticated" }, 401);
+  // Get the authenticated user. Guest previews skip this — they read the
+  // verdict but never write anything.
+  let user: { id: string } | null = null;
+  if (!guest) {
+    const { data, error: authErr } = await userClient.auth.getUser();
+    if (authErr || !data.user) return json({ error: "Not authenticated" }, 401);
+    user = data.user;
+  }
 
   // --- Validate the case is open ---
   const { data: caseRow, error: caseErr } = await adminClient
@@ -90,6 +103,37 @@ Deno.serve(async (req) => {
   if (caseErr || !caseRow) return json({ error: "Case not found or not open" }, 404);
 
   const ctx = await getCaseContext(adminClient, caseId);
+
+  // --- Guest preview: grade the pick, record nothing ---
+  if (guest) {
+    const { data: gOption, error: gOptErr } = await adminClient
+      .from("case_options")
+      .select("id, letter, is_judge_pick")
+      .eq("id", optionId)
+      .eq("case_id", caseId)
+      .single();
+    if (gOptErr || !gOption) return json({ error: "Invalid option" }, 400);
+
+    const gCorrect = gOption.is_judge_pick;
+    const gCrowdGraded = ctx.realVoteCount >= MIN_CROWD_SAMPLE && !!ctx.realCrowdLeaderOptionId;
+    const gCrowdCorrect = gCrowdGraded && !!crowdGuessOptionId && crowdGuessOptionId === ctx.realCrowdLeaderOptionId;
+    return json({
+      ...buildPayload(ctx, {
+        votedOptionId: optionId,
+        wasCorrect: gCorrect,
+        xpEarned: baseXp(gCorrect, confidence) + (gCrowdCorrect ? CROWD_BONUS : 0),
+        confidence,
+        crowdGuessOptionId,
+        crowdCorrect: gCrowdCorrect,
+        crowdGraded: gCrowdGraded,
+      }),
+      alreadyVoted: false,
+      guest: true,
+    });
+  }
+
+  // Past the guest branch a user is guaranteed; this narrows the type.
+  if (!user) return json({ error: "Not authenticated" }, 401);
 
   // --- Already voted? Return the stored result so the reveal can be rebuilt ---
   const { data: existingVote } = await adminClient

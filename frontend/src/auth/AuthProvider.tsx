@@ -9,6 +9,8 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  /** Send a magic sign-in link. Resolves to an error message, or null on success. */
+  signInWithEmail: (email: string) => Promise<string | null>;
   signOut: () => Promise<void>;
 }
 
@@ -26,7 +28,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // Stay in sync with sign-in / sign-out / token-refresh events.
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      // Completes the funnel pair with sign_in_start: fires on a fresh sign-in
+      // (incl. returning from the OAuth redirect / magic link), not on refreshes.
+      if (event === "SIGNED_IN") track("sign_in_success");
       setSession(s);
     });
     return () => sub.subscription.unsubscribe();
@@ -38,12 +43,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       loading,
       signInWithGoogle: async () => {
-        track("sign_in_start");
+        track("sign_in_start", { method: "google" });
         const { error } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: { redirectTo: window.location.origin },
         });
         if (error) console.error("[auth] Google sign-in failed:", error.message);
+      },
+      signInWithEmail: async (email: string) => {
+        track("sign_in_start", { method: "email" });
+        // Magic link: no password to invent, and the link lands back on the
+        // origin where the stashed guest pick / referral get redeemed.
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: { emailRedirectTo: window.location.origin },
+        });
+        if (error) {
+          console.error("[auth] Email sign-in failed:", error.message);
+          return error.message;
+        }
+        return null;
       },
       signOut: async () => {
         const { error } = await supabase.auth.signOut();

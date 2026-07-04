@@ -41,26 +41,39 @@ function makeId(len = 12): string {
 /**
  * Where challenge links point.
  *
- * Default (nothing to configure): an empty base, so links become a clean,
- * on-brand `quorumdaily.com/?c=<id>` app link (see challengeUrl). We deliberately
- * do NOT default to the raw `…supabase.co/functions/v1/challenge/<id>` URL —
- * that reads like a phishing link and kills the share.
+ * Default (nothing to configure): the pretty path on our own domain —
+ * `quorumdaily.com/c/<id>`. This is safe with OR without the nginx OG proxy
+ * (deploy/nginx-challenge.conf):
  *
- * Upgrade: set VITE_CHALLENGE_LINK_BASE to "https://quorumdaily.com/c" once nginx
- * proxies /c/ to the `challenge` function (see deploy/nginx-challenge.conf). That
- * keeps the link on your own domain AND restores the personalised crawler
- * preview (the "X challenges you" card).
+ *   - proxy ON:  crawlers get the personalised "X challenges you" card from the
+ *     `challenge` edge function; humans get its redirect to `/?c=<id>`.
+ *   - proxy OFF: nginx's SPA fallback serves index.html at /c/<id>, the app
+ *     reads the id from the path (incomingChallengeId), and crawlers see the
+ *     site's generic OG card — same preview as the old `?c=` links.
+ *
+ * We deliberately never use the raw `…supabase.co/functions/v1/challenge/<id>`
+ * URL — that reads like a phishing link and kills the share. Override the base
+ * with VITE_CHALLENGE_LINK_BASE if the site moves domains.
  */
 export function challengeLinkBase(): string {
-  return (import.meta.env.VITE_CHALLENGE_LINK_BASE as string | undefined)?.replace(/\/+$/, "") ?? "";
+  return (import.meta.env.VITE_CHALLENGE_LINK_BASE as string | undefined)?.replace(/\/+$/, "") || `${SITE}/c`;
 }
 
 export function challengeUrl(id: string): string {
-  const base = challengeLinkBase();
-  // No pretty base configured → a clean app link on our own domain. The
-  // recipient's browser reads `?c=`; crawlers fall back to the site's generic
-  // OG card. Configure the base + nginx proxy for a per-challenge preview.
-  return base ? `${base}/${id}` : `${SITE}/?c=${id}`;
+  return `${challengeLinkBase()}/${id}`;
+}
+
+/** The incoming challenge id, from either link shape: `?c=<id>` (the challenge
+ *  function's redirect target and legacy links) or a direct `/c/<id>` path
+ *  (pretty links opened without the nginx OG proxy). */
+export function incomingChallengeId(): string {
+  try {
+    const fromQuery = new URLSearchParams(window.location.search).get("c") ?? "";
+    if (fromQuery) return fromQuery;
+    return window.location.pathname.match(/^\/c\/([A-Za-z0-9_-]+)\/?$/)?.[1] ?? "";
+  } catch {
+    return "";
+  }
 }
 
 // Renders the challenge as a 1200x630 image (Open Graph aspect) for the link
@@ -300,19 +313,25 @@ export function shareChallengeToPlatform(platform: ChallengePlatform, link: stri
   if (!win) window.location.href = url;
 }
 
-/** Reads `?c=<id>` from the URL once and resolves the incoming challenge. */
+/** Reads the challenge id from the URL (`?c=<id>` or `/c/<id>`) once and
+ *  resolves the incoming challenge. */
 export function useIncomingChallenge(): Challenge | null {
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   useEffect(() => {
-    let id = "";
-    try { id = new URLSearchParams(window.location.search).get("c") ?? ""; } catch { /* ignore */ }
+    const id = incomingChallengeId();
     if (!id) return;
     // Stash the id so the inviter gets credit even after sign-in: Google OAuth
     // returns to the bare origin and drops the ?c= param, so the URL alone can't
     // carry attribution across the round-trip. claimReferral() reads it back.
     rememberReferral(id);
     let cancelled = false;
-    fetchChallenge(id).then((c) => { if (!cancelled) setChallenge(c); });
+    fetchChallenge(id).then((c) => {
+      if (cancelled) return;
+      setChallenge(c);
+      // Recipient side of the viral loop — without this, challenge acceptance
+      // rate (opens → plays → signups) can't be measured.
+      if (c) track("challenge_opened");
+    });
     return () => { cancelled = true; };
   }, []);
   return challenge;

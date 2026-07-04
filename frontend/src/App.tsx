@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useAuth } from "./auth/AuthProvider";
 import { ConfettiCanvas } from "./components/ConfettiCanvas";
@@ -20,8 +20,9 @@ const ProfilePage = lazy(() => import("./pages/ProfilePage").then((m) => ({ defa
 const QuestsPage = lazy(() => import("./pages/QuestsPage").then((m) => ({ default: m.QuestsPage })));
 const LandingPage = lazy(() => import("./pages/LandingPage").then((m) => ({ default: m.LandingPage })));
 import { useDailyCase } from "./hooks/useDailyCase";
-import { useIncomingChallenge, claimReferral } from "./lib/challenge";
+import { useIncomingChallenge, claimReferral, incomingChallengeId } from "./lib/challenge";
 import { useIncomingInvite, claimInvite } from "./lib/invite";
+import { readGuestPick, rememberGuestPick, clearGuestPick, submitGuestVote } from "./lib/guestPick";
 import { feedbackHref, feedbackIsExternal } from "./lib/feedback";
 import { track } from "./lib/analytics";
 import { useClientCase } from "./hooks/useClientCase";
@@ -111,7 +112,10 @@ function Game() {
 
   // If the player already voted on today's case, drop them straight onto their
   // locked result — no re-voting, no re-scoring, no replayed celebration. (One
-  // vote per case per day; the board is read-only afterwards.)
+  // vote per case per day; the board is read-only afterwards.) If instead they
+  // just signed up after playing today's case as a guest, redeem that stashed
+  // pick as their real, scored vote — the result they were shown is the result
+  // that counts.
   useEffect(() => {
     if (caseStatus !== "active" || !dailyCase) return;
     let cancelled = false;
@@ -125,12 +129,39 @@ function Game() {
           .eq("user_id", user.id)
           .eq("case_id", dailyCase.id)
           .maybeSingle();
-        if (cancelled || !existing?.option_id) return;
-        // Re-derive the full stored verdict (judge pick, reasoning, crowd leader,
-        // live %) via the idempotent submit-vote "alreadyVoted" path. Because a
-        // vote already exists, this never records a new one.
-        const result = await submitVote(dailyCase.id, existing.option_id);
-        if (!cancelled && result?.alreadyVoted) game.actions.loadExistingVote(result);
+        if (cancelled) return;
+        if (existing?.option_id) {
+          // A guest stash is moot once a real vote exists for today.
+          clearGuestPick();
+          // Re-derive the full stored verdict (judge pick, reasoning, crowd leader,
+          // live %) via the idempotent submit-vote "alreadyVoted" path. Because a
+          // vote already exists, this never records a new one.
+          const result = await submitVote(dailyCase.id, existing.option_id);
+          if (!cancelled && result?.alreadyVoted) game.actions.loadExistingVote(result);
+          return;
+        }
+
+        const stash = readGuestPick();
+        if (!stash) return;
+        if (stash.caseId !== dailyCase.id) { clearGuestPick(); return; } // stale — a past case
+        // Record the guest pick for real. The celebration already happened on
+        // the guest reveal, so land on the quiet locked-result view.
+        const result = await submitVote(dailyCase.id, stash.optionId, stash.confidence, stash.crowdGuessOptionId);
+        if (cancelled || !result) return; // transient failure — keep the stash for the next load
+        clearGuestPick();
+        track("guest_vote_redeemed");
+        // Progress (streak, XP) was just written server-side — refresh it before
+        // snapping to the result so the rail shows the recorded numbers.
+        const { data: prog } = await supabase
+          .from("user_progress")
+          .select("streak, total_xp, daily_xp, continuance_count, best_streak")
+          .eq("user_id", user.id).maybeSingle();
+        if (cancelled) return;
+        if (prog) game.actions.initProgress({
+          streak: prog.streak ?? 0, totalXp: prog.total_xp ?? 0, dailyXp: prog.daily_xp ?? 0,
+          contLeft: prog.continuance_count ?? 2, bestStreak: (prog as any).best_streak ?? 0,
+        });
+        game.actions.loadExistingVote(result);
       } catch (e) {
         // Non-fatal: the player just sees a fresh (re-votable) board; the server
         // still rejects a duplicate vote, so progress can't be corrupted.
@@ -234,26 +265,37 @@ function ClientGame() {
   return <GameShell game={game} caseLoading={status === "loading"} noCase={false} error={status === "error" ? error : null} canReplay />;
 }
 
-// ---- Guest path: landing page first, then a read-only preview of today's case ----
+// ---- Guest path: landing page first, then today's case — playable to the verdict ----
 function GuestGame() {
   // Logged-out visitors land on the marketing page (the front door). "Play
-  // today's case" drops them into the read-only game preview; the top-left logo
-  // takes them back to the landing page. Exception: someone arriving on a
-  // challenge link (?c=<id>) is dropped straight onto the case so they see the
+  // today's case" drops them into the game; the top-left logo takes them back
+  // to the landing page. Exception: someone arriving on a challenge link
+  // (?c=<id> or /c/<id>) is dropped straight onto the case so they see the
   // "X challenged you" intro instead of a marketing wall.
   const [view, setView] = useState<"landing" | "game">(() => {
     try {
       const q = new URLSearchParams(window.location.search);
-      return q.has("c") || q.has("i") ? "game" : "landing";
+      return q.has("i") || incomingChallengeId() ? "game" : "landing";
     } catch { return "landing"; }
   });
   const { status: caseStatus, dailyCase, error: caseError } = useDailyCase();
-  const game = useGameState(); // no onSubmitVote — guests can't score or save
+  // Guests play for real up to the verdict: the server grades their pick via
+  // the guest preview path (nothing recorded), and the pick is stashed so it
+  // becomes their real vote the moment they sign in. First pick wins — a
+  // refresh can't turn the revealed verdict into an informed re-vote.
+  const game = useGameState({
+    onSubmitVote: async (caseId, optionId, confidence, crowdGuessOptionId) =>
+      submitGuestVote(rememberGuestPick({ caseId, optionId, confidence, crowdGuessOptionId })),
+  });
 
   const goLanding = () => {
     setView("landing");
     window.scrollTo(0, 0);
   };
+
+  useEffect(() => {
+    if (view === "landing") track("landing_view");
+  }, [view]);
 
   useEffect(() => {
     if (caseStatus !== "active" || !dailyCase) return;
@@ -267,9 +309,23 @@ function GuestGame() {
     });
   }, [caseStatus, dailyCase]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A guest who already played today (stashed pick) lands on their locked
+  // result, not a fresh board — same shape as the signed-in already-voted path.
+  useEffect(() => {
+    if (caseStatus !== "active" || !dailyCase) return;
+    const stash = readGuestPick();
+    if (!stash) return;
+    if (stash.caseId !== dailyCase.id) { clearGuestPick(); return; } // stale — a past case
+    let cancelled = false;
+    submitGuestVote(stash).then((result) => {
+      if (!cancelled && result) game.actions.loadExistingVote(result);
+    });
+    return () => { cancelled = true; };
+  }, [caseStatus, dailyCase]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (view === "landing") return (
     <Suspense fallback={<SplashScreen />}>
-      <LandingPage onPlay={() => { setView("game"); window.scrollTo(0, 0); }} />
+      <LandingPage onPlay={() => { track("play_clicked"); setView("game"); window.scrollTo(0, 0); }} />
     </Suspense>
   );
 
@@ -307,8 +363,12 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
   useIncomingInvite();
   const isMobile = useIsMobile();
   const screenLabel = { play: "Daily Case", leagues: "Leagues", quests: "Quests", archive: "Archive", profile: "Profile" }[state.screen];
-  // When a guest tries to lock in, prompt them to sign in via a modal popup.
+  // Sign-in modal — for guests it opens AFTER the verdict (the "save your
+  // result" ask), never between the pick and the payoff.
   const [signInPrompt, setSignInPrompt] = useState(false);
+  useEffect(() => {
+    if (signInPrompt) track("signin_wall_shown", { guest });
+  }, [signInPrompt, guest]);
   // First-run onboarding: shown once to signed-in players (guests already came
   // through the landing page, which explains the game).
   const [showOnboarding, setShowOnboarding] = useState(() => {
@@ -322,9 +382,16 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
   const selectScreen = guest
     ? (id: Screen) => { if (id === "play") actions.setScreen("play"); else requireAuth(); }
     : actions.setScreen;
-  // Guests who try to lock in get a "please sign in" popup; other gated actions
-  // fall back to the landing page.
-  const lockIn = guest ? () => setSignInPrompt(true) : () => { track("vote_locked"); actions.lockIn(); };
+  // Guests lock in for real now — the server grades their pick without
+  // recording it, and the sign-in ask comes after the reveal. Other gated
+  // actions still fall back to the landing page.
+  const lockIn = () => { track("vote_locked", { guest }); actions.lockIn(); };
+  // First engagement beat of the funnel: the first card tapped this visit.
+  const cardTrackedRef = useRef(false);
+  const selectCard = (id: CardId) => {
+    if (!cardTrackedRef.current) { cardTrackedRef.current = true; track("card_selected", { guest }); }
+    actions.selectCard(id);
+  };
   const openStreak = guest ? requireAuth : actions.openStreak;
   // Logo target: guests go back to the landing page; signed-in players go home
   // (to the daily case). TopBar also scrolls to top for visible feedback.
@@ -340,7 +407,8 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
       <Suspense fallback={<PageFallback />}>
         {state.screen === "play" && (
           <PlayPage state={state} countdownText={countdownText} countdownSeconds={countdownSeconds} caseLoading={caseLoading} noCase={noCase} canReplay={canReplay} challenge={challenge}
-            onSelectCard={actions.selectCard} onSetConfidence={actions.setConfidence} onSetCrowdGuess={actions.setCrowdGuess}
+            guest={guest} onSignIn={() => setSignInPrompt(true)}
+            onSelectCard={selectCard} onSetConfidence={actions.setConfidence} onSetCrowdGuess={actions.setCrowdGuess}
             onLockIn={lockIn} onAdvance={actions.advance} onReplay={actions.reset} onHowToPlay={() => setShowOnboarding(true)} />
         )}
         {state.screen === "leagues" && <LeaguesPage state={state} />}
@@ -354,7 +422,13 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
       )}
       {state.overlay === "promo" && <PromoOverlay onDismiss={actions.dismissPromo} tierName={leagueTier(state.totalXp).name} tierColor={leagueTier(state.totalXp).color} />}
 
-      {signInPrompt && <SignInOverlay onClose={() => setSignInPrompt(false)} />}
+      {signInPrompt && (
+        <SignInOverlay
+          title={state.scored ? "Save your result" : undefined}
+          reason={state.scored ? "Your pick, XP, and streak carry over the moment you sign in — free, takes seconds." : undefined}
+          onClose={() => setSignInPrompt(false)}
+        />
+      )}
 
       {showOnboarding && state.screen === "play" && (
         <OnboardingOverlay onDone={() => { try { localStorage.setItem("quorum_onboarded_v1", "1"); } catch { /* ignore */ } setShowOnboarding(false); }} />

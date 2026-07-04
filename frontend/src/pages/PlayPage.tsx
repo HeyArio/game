@@ -4,6 +4,7 @@ import { AnswerCard } from "../components/AnswerCard";
 import { icon } from "../icons/Icon";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { buildResultShareText, shareResultImage } from "../lib/shareCard";
+import { track } from "../lib/analytics";
 import { createChallenge, shareChallengeLink, shareChallengeToPlatform, type Challenge, type ChallengePlatform } from "../lib/challenge";
 import { nazarbanUrl } from "../lib/nazarban";
 import { ChallengeBanner, ChallengeOutcome } from "../components/ChallengeBanner";
@@ -36,6 +37,11 @@ export interface PlayPageProps {
   canReplay?: boolean;
   /** Set when the visitor arrived via a challenge link (?c=<id>). */
   challenge?: Challenge | null;
+  /** Logged-out play: the verdict shows in full; the sign-in ask replaces the
+   *  share bar ("save your result"). */
+  guest?: boolean;
+  /** Opens the sign-in modal (guest mode only). */
+  onSignIn?: () => void;
   onSelectCard: (id: CardId) => void;
   onSetConfidence: (c: Confidence) => void;
   onSetCrowdGuess: (id: CardId) => void;
@@ -46,7 +52,7 @@ export interface PlayPageProps {
   onHowToPlay?: () => void;
 }
 
-export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, noCase, canReplay, challenge, onSelectCard, onSetConfidence, onSetCrowdGuess, onLockIn, onAdvance, onReplay, onHowToPlay }: PlayPageProps) {
+export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, noCase, canReplay, challenge, guest, onSignIn, onSelectCard, onSetConfidence, onSetCrowdGuess, onLockIn, onAdvance, onReplay, onHowToPlay }: PlayPageProps) {
   const isMobile = useIsMobile();
   const cards = viewCards(state);
   const your = yourCard(state);
@@ -69,6 +75,14 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
   useEffect(() => {
     if (state.reveal.verdict) verdictHeadingRef.current?.focus();
   }, [state.reveal.verdict]);
+  // Funnel beat: the payoff was actually seen (fresh reveals only, not
+  // returning-player restores of an already-cast vote).
+  const revealTrackedRef = useRef(false);
+  useEffect(() => {
+    if (!state.reveal.verdict || state.alreadyPlayed || revealTrackedRef.current) return;
+    revealTrackedRef.current = true;
+    track("reveal_shown", { guest: !!guest, win: state.win });
+  }, [state.reveal.verdict, state.alreadyPlayed, state.win, guest]);
   const weekDays = weekDaysView(state);
   const leagueRows = leagueRowsView(state);
   const badges = badgesView(state, state.stats);
@@ -329,8 +343,10 @@ export function PlayPage({ state, countdownText, countdownSeconds, caseLoading, 
 
               {/* The viral surface (Challenge a friend / share) sits at the
                   emotional peak — right after the verdict and rewards, before
-                  the longer judge reasoning — so players act on it. */}
-              <ShareBar state={state} />
+                  the longer judge reasoning — so players act on it. For guests
+                  that same peak carries the sign-in ask instead: save the
+                  result they're looking at. */}
+              {guest ? <GuestSavePrompt state={state} onSignIn={onSignIn} /> : <ShareBar state={state} />}
 
               {state.judgeReasoning && (
                 <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 14, background: "rgba(255,255,255,.7)", border: "1.5px solid rgba(60,60,70,.08)" }}>
@@ -626,6 +642,7 @@ function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" 
 
   // The Wordle move: a spoiler-safe text summary that pastes anywhere.
   async function onCopyResult() {
+    track("copy_result");
     try {
       await navigator.clipboard.writeText(buildResultShareText(state));
       setCopyLabel("Copied!");
@@ -637,6 +654,7 @@ function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" 
 
   async function onShareImage() {
     if (busy) return;
+    track("share_image");
     setBusy(true);
     setImgLabel("Creating…");
     const r = await shareResultImage(state);
@@ -720,6 +738,40 @@ function ShareBar({ state, align = "left" }: { state: GameState; align?: "left" 
         </button>
       </div>
       {toast && <div style={{ fontSize: 12.5, fontWeight: 800, color: "#1899D6" }}>{toast}</div>}
+    </div>
+  );
+}
+
+// The guest counterpart of ShareBar: same emotional-peak slot, but the ask is
+// "save what you're looking at". The pick is already stashed locally — signing
+// in converts it into the real, scored vote (see lib/guestPick.ts).
+function GuestSavePrompt({ state, onSignIn }: { state: GameState; onSignIn?: () => void }) {
+  const [active, setActive] = useState(false);
+  return (
+    <div style={{ marginTop: 20, width: "100%", maxWidth: 540, padding: "16px 18px", background: "#F5FFF0", border: "2px solid #C4E89E", borderBottom: "4px solid #58CC02", borderRadius: 16, boxSizing: "border-box" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800, fontSize: 15, color: "#3C3C46" }}>
+        <span aria-hidden="true">🔒</span> {state.win ? "Great call — make it count" : "Today still counts"}
+      </div>
+      <div style={{ fontWeight: 700, fontSize: 13, color: "#5E6553", marginTop: 5, lineHeight: 1.5 }}>
+        {state.earned > 0
+          ? <>Sign in to bank your <b style={{ color: "#46A302" }}>+{state.earned} XP</b>, start a streak, and get on the leaderboard. This result carries over.</>
+          : <>Sign in to start your streak and build your judgment record. This result carries over.</>}
+      </div>
+      <button
+        onClick={onSignIn}
+        onMouseDown={() => setActive(true)}
+        onMouseUp={() => setActive(false)}
+        onMouseLeave={() => setActive(false)}
+        style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", marginTop: 12,
+          border: "none", background: "#58CC02", color: "#fff", padding: "12px 22px", borderRadius: 14,
+          fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 14.5,
+          boxShadow: active ? "0 1px 0 #46A302" : "0 4px 0 #46A302",
+          transform: active ? "translateY(3px)" : "none" }}>
+        Save my result — it's free
+      </button>
+      <div style={{ fontWeight: 700, fontSize: 11.5, color: "#9AA08C", marginTop: 8 }}>
+        Takes seconds · Google or email · your pick is kept as-is
+      </div>
     </div>
   );
 }

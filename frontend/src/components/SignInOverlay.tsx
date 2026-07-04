@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Mascot } from "./Mascot";
 import { useAuth } from "../auth/AuthProvider";
 import { isSupabaseConfigured } from "../lib/supabase";
@@ -16,16 +17,30 @@ function GoogleMark({ size = 18 }: { size?: number }) {
 }
 
 export interface SignInOverlayProps {
+  /** Context-specific heading (defaults to the generic sign-in ask). */
+  title?: string;
   /** Short, context-specific reason the guest is being asked to sign in. */
   reason?: string;
   onClose: () => void;
 }
 
-/** Lightweight modal that prompts a logged-out visitor to sign in (e.g. when
- *  they try to lock in an answer). Sign-in itself is the Google OAuth flow. */
-export function SignInOverlay({ reason, onClose }: SignInOverlayProps) {
-  const { signInWithGoogle } = useAuth();
+/** Lightweight modal that prompts a logged-out visitor to sign in — Google
+ *  OAuth one-tap, or a magic link for anyone who won't use Google. */
+export function SignInOverlay({ title, reason, onClose }: SignInOverlayProps) {
+  const { signInWithGoogle, signInWithEmail } = useAuth();
   const trapRef = useFocusTrap();
+  const [email, setEmail] = useState("");
+  const [emailState, setEmailState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [emailError, setEmailError] = useState<string | null>(null);
+
+  async function onSendLink() {
+    const addr = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr) || emailState === "sending") return;
+    setEmailState("sending");
+    const err = await signInWithEmail(addr);
+    if (err) { setEmailError(err); setEmailState("error"); }
+    else setEmailState("sent");
+  }
 
   return (
     <div
@@ -64,7 +79,7 @@ export function SignInOverlay({ reason, onClose }: SignInOverlayProps) {
         <span style={{ display: "inline-flex", animation: "qbob 3s ease-in-out infinite" }}><Mascot size={64} mood="happy" /></span>
 
         <h2 id="signin-dialog-title" style={{ fontFamily: "'Baloo 2',cursive", fontWeight: 800, fontSize: 24, color: "#3C3C46", margin: "12px 0 0" }}>
-          Sign in to lock it in
+          {title ?? "Sign in to lock it in"}
         </h2>
         <p style={{ fontWeight: 700, fontSize: 15, color: "#8E9582", lineHeight: 1.6, margin: "8px auto 0", maxWidth: 300 }}>
           {reason ?? "Create your free account to lock in your pick, see Arbi's verdict, and start a streak."}
@@ -84,6 +99,45 @@ export function SignInOverlay({ reason, onClose }: SignInOverlayProps) {
           <span style={{ background: "#fff", borderRadius: 6, padding: 3, display: "inline-flex" }}><GoogleMark size={18} /></span>
           Continue with Google
         </button>
+
+        {/* Magic link — the no-Google path. One field, no password. */}
+        <div aria-hidden="true" style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0 12px", color: "#B2B7A6", fontWeight: 800, fontSize: 11, letterSpacing: ".08em" }}>
+          <span style={{ flex: 1, height: 2, background: "#F0F2EA", borderRadius: 1 }} />
+          OR
+          <span style={{ flex: 1, height: 2, background: "#F0F2EA", borderRadius: 1 }} />
+        </div>
+
+        {emailState === "sent" ? (
+          <div role="status" style={{ padding: "12px 14px", borderRadius: 12, background: "#F1FCE6", border: "2px solid #C4E89E", fontWeight: 700, fontSize: 13.5, color: "#46A302", textAlign: "left" }}>
+            Check your inbox — we sent a sign-in link to <b>{email.trim()}</b>. Open it on this device and you're in.
+          </div>
+        ) : (
+          <form onSubmit={(e) => { e.preventDefault(); onSendLink(); }} style={{ display: "flex", gap: 8 }}>
+            <input
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              aria-label="Email address"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); if (emailState === "error") { setEmailState("idle"); setEmailError(null); } }}
+              disabled={!isSupabaseConfigured || emailState === "sending"}
+              style={{ flex: 1, minWidth: 0, padding: "12px 13px", borderRadius: 12, border: "2px solid #E4EAD8", background: "#fff", color: "#3C3C46", fontFamily: "'Nunito',sans-serif", fontWeight: 700, fontSize: 14 }}
+            />
+            <button
+              type="submit"
+              disabled={!isSupabaseConfigured || emailState === "sending"}
+              style={{ flex: "none", border: "2px solid #E4EAD8", borderBottomWidth: 4, background: "#fff", color: "#46A302", padding: "10px 14px", borderRadius: 12, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 13.5, cursor: emailState === "sending" ? "default" : "pointer", opacity: emailState === "sending" ? 0.6 : 1 }}
+            >
+              {emailState === "sending" ? "Sending…" : "Email me a link"}
+            </button>
+          </form>
+        )}
+        {emailState === "error" && emailError && (
+          <div role="alert" style={{ marginTop: 8, fontWeight: 700, fontSize: 12.5, color: "#C0271F", textAlign: "left" }}>
+            {emailError}
+          </div>
+        )}
 
         <button
           onClick={onClose}
