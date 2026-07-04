@@ -108,7 +108,7 @@ export function SignInOverlay({ title, reason, onClose }: SignInOverlayProps) {
         </div>
 
         {emailState === "sent" ? (
-          <div role="status" style={{ padding: "12px 14px", borderRadius: 12, background: "#F1FCE6", border: "2px solid #C4E89E", fontWeight: 700, fontSize: 13.5, color: "#46A302", textAlign: "left" }}>
+          <div role="status" style={{ padding: "12px 14px", borderRadius: 12, background: "#F1FCE6", border: "2px solid #C4E89E", fontWeight: 700, fontSize: 13.5, color: "#3A7D00", textAlign: "left" }}>
             Check your inbox — we sent a sign-in link to <b>{email.trim()}</b>. Open it on this device and you're in.
           </div>
         ) : (
@@ -127,7 +127,7 @@ export function SignInOverlay({ title, reason, onClose }: SignInOverlayProps) {
             <button
               type="submit"
               disabled={!isSupabaseConfigured || emailState === "sending"}
-              style={{ flex: "none", border: "2px solid #E4EAD8", borderBottomWidth: 4, background: "#fff", color: "#46A302", padding: "10px 14px", borderRadius: 12, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 13.5, cursor: emailState === "sending" ? "default" : "pointer", opacity: emailState === "sending" ? 0.6 : 1 }}
+              style={{ flex: "none", border: "2px solid #E4EAD8", borderBottomWidth: 4, background: "#fff", color: "#3A7D00", padding: "10px 14px", borderRadius: 12, fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 13.5, cursor: emailState === "sending" ? "default" : "pointer", opacity: emailState === "sending" ? 0.6 : 1 }}
             >
               {emailState === "sending" ? "Sending…" : "Email me a link"}
             </button>

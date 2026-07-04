@@ -754,7 +754,7 @@ function GuestSavePrompt({ state, onSignIn }: { state: GameState; onSignIn?: () 
       </div>
       <div style={{ fontWeight: 700, fontSize: 13, color: "#5E6553", marginTop: 5, lineHeight: 1.5 }}>
         {state.earned > 0
-          ? <>Sign in to bank your <b style={{ color: "#46A302" }}>+{state.earned} XP</b>, start a streak, and get on the leaderboard. This result carries over.</>
+          ? <>Sign in to bank your <b style={{ color: "#3A7D00" }}>+{state.earned} XP</b>, start a streak, and get on the leaderboard. This result carries over.</>
           : <>Sign in to start your streak and build your judgment record. This result carries over.</>}
       </div>
       <button
@@ -769,7 +769,7 @@ function GuestSavePrompt({ state, onSignIn }: { state: GameState; onSignIn?: () 
           transform: active ? "translateY(3px)" : "none" }}>
         Save my result — it's free
       </button>
-      <div style={{ fontWeight: 700, fontSize: 11.5, color: "#9AA08C", marginTop: 8 }}>
+      <div style={{ fontWeight: 700, fontSize: 11.5, color: "#6E7563", marginTop: 8 }}>
         Takes seconds · Google or email · your pick is kept as-is
       </div>
     </div>

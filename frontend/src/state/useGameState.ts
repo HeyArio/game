@@ -403,9 +403,15 @@ export function useGameState(props: InitProps = {}) {
         const opt = result.options.find((o) => o.letter.toLowerCase() === c.id);
         return opt ? { ...c, crowd: opt.live_pct } : c;
       });
+      // Align the highlighted card with what the server actually graded — on
+      // the guest path a stashed earlier pick wins over a re-selection, so the
+      // local selection can't be trusted to match the verdict.
+      const votedOpt = result.options.find((o) => o.id === result.votedOptionId);
+      const selected = (votedOpt?.letter.toLowerCase() ?? s.selected) as CardId | null;
       return {
         ...s,
         phase: "revealed",
+        selected,
         cards,
         judgeCardId: (result.judgeOptionLetter?.toLowerCase() ?? null) as CardId | null,
         judgeOptionId: result.judgeOptionId,

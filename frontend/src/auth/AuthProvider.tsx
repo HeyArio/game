@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
@@ -19,19 +19,25 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  // Whether a session was already present — SIGNED_IN also fires on token
+  // refresh and tab refocus, and only the none→session transition is a real
+  // sign-in for funnel purposes.
+  const hadSessionRef = useRef(false);
 
   useEffect(() => {
     // Pick up an existing session (e.g. after an OAuth redirect or a refresh).
     supabase.auth.getSession().then(({ data }) => {
+      if (data.session) hadSessionRef.current = true;
       setSession(data.session);
       setLoading(false);
     });
 
     // Stay in sync with sign-in / sign-out / token-refresh events.
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
-      // Completes the funnel pair with sign_in_start: fires on a fresh sign-in
-      // (incl. returning from the OAuth redirect / magic link), not on refreshes.
-      if (event === "SIGNED_IN") track("sign_in_success");
+      // Completes the funnel pair with sign_in_start: a fresh sign-in only
+      // (returning from the OAuth redirect / magic link), never a refresh.
+      if (event === "SIGNED_IN" && !hadSessionRef.current) track("sign_in_success");
+      hadSessionRef.current = !!s;
       setSession(s);
     });
     return () => sub.subscription.unsubscribe();

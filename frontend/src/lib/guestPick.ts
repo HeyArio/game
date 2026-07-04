@@ -10,11 +10,13 @@ import type { VoteResult } from "../hooks/useVote";
 //
 //   1. submitGuestVote() asks the submit-vote function for a graded verdict
 //      with { guest: true } — the server records nothing.
-//   2. The pick is stashed in localStorage. First pick wins: a guest who saw
-//      the verdict and "replays" by refreshing can't overwrite their call with
-//      an informed one. After sign-in (which drops all URL/JS state on the
-//      OAuth redirect), redeemGuestPick() converts the stash into the real,
-//      scored vote — so the result they were shown is the result that counts.
+//   2. The pick is stashed in localStorage AFTER a successful grade (a failed
+//      attempt never saw a verdict, so a retry may change the pick). Once a
+//      verdict was shown, first pick wins: a guest who "replays" by refreshing
+//      can't overwrite their call with an informed one. After sign-in (which
+//      drops all URL/JS state on the OAuth redirect), the stash is redeemed as
+//      the real, scored vote — the result they were shown is the result that
+//      counts.
 
 const KEY = "quorum_guest_pick";
 
@@ -25,13 +27,10 @@ export interface GuestPick {
   crowdGuessOptionId: string | null;
 }
 
-/** Stash the guest's pick unless one already exists for this case (first pick
- *  wins — see module note). Returns the pick that is now stashed. */
-export function rememberGuestPick(pick: GuestPick): GuestPick {
-  const existing = readGuestPick();
-  if (existing && existing.caseId === pick.caseId) return existing;
+/** Stash the guest's pick. Call only after the grade succeeded (the verdict
+ *  was actually shown) — see module note. */
+export function rememberGuestPick(pick: GuestPick): void {
   try { localStorage.setItem(KEY, JSON.stringify(pick)); } catch { /* private mode */ }
-  return pick;
 }
 
 export function readGuestPick(): GuestPick | null {
@@ -53,6 +52,16 @@ export function readGuestPick(): GuestPick | null {
 
 export function clearGuestPick(): void {
   try { localStorage.removeItem(KEY); } catch { /* ignore */ }
+}
+
+/** The stashed pick for THIS case, or null. A stash for any other (past) case
+ *  is stale and is cleared on sight — this owns the staleness rule so the
+ *  guest-restore and post-sign-in-redeem paths can't drift apart. */
+export function readGuestPickFor(caseId: string): GuestPick | null {
+  const pick = readGuestPick();
+  if (!pick) return null;
+  if (pick.caseId !== caseId) { clearGuestPick(); return null; }
+  return pick;
 }
 
 /** Grade a pick without recording anything (the server's guest preview path).

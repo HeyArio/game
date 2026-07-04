@@ -104,29 +104,30 @@ Deno.serve(async (req) => {
 
   const ctx = await getCaseContext(adminClient, caseId);
 
-  // --- Guest preview: grade the pick, record nothing ---
-  if (guest) {
-    const { data: gOption, error: gOptErr } = await adminClient
-      .from("case_options")
-      .select("id, letter, is_judge_pick")
-      .eq("id", optionId)
-      .eq("case_id", caseId)
-      .single();
-    if (gOptErr || !gOption) return json({ error: "Invalid option" }, 400);
+  // The chosen option, from the already-loaded case options (no extra query).
+  const option = ctx.options.find((o: { id: string }) => o.id === optionId);
 
-    const gCorrect = gOption.is_judge_pick;
-    const gCrowdGraded = ctx.realVoteCount >= MIN_CROWD_SAMPLE && !!ctx.realCrowdLeaderOptionId;
-    const gCrowdCorrect = gCrowdGraded && !!crowdGuessOptionId && crowdGuessOptionId === ctx.realCrowdLeaderOptionId;
+  // Grading is IDENTICAL for guests and players — computed once here so the
+  // guest preview can never drift from what gets recorded at redemption. The
+  // crowd bet is graded against the leader among REAL votes only, and only
+  // once enough of them exist — never against the seeded crowd_pct fiction.
+  const gradePick = (opt: { is_judge_pick: boolean }) => {
+    const wasCorrect = opt.is_judge_pick;
+    const crowdGraded = ctx.realVoteCount >= MIN_CROWD_SAMPLE && !!ctx.realCrowdLeaderOptionId;
+    const crowdCorrect = crowdGraded && !!crowdGuessOptionId && crowdGuessOptionId === ctx.realCrowdLeaderOptionId;
+    return { wasCorrect, crowdGraded, crowdCorrect, xpEarned: baseXp(wasCorrect, confidence) + (crowdCorrect ? CROWD_BONUS : 0) };
+  };
+
+  // --- Guest preview: grade the pick, record nothing ---
+  // Note the deliberate trade-off: this makes the day's verdict readable
+  // without an account (that IS the feature — the reveal is the pitch). A
+  // player could peek here before their real vote, but they could always do
+  // that with a burner account; XP is a self-referential currency and the
+  // one-vote-per-day cap still holds.
+  if (guest) {
+    if (!option) return json({ error: "Invalid option" }, 400);
     return json({
-      ...buildPayload(ctx, {
-        votedOptionId: optionId,
-        wasCorrect: gCorrect,
-        xpEarned: baseXp(gCorrect, confidence) + (gCrowdCorrect ? CROWD_BONUS : 0),
-        confidence,
-        crowdGuessOptionId,
-        crowdCorrect: gCrowdCorrect,
-        crowdGraded: gCrowdGraded,
-      }),
+      ...buildPayload(ctx, { votedOptionId: optionId, confidence, crowdGuessOptionId, ...gradePick(option) }),
       alreadyVoted: false,
       guest: true,
     });
@@ -157,21 +158,9 @@ Deno.serve(async (req) => {
     });
   }
 
-  // --- Validate option belongs to this case ---
-  const { data: option, error: optErr } = await adminClient
-    .from("case_options")
-    .select("id, letter, is_judge_pick")
-    .eq("id", optionId)
-    .eq("case_id", caseId)
-    .single();
-  if (optErr || !option) return json({ error: "Invalid option" }, 400);
-
-  const wasCorrect = option.is_judge_pick;
-  // Grade the crowd bet against the leader among REAL votes only, and only once
-  // enough of them exist — never against the seeded crowd_pct fiction.
-  const crowdGraded = ctx.realVoteCount >= MIN_CROWD_SAMPLE && !!ctx.realCrowdLeaderOptionId;
-  const crowdCorrect = crowdGraded && !!crowdGuessOptionId && crowdGuessOptionId === ctx.realCrowdLeaderOptionId;
-  const xpEarned = baseXp(wasCorrect, confidence) + (crowdCorrect ? CROWD_BONUS : 0);
+  // --- Validate option belongs to this case, then grade ---
+  if (!option) return json({ error: "Invalid option" }, 400);
+  const { wasCorrect, crowdGraded, crowdCorrect, xpEarned } = gradePick(option);
 
   // --- Record the vote + update progress atomically (single transaction) ---
   // record_vote returns false if a row already existed (incl. a concurrent

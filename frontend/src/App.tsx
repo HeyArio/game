@@ -22,7 +22,7 @@ const LandingPage = lazy(() => import("./pages/LandingPage").then((m) => ({ defa
 import { useDailyCase } from "./hooks/useDailyCase";
 import { useIncomingChallenge, claimReferral, incomingChallengeId } from "./lib/challenge";
 import { useIncomingInvite, claimInvite } from "./lib/invite";
-import { readGuestPick, rememberGuestPick, clearGuestPick, submitGuestVote } from "./lib/guestPick";
+import { readGuestPickFor, rememberGuestPick, clearGuestPick, submitGuestVote } from "./lib/guestPick";
 import { feedbackHref, feedbackIsExternal } from "./lib/feedback";
 import { track } from "./lib/analytics";
 import { useClientCase } from "./hooks/useClientCase";
@@ -75,6 +75,11 @@ function Game() {
   // Welcome shown once to a newcomer who arrived via a friend's link — either a
   // founding member (personal invite link, ?i=) or a challenge recipient (?c=).
   const [welcome, setWelcome] = useState<{ name: string; xp: number; founder?: boolean } | null>(null);
+
+  // Set when the guest-pick redemption has written fresher progress than the
+  // mount-time load; the slower of the two must not clobber it with pre-vote
+  // numbers.
+  const progressPinnedRef = useRef(false);
 
   // Credit the inviter and welcome the newcomer. We're on the authenticated path
   // here, so the user exists; the invite code / challenge id was stashed at
@@ -141,9 +146,8 @@ function Game() {
           return;
         }
 
-        const stash = readGuestPick();
+        const stash = readGuestPickFor(dailyCase.id);
         if (!stash) return;
-        if (stash.caseId !== dailyCase.id) { clearGuestPick(); return; } // stale — a past case
         // Record the guest pick for real. The celebration already happened on
         // the guest reveal, so land on the quiet locked-result view.
         const result = await submitVote(dailyCase.id, stash.optionId, stash.confidence, stash.crowdGuessOptionId);
@@ -157,10 +161,13 @@ function Game() {
           .select("streak, total_xp, daily_xp, continuance_count, best_streak")
           .eq("user_id", user.id).maybeSingle();
         if (cancelled) return;
-        if (prog) game.actions.initProgress({
-          streak: prog.streak ?? 0, totalXp: prog.total_xp ?? 0, dailyXp: prog.daily_xp ?? 0,
-          contLeft: prog.continuance_count ?? 2, bestStreak: (prog as any).best_streak ?? 0,
-        });
+        if (prog) {
+          progressPinnedRef.current = true;
+          game.actions.initProgress({
+            streak: prog.streak ?? 0, totalXp: prog.total_xp ?? 0, dailyXp: prog.daily_xp ?? 0,
+            contLeft: prog.continuance_count ?? 2, bestStreak: (prog as any).best_streak ?? 0,
+          });
+        }
         game.actions.loadExistingVote(result);
       } catch (e) {
         // Non-fatal: the player just sees a fresh (re-votable) board; the server
@@ -178,7 +185,9 @@ function Game() {
         .from("user_progress")
         .select("streak, total_xp, daily_xp, continuance_count, best_streak")
         .eq("user_id", user.id).maybeSingle();
-      if (data) game.actions.initProgress({
+      // Skip if the guest-pick redemption already loaded post-vote progress —
+      // this (older) snapshot would roll the rail back to pre-vote numbers.
+      if (data && !progressPinnedRef.current) game.actions.initProgress({
         streak: data.streak ?? 0, totalXp: data.total_xp ?? 0, dailyXp: data.daily_xp ?? 0,
         contLeft: data.continuance_count ?? 2, bestStreak: (data as any).best_streak ?? 0,
       });
@@ -281,11 +290,17 @@ function GuestGame() {
   const { status: caseStatus, dailyCase, error: caseError } = useDailyCase();
   // Guests play for real up to the verdict: the server grades their pick via
   // the guest preview path (nothing recorded), and the pick is stashed so it
-  // becomes their real vote the moment they sign in. First pick wins — a
-  // refresh can't turn the revealed verdict into an informed re-vote.
+  // becomes their real vote the moment they sign in. An earlier graded pick
+  // for this case wins (a refresh can't turn the revealed verdict into an
+  // informed re-vote), but the stash is only written AFTER a successful grade —
+  // a failed lock-in never saw a verdict, so a retry may change the pick.
   const game = useGameState({
-    onSubmitVote: async (caseId, optionId, confidence, crowdGuessOptionId) =>
-      submitGuestVote(rememberGuestPick({ caseId, optionId, confidence, crowdGuessOptionId })),
+    onSubmitVote: async (caseId, optionId, confidence, crowdGuessOptionId) => {
+      const pick = readGuestPickFor(caseId) ?? { caseId, optionId, confidence, crowdGuessOptionId };
+      const result = await submitGuestVote(pick);
+      if (result) rememberGuestPick(pick);
+      return result;
+    },
   });
 
   const goLanding = () => {
@@ -313,9 +328,8 @@ function GuestGame() {
   // result, not a fresh board — same shape as the signed-in already-voted path.
   useEffect(() => {
     if (caseStatus !== "active" || !dailyCase) return;
-    const stash = readGuestPick();
+    const stash = readGuestPickFor(dailyCase.id);
     if (!stash) return;
-    if (stash.caseId !== dailyCase.id) { clearGuestPick(); return; } // stale — a past case
     let cancelled = false;
     submitGuestVote(stash).then((result) => {
       if (!cancelled && result) game.actions.loadExistingVote(result);
