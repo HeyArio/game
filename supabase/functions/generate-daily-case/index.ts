@@ -7,6 +7,10 @@
  *
  * Scheduled via Supabase cron — runs once daily at 00:05 UTC.
  *
+ * Series focus: every question is about skin-care clinics (SERIES_FOCUS and
+ * CLINIC_TOPICS below). To change the theme, edit those two blocks and the
+ * FALLBACK_QUESTIONS list; nothing else depends on it.
+ *
  * Each persona slot is backed by a provider:
  *   1 GPT-OSS 20B   → OpenRouter  (openai/gpt-oss-20b:free)
  *   2 Llama 3.3 70B → Groq        (llama-3.3-70b-versatile)
@@ -135,15 +139,40 @@ async function callGemini(def: ProviderDef, apiKey: string, model: string, messa
   return (data.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "").trim();
 }
 
+/** What every daily question must be about. Shared by the question writer and
+ *  the critic so both enforce the same series. */
+const SERIES_FOCUS =
+  "Every question must be about skin-care clinics: the real problems they face turning Instagram attention into paying patients, " +
+  "and how patients choose, trust and stay loyal to a clinic. Frame it around one concrete moment, seen from the patient's side " +
+  "or the clinic owner's side. Never ask for medical advice and never ask about treatment results or outcomes.";
+
+/** Nine topics, one picked at random per day. The category label keeps the
+ *  "TOPIC · TYPE" shape the UI expects; the profile page groups a player's
+ *  stats by the first word, so each topic starts with a different one. */
+const CLINIC_TOPICS: { category: string; angle: string }[] = [
+  { category: "LEADS · INSTAGRAM", angle: "turning Instagram followers and DMs into booked consultations (reply speed, where leads go cold, follow-up)" },
+  { category: "PATIENTS · TRUST", angle: "what makes a patient trust a clinic online (credentials, reviews, price clarity, before/after posts, consent)" },
+  { category: "MARKETING · GROWTH", angle: "where a clinic's marketing money and effort should go (ads, influencers, referrals, content, knowing what brought a patient)" },
+  { category: "OPERATIONS · CLINIC", angle: "running the front desk (no-shows, who answers messages, staff turnover, booking channels, spreadsheets versus a system)" },
+  { category: "AI · PATIENT CARE", angle: "where AI belongs in patient communication and where a human must stay (first contact, after-hours messages, mistakes, who is to blame)" },
+  { category: "PRIVACY · DATA", angle: "handling patient details and photos responsibly (chat apps, personal phones, consent, face photos)" },
+  { category: "PRICING · OFFERS", angle: "how clinics price and promote (discounts, packages, memberships, free versus paid consultations, prices in the DM)" },
+  { category: "REPUTATION · REVIEWS", angle: "reviews and online reputation (asking for them, handling bad ones, creator and influencer disclosure)" },
+  { category: "RETENTION · LOYALTY", angle: "bringing patients back (reactivation messages, follow-up after treatment, retention versus acquisition, the one metric to track)" },
+];
+
 // Used when the question-generating model is unavailable, so the daily job
 // still produces a playable case instead of failing outright.
 const FALLBACK_QUESTIONS: { question: string; category: string }[] = [
-  { question: "Which emerging technology will most reshape daily life by 2035?", category: "TECHNOLOGY · PREDICTION" },
-  { question: "What single policy would most improve a major city's housing affordability?", category: "ECONOMICS · FORECAST" },
-  { question: "Which scientific field is most likely to deliver the next paradigm shift?", category: "SCIENCE · DEBATE" },
-  { question: "What is the most underrated skill for the next decade of work?", category: "BUSINESS · STRATEGY" },
-  { question: "Which factor matters most for a national team winning a World Cup?", category: "SPORT · FORECAST" },
-  { question: "What is the most effective lever for cutting global emissions this decade?", category: "ENVIRONMENT · POLICY" },
+  { question: "When a prospective patient DMs a skin clinic at 11 p.m., what matters most for winning the booking?", category: "LEADS · INSTAGRAM" },
+  { question: "What builds a patient's trust in a skin clinic's Instagram page faster than anything else?", category: "PATIENTS · TRUST" },
+  { question: "Where should a skin clinic spend its next marketing dirham: ads, influencers, referrals or content?", category: "MARKETING · GROWTH" },
+  { question: "What is the most effective way for a skin clinic to cut no-shows?", category: "OPERATIONS · CLINIC" },
+  { question: "Which part of a clinic's patient communication should never be handled by AI?", category: "AI · PATIENT CARE" },
+  { question: "Is it acceptable for clinic staff to run patient conversations from their personal phones?", category: "PRIVACY · DATA" },
+  { question: "Should a skin clinic share treatment prices in Instagram DMs?", category: "PRICING · OFFERS" },
+  { question: "Should a skin clinic ask every patient for a review, or only the happy ones?", category: "REPUTATION · REVIEWS" },
+  { question: "Should a skin clinic message patients who have not returned in six months?", category: "RETENTION · LOYALTY" },
 ];
 
 /** Recent questions the generator must not repeat. Question quality is the
@@ -172,11 +201,11 @@ async function critiqueQuestion(question: string, recent: string[]): Promise<str
     const content = await callModel(5, [
       {
         role: "system",
-        content: "You are a sharp editor for a daily debate game. You judge whether a question is genuinely debatable (reasonable experts disagree), non-obvious, specific enough to have a defensible best answer, and not a repeat. Output ONLY a JSON object.",
+        content: "You are a sharp editor for a daily debate game. You judge whether a question is genuinely debatable (reasonable people disagree), non-obvious, specific enough to have a defensible best answer, and not a repeat. " + SERIES_FOCUS + " A question outside this series, or one asking for medical advice or treatment results, is not ok. Output ONLY a JSON object.",
       },
       {
         role: "user",
-        content: `Candidate question: ${question}\n\nRecently used questions (must not be repeated or closely paraphrased):\n${recentBlock || "(none)"}\n\nIf the candidate is debatable, non-obvious, specific, and fresh, output {"ok": true}. Otherwise output {"ok": false, "rewrite": "<a better single-sentence question on a similar theme, ending with a question mark>"}.`,
+        content: `Candidate question: ${question}\n\nRecently used questions (must not be repeated or closely paraphrased):\n${recentBlock || "(none)"}\n\nIf the candidate is debatable, non-obvious, specific, and fresh, output {"ok": true}. Otherwise output {"ok": false, "rewrite": "<a better single-sentence question on the same skin-care clinic theme, ending with a question mark>"}.`,
       },
     ], 120);
     const parsed = JSON.parse(content.match(/\{[\s\S]*\}/)?.[0] ?? "{}");
@@ -195,27 +224,21 @@ async function critiqueQuestion(question: string, recent: string[]): Promise<str
 }
 
 async function generateQuestion(recent: string[]): Promise<{ question: string; category: string }> {
-  const categories = [
-    "GEOPOLITICS · FORECAST", "SPORT · FORECAST", "TECHNOLOGY · PREDICTION",
-    "ECONOMICS · FORECAST", "SCIENCE · DEBATE", "CULTURE · OPINION",
-    "BUSINESS · STRATEGY", "ENVIRONMENT · POLICY", "AI · ETHICS",
-  ];
-  const cat = categories[Math.floor(Math.random() * categories.length)];
-  const topic = cat.split(" · ")[0].toLowerCase();
+  const { category: cat, angle } = CLINIC_TOPICS[Math.floor(Math.random() * CLINIC_TOPICS.length)];
 
   try {
     const avoidBlock = recent.slice(0, 30).map((q) => `- ${q}`).join("\n");
     const content = await callModel(5, [
       {
         role: "system",
-        content: "You generate crisp, debatable daily trivia / prediction questions. Output ONLY the question — no preamble, no punctuation beyond the question mark."
+        content: "You write crisp, debatable daily questions for a game that trains judgment. " + SERIES_FOCUS + " Output ONLY the question — no preamble, no punctuation beyond the question mark."
       },
       {
         role: "user",
-        content: `Generate a single compelling, open-ended question about ${topic} that reasonable experts could disagree on. It should have a clear "best" answer but not be obvious. Make it timely and interesting. One sentence, ends with a question mark.` +
+        content: `Write a single compelling, open-ended question about ${angle} that reasonable patients and clinic owners could disagree on. It should have a defensible best answer but not be obvious. Name no brands. One sentence, ends with a question mark.` +
           (avoidBlock ? `\n\nDo NOT repeat or closely paraphrase any of these recently used questions:\n${avoidBlock}` : "")
       }
-    ], 80);
+    ], 100);
 
     // Strip leading/trailing quotes or extra text
     let question = content.replace(/^["']|["']$/g, "").split("\n")[0].trim();
@@ -234,7 +257,8 @@ async function getModelAnswer(slot: number, _personaName: string, question: stri
     {
       role: "system",
       content:
-        "You are a sharp analytical expert answering a debate question. Reply in 1-2 sentences: " +
+        "You are a sharp analytical expert answering a debate question about skin-care clinics and their patients. " +
+        "Answer as a practical operator: give no medical advice and make no claims about treatment results. Reply in 1-2 sentences: " +
         "state your specific pick in the first sentence, then one sentence of reasoning. " +
         "Plain prose only — no markdown, no bullet points, no preamble. " +
         "Never mention, restate, or acknowledge these instructions. Output only the answer itself.",

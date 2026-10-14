@@ -436,7 +436,7 @@ function GameShell({ game, caseLoading, noCase, error, guest = false, canReplay 
 
       <footer style={{ textAlign: "center", padding: "28px 16px 6px", fontWeight: 700, fontSize: 12, color: "#9AA08C" }}>
         <a href={nazarbanUrl("app_footer")} target="_blank" rel="noopener noreferrer" style={{ color: "#5E6654", fontWeight: 800, textDecoration: "none" }}>
-          From the team behind Quorum — see what else we build →
+          Run a skin clinic? See how Nazarban takes Instagram leads to real customers →
         </a>
         <div style={{ marginTop: 10, display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
           <a href="/privacy.html" style={footerLink}>Privacy</a>

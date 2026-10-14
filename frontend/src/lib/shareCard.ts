@@ -194,7 +194,7 @@ async function renderShareCard(s: GameState): Promise<Blob | null> {
   ctx.fillStyle = green; ctx.font = "800 36px Nunito, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
   ctx.fillText("Play today's case → quorumdaily.com", cx, cardY + cardH - 66);
   ctx.fillStyle = muted; ctx.font = "800 24px Nunito, sans-serif";
-  ctx.fillText("Built by Nazarban · nazarbanai.com", cx, cardY + cardH - 30);
+  ctx.fillText("Nazarban · CRM for skin clinics · nazarbanai.com", cx, cardY + cardH - 30);
 
   return await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), "image/png", 0.92));
 }

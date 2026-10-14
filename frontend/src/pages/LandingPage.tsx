@@ -524,7 +524,7 @@ export function LandingPage({ onPlay }: { onPlay: () => void }) {
           </nav>
           <div style={{ fontWeight: 700, fontSize: 13, color: "#5E6654" }}>
             <a href={nazarbanUrl("landing_footer")} target="_blank" rel="noopener noreferrer" style={{ color: "#3E7200", fontWeight: 800, textDecoration: "none" }}>
-              Built by Nazarban — see what else we make →
+              Run a skin clinic? See how Nazarban takes Instagram leads to real customers →
             </a>
           </div>
           <div style={{ fontWeight: 700, fontSize: 13, color: "#6E7563", flexBasis: "100%" }}>© {new Date().getFullYear()} Quorum · The daily AI judgment game</div>
