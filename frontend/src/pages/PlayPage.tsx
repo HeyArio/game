@@ -6,7 +6,7 @@ import { useIsMobile } from "../hooks/useMediaQuery";
 import { buildResultShareText, shareResultImage } from "../lib/shareCard";
 import { track } from "../lib/analytics";
 import { createChallenge, shareChallengeLink, shareChallengeToPlatform, type Challenge, type ChallengePlatform } from "../lib/challenge";
-import { nazarbanUrl } from "../lib/nazarban";
+import { nazarbanUrl, NAZARBAN_PITCH } from "../lib/nazarban";
 import { ChallengeBanner, ChallengeOutcome } from "../components/ChallengeBanner";
 import type { GameState, CardId, Confidence } from "../state/types";
 import {
@@ -835,9 +835,9 @@ function NazarbanCard() {
     <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 13, padding: "14px 16px", background: "#F5FFF0", border: "2px solid #D4F0B0", borderRadius: 16 }}>
       <span style={{ flex: "none" }}><Mascot size={44} mood="happy" /></span>
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontWeight: 800, fontSize: 14, color: "#3C3C46" }}>Made by Nazarban</div>
+        <div style={{ fontWeight: 800, fontSize: 14, color: "#3C3C46" }}>Run a skin clinic?</div>
         <div style={{ fontWeight: 700, fontSize: 13, color: "#6E7563", lineHeight: 1.45 }}>
-          Quorum is one of the things we build. Come see what else.
+          Today's case is a problem clinics face every day. Nazarban builds {NAZARBAN_PITCH}.
         </div>
       </div>
       <a
@@ -846,7 +846,7 @@ function NazarbanCard() {
         rel="noopener noreferrer"
         style={{ flex: "none", display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 12, background: "#fff", border: "2px solid #C4E89E", borderBottomWidth: 3, color: "#46A302", fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: 13, textDecoration: "none" }}
       >
-        Explore →
+        See how →
       </a>
     </div>
   );

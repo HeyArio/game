@@ -3,24 +3,28 @@
 How players who come to play **Quorum** (quorumdaily.com) are led toward the
 parent studio, **Nazarban** (nazarbanai.com).
 
-**Goal:** brand awareness + traffic — soft, trust-transfer, *not* a hard sell.
-**Audience:** mixed / unconfirmed overlap, so everything routes to a brand hub
-(let visitors self-select) rather than pushing one product.
+**Goal:** lead generation for Nazarban's CRM and lead engine for skin-care clinics
+(it takes Instagram leads to real clinic customers). Soft and honest, never a hard sell;
+the daily case stays the hero.
+**Audience:** players are a general audience; clinic owners are the target. The game opens
+the conversation, so distribution to clinics (stories, LinkedIn, DMs) matters as much as the
+in-game links. See `clinic-leads-playbook.md`.
 
 ---
 
 ## What's live in the game (this repo)
 
 All touchpoints are UTM-tagged via `frontend/src/lib/nazarban.ts`
-(`utm_source=quorum`, `utm_campaign=bridge`, per-surface `utm_medium`) so each
-can be measured independently.
+(`utm_source=quorum`, `utm_campaign=clinic_leads`, per-surface `utm_medium`) so each
+can be measured independently. Links land on the home page until `CLINIC_LANDING_PATH`
+in that file is set to the clinic page (e.g. `"/clinics"`).
 
 | Surface | File | `utm_medium` | Notes |
 | --- | --- | --- | --- |
-| App footer | `src/App.tsx` | `app_footer` | "From the team behind Quorum — see what else we build →" |
-| Landing footer | `src/pages/LandingPage.tsx` | `landing_footer` | "Built by Nazarban — see what else we make →" |
-| Post-game card | `src/pages/PlayPage.tsx` (`NazarbanCard`) | `postgame_card` | Arbi-voiced, shown only after the case is done so it never competes with the daily ritual |
-| Share image | `src/lib/shareCard.ts` | — (image stamp) | Every shared result card now carries Arbi + a "Built by Nazarban · nazarbanai.com" line — top-of-funnel reach to non-players |
+| App footer | `src/App.tsx` | `app_footer` | "Run a skin clinic? See how Nazarban takes Instagram leads to real customers →" |
+| Landing footer | `src/pages/LandingPage.tsx` | `landing_footer` | Same line as the app footer |
+| Post-game card | `src/pages/PlayPage.tsx` (`NazarbanCard`) | `postgame_card` | "Run a skin clinic?" card, shown only after the case is done so it never competes with the daily ritual |
+| Share image | `src/lib/shareCard.ts` | — (image stamp) | Every shared result card carries "Nazarban · CRM for skin clinics · nazarbanai.com", so shares reach clinic owners among non-players |
 | Challenge image | `src/lib/challenge.ts` | — (image) | Shares now attach the Arbi card image, not just a URL |
 
 **Design rule:** the daily case is the hero. The only *interruptive* surface is
@@ -29,7 +33,10 @@ before lock-in.
 
 ---
 
-## What to build on the Nazarban side: `/from-quorum`
+## What to build on the Nazarban side: a clinic landing page
+
+> **Update:** the target is now a clinic page (copy in `clinic-leads-playbook.md`), not the
+> product chooser below, which is kept for reference only.
 
 A dedicated landing page so cross-over traffic lands somewhere that acknowledges
 where they came from — not a cold generic homepage.
